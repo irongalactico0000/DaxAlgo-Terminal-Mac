@@ -31,9 +31,29 @@ public sealed class ChartRangeSelectedEventArgs(ChartTimeRange range) : EventArg
     public ChartTimeRange Range { get; } = range ?? throw new ArgumentNullException(nameof(range));
 }
 
-public sealed class ResearchChartSelectionRequestedEventArgs(ResearchChartSelectionV1 selection) : EventArgs
+public sealed class ResearchChartSelectionRequestedEventArgs : EventArgs
 {
-    public ResearchChartSelectionV1 Selection { get; } = selection ?? throw new ArgumentNullException(nameof(selection));
+    public ResearchChartSelectionRequestedEventArgs(
+        ResearchChartSelectionV1 selection,
+        IReadOnlyList<string>? activeOverlayIds = null,
+        IReadOnlyList<ResearchIndicatorBindingV1>? indicatorBindings = null)
+    {
+        Selection = selection ?? throw new ArgumentNullException(nameof(selection));
+        ActiveOverlayIds = activeOverlayIds is { Count: > 0 }
+            ? activeOverlayIds
+            : Array.Empty<string>();
+        IndicatorBindings = indicatorBindings is { Count: > 0 }
+            ? indicatorBindings
+            : Array.Empty<ResearchIndicatorBindingV1>();
+    }
+
+    public ResearchChartSelectionV1 Selection { get; }
+
+    /// <summary>Host overlay catalog ids (lossy for non 20/50 EMA). Prefer <see cref="IndicatorBindings"/>.</summary>
+    public IReadOnlyList<string> ActiveOverlayIds { get; }
+
+    /// <summary>Exact indicator kind + period from the chart at send time.</summary>
+    public IReadOnlyList<ResearchIndicatorBindingV1> IndicatorBindings { get; }
 }
 
 /// <summary>Host handoff for a chart-authored strategy draft (stop/target levels). Not an order path.</summary>

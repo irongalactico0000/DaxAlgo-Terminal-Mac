@@ -70,6 +70,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     private readonly IStrategyKernelRegistry? _strategyKernelRegistry;
     private readonly IInstrumentRegistry? _instrumentRegistry;
     private readonly IResearchExperimentRunnerV1? _researchExperimentRunner;
+    private readonly IResearchConditionSearchV1? _researchConditionSearch;
 
     private CancellationTokenSource? _generateCts;
     private StrategyBuildSession? _session;
@@ -121,7 +122,8 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         IAuthoredUnitCompilerV1? authoredUnitCompiler = null,
         IVisualizerRegistry? visualizerRegistry = null,
         IStrategyKernelRegistry? strategyKernelRegistry = null,
-        IResearchExperimentRunnerV1? researchExperimentRunner = null)
+        IResearchExperimentRunnerV1? researchExperimentRunner = null,
+        IResearchConditionSearchV1? researchConditionSearch = null)
     {
         _compiler = compiler;
         _registry = registry;
@@ -149,6 +151,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         _strategyKernelRegistry = strategyKernelRegistry;
         _instrumentRegistry = instrumentRegistry;
         _researchExperimentRunner = researchExperimentRunner;
+        _researchConditionSearch = researchConditionSearch;
 
         Diagnostics = [];
         Messages = [];

@@ -1,3 +1,4 @@
+using System.Linq;
 using TradingTerminal.Core.Domain;
 using TradingTerminal.Core.Strategies;
 using TradingTerminal.Core.Strategies.Definition;
@@ -17,6 +18,18 @@ public enum ResearchEventLabelSourceV1
     Manual = 0,
     RuleSuggestedHumanReviewed = 1,
     Imported = 2,
+}
+
+/// <summary>
+/// Exact indicator settings captured from the host chart for research continuity (R05/R12).
+/// Prefer this over host overlay catalog ids when computing or restoring.
+/// </summary>
+public sealed record ResearchIndicatorBindingV1(
+    string BindingId,
+    string Kind,
+    int Period)
+{
+    public string DisplayLabel => Period > 0 ? $"{Kind}({Period})" : Kind;
 }
 
 /// <summary>
@@ -40,9 +53,24 @@ public sealed record ResearchEventSampleV1(
     ResearchEventLabelKindV1 Label,
     string? CustomLabel,
     ResearchEventLabelSourceV1 LabelSource,
-    string? Note = null)
+    string? Note = null,
+    IReadOnlyList<ResearchIndicatorBindingV1>? IndicatorBindings = null,
+    ResearchConditionDefinitionV1? Condition = null)
 {
     public const string CurrentSchemaVersion = "research-event-sample/v1";
+
+    public IReadOnlyList<ResearchIndicatorBindingV1> ResolvedIndicatorBindings =>
+        IndicatorBindings ?? Array.Empty<ResearchIndicatorBindingV1>();
+
+    public string IndicatorBindingsSummary =>
+        ResolvedIndicatorBindings.Count == 0
+            ? "indicators: (none captured)"
+            : "indicators: " + string.Join(", ", ResolvedIndicatorBindings.Select(static b => b.DisplayLabel));
+
+    public string ConditionSummary =>
+        Condition is null
+            ? "condition: (none)"
+            : $"condition: {Condition.SummaryText} · ver {Condition.VersionShort}";
 }
 
 /// <summary>Fail-closed policies required before a labeled dataset can drive feature research.</summary>

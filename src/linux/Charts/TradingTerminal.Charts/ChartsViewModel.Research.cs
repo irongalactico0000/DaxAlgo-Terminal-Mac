@@ -110,8 +110,14 @@ public sealed partial class ChartsViewModel
             StrategyDataRequirement.L1 | StrategyDataRequirement.Bars |
             StrategyDataRequirement.Depth | StrategyDataRequirement.TradeTape);
         ResearchDatasetValidatorV1.RequireValidSelection(selection);
-        ResearchSelectionRequested?.Invoke(this, new ResearchChartSelectionRequestedEventArgs(selection));
-        Status = "Research selection sent to Strategy Builder for B/C/N labeling.";
+        var bindings = CaptureActiveIndicatorBindings();
+        var overlays = CaptureActiveOverlayIds();
+        ResearchSelectionRequested?.Invoke(
+            this,
+            new ResearchChartSelectionRequestedEventArgs(selection, overlays, bindings));
+        Status = bindings.Count == 0
+            ? "Research selection sent to Strategy Builder for B/C/N labeling."
+            : $"Research selection sent with [{string.Join(", ", bindings.Select(static b => b.DisplayLabel))}].";
     }
 
     private bool CanSendResearchSelectionAction() => CanSendResearchSelection;

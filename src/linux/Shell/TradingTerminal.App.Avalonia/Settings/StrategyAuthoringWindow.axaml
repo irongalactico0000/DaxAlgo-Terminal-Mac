@@ -1183,7 +1183,99 @@
                           <TextBlock Text="{Binding ResearchChartSelectionText}"
                                      Classes="caption" TextWrapping="Wrap"
                                      AutomationProperties.Name="Research chart selection summary" />
-                          <TextBlock Text="Brush observation → extend future outcome → label. The authored strategy never receives pointer events or UI controls."
+                          <Border Background="{StaticResource Background.Base}"
+                                  BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                                  CornerRadius="4" Padding="8,6"
+                                  AutomationProperties.Name="Exact indicator bindings checkout">
+                            <StackPanel Spacing="4">
+                              <TextBlock Text="EXACT INDICATORS (R05)" Classes="eyebrow" />
+                              <TextBlock Text="{Binding PendingResearchIndicatorsText}"
+                                         Classes="caption" TextWrapping="Wrap"
+                                         FontFamily="{StaticResource Font.Data}"
+                                         AutomationProperties.Name="Pending research indicator bindings" />
+                            </StackPanel>
+                          </Border>
+                          <Border Background="{StaticResource Background.Base}"
+                                  BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                                  CornerRadius="4" Padding="8,6"
+                                  AutomationProperties.Name="Research condition editor">
+                            <StackPanel Spacing="6">
+                              <TextBlock Text="CONDITION (R07) — volume ≥ k × avg(N)" Classes="eyebrow" />
+                              <TextBlock Text="{Binding PendingResearchConditionText}"
+                                         Classes="caption" TextWrapping="Wrap"
+                                         FontFamily="{StaticResource Font.Data}"
+                                         AutomationProperties.Name="Pending research condition summary" />
+                              <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="k" Classes="caption" VerticalAlignment="Center" />
+                                <TextBox Text="{Binding PendingConditionMultipleText}"
+                                         Watermark="2" MinWidth="48"
+                                         AutomationProperties.Name="Condition volume multiple" />
+                                <TextBlock Text="N" Classes="caption" VerticalAlignment="Center" />
+                                <TextBox Text="{Binding PendingConditionLookbackText}"
+                                         Watermark="20" MinWidth="48"
+                                         AutomationProperties.Name="Condition lookback bars" />
+                                <Button Classes="aiAction" Content="Apply"
+                                        Command="{Binding ApplyPendingResearchConditionCommand}"
+                                        AutomationProperties.Name="Apply pending research condition" />
+                              </StackPanel>
+                              <WrapPanel Orientation="Horizontal">
+                                <Button Classes="ghost" Content="Set k=2"
+                                        Command="{Binding SetConditionMultipleTwoCommand}"
+                                        Margin="0,0,6,4"
+                                        ToolTip.Tip="Apply volume ≥ 2× avg — note version hash" />
+                                <Button Classes="ghost" Content="Set k=3 (new version)"
+                                        Command="{Binding SetConditionMultipleThreeCommand}"
+                                        Margin="0,0,6,4"
+                                        ToolTip.Tip="Change k to 3 — version hash must change (V05)" />
+                                <Button Classes="aiAction" Content="Search local"
+                                        Command="{Binding SearchResearchConditionLocalCommand}"
+                                        IsEnabled="{Binding CanSearchResearchCondition}"
+                                        Margin="0,0,6,4"
+                                        AutomationProperties.Name="Search condition on local store" />
+                                <Button Classes="aiAction" Content="Search TSD"
+                                        Command="{Binding SearchResearchConditionTsdCommand}"
+                                        IsEnabled="{Binding CanSearchResearchCondition}"
+                                        Margin="0,0,6,4"
+                                        AutomationProperties.Name="Search condition via TSD MDMS bars" />
+                                <Button Classes="ghost" Content="Clear condition"
+                                        Command="{Binding ClearPendingResearchConditionCommand}"
+                                        Margin="0,0,0,4" />
+                              </WrapPanel>
+                              <Border Background="{StaticResource Background.Elevated}"
+                                      BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                                      CornerRadius="4" Padding="8,6"
+                                      IsVisible="{Binding HasResearchConditionSearchResult}"
+                                      AutomationProperties.Name="Condition search results">
+                                <StackPanel Spacing="4">
+                                  <TextBlock Text="CONDITION SEARCH (R09/R15)" Classes="eyebrow" />
+                                  <TextBlock Text="{Binding ResearchConditionSearchSummaryText}"
+                                             Classes="caption" TextWrapping="Wrap"
+                                             FontFamily="{StaticResource Font.Data}" />
+                                  <TextBlock Text="{Binding ResearchConditionSearchResult.Note}"
+                                             Classes="caption" TextWrapping="Wrap" />
+                                  <TextBlock Text="SCANNING…" Classes="caption"
+                                             IsVisible="{Binding IsResearchConditionSearching}" />
+                                  <ItemsControl ItemsSource="{Binding ResearchConditionSearchResult.Hits}">
+                                    <ItemsControl.ItemTemplate>
+                                      <DataTemplate>
+                                        <TextBlock Classes="caption" FontFamily="{StaticResource Font.Data}"
+                                                   Margin="0,1" TextWrapping="Wrap">
+                                          <Run Text="{Binding BarTimeUtc, StringFormat={}{0:u}}" />
+                                          <Run Text=" · metric " />
+                                          <Run Text="{Binding ConditionMetric, StringFormat={}{0:0.00}}" />
+                                          <Run Text=" · fwd " />
+                                          <Run Text="{Binding ForwardReturn, StringFormat={}{0:P1}}" />
+                                          <Run Text=" · " />
+                                          <Run Text="{Binding ForwardPositive}" />
+                                        </TextBlock>
+                                      </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                  </ItemsControl>
+                                </StackPanel>
+                              </Border>
+                            </StackPanel>
+                          </Border>
+                          <TextBlock Text="Brush observation → extend future outcome → (optional) set condition → label. Indicators + condition are stored on each sample for checkout."
                                      Classes="caption" TextWrapping="Wrap" />
                           <WrapPanel Orientation="Horizontal">
                             <Button Classes="aiAction" Content="B  Pre-breakout"
@@ -1395,6 +1487,14 @@
                                     <Run Text=" → " /><Run Text="{Binding Selection.OutcomeToUtc}" />
                                     <Run Text="  ·  " /><Run Text="{Binding Selection.RequiredData}" />
                                   </TextBlock>
+                                  <TextBlock Text="{Binding IndicatorBindingsSummary}"
+                                             Classes="caption" TextWrapping="Wrap"
+                                             FontFamily="{StaticResource Font.Data}"
+                                             AutomationProperties.Name="Sample indicator bindings" />
+                                  <TextBlock Text="{Binding ConditionSummary}"
+                                             Classes="caption" TextWrapping="Wrap"
+                                             FontFamily="{StaticResource Font.Data}"
+                                             AutomationProperties.Name="Sample condition summary" />
                                 </StackPanel>
                                 <Button Grid.Column="1" Classes="ghost" Content="Remove"
                                         Command="{Binding DataContext.RemoveResearchEventSampleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
