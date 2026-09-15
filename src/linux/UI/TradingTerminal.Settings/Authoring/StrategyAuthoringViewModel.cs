@@ -3997,7 +3997,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         if (_restoring || !_ready || string.IsNullOrWhiteSpace(StrategyId)) return;
         if (Messages.Count == 0 && !_filesEditedByUser && StrategyIntentDraft is null &&
             ChartReferences.Count == 0 && AuthoredUnitSpecification is null && ResearchDatasetDefinition is null &&
-            PendingStrategyDraft is null)
+            PendingStrategyDraft is null && PendingResearchCondition is null)
             return;   // nothing worth a file yet
 
         SynchronizeStrategyWorkspace();
@@ -4059,7 +4059,13 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
                 : ResearchExperimentCanonicalJsonV1.Serialize(ResearchExperimentEvidence),
             StrategyDraftJson: PendingStrategyDraft is null
                 ? null
-                : StrategyDraftCanonicalJsonV1.Serialize(PendingStrategyDraft));
+                : StrategyDraftCanonicalJsonV1.Serialize(PendingStrategyDraft),
+            ResearchConditionJson: PendingResearchCondition is null
+                ? null
+                : ResearchConditionCanonicalJsonV1.Serialize(PendingResearchCondition),
+            ResearchConditionSearchResultJson: ResearchConditionSearchResult is null
+                ? null
+                : ExecutableStrategyDefinitionCanonicalJson.Serialize(ResearchConditionSearchResult));
 
         if (!_sessionRepository.Save(snapshot))
         {

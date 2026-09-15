@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using TradingTerminal.Core.Domain;
 using TradingTerminal.Core.Strategies;
 using TradingTerminal.Core.Strategies.Authoring;
+using TradingTerminal.Core.Strategies.Definition;
 using TradingTerminal.Core.Strategies.Generation;
 
 namespace TradingTerminal.App.Authoring;
@@ -69,6 +70,36 @@ public sealed partial class StrategyAuthoringViewModel
           $"fwd+ {ResearchConditionSearchResult.PositiveForwardCount} / fwd- {ResearchConditionSearchResult.NegativeForwardCount} · " +
           $"live {(ResearchConditionSearchResult.LiveMeetsCondition is null ? "n/a" : ResearchConditionSearchResult.LiveMeetsCondition.Value ? "MEETS" : "no")} · " +
           $"ver {ResearchConditionSearchResult.ConditionVersionHashSha256[..Math.Min(12, ResearchConditionSearchResult.ConditionVersionHashSha256.Length)]}";
+
+    /// <summary>R09 still-valid badge: same version hash as pending condition + live meet/fail.</summary>
+    public string ResearchConditionValidityBadgeText
+    {
+        get
+        {
+            if (PendingResearchCondition is null)
+                return "Condition: none";
+            if (ResearchConditionSearchResult is null)
+                return $"Condition ver {PendingResearchCondition.VersionShort} · not scanned";
+            var sameVersion = string.Equals(
+                ResearchConditionSearchResult.ConditionVersionHashSha256,
+                PendingResearchCondition.VersionHashSha256,
+                StringComparison.Ordinal);
+            var live = ResearchConditionSearchResult.LiveMeetsCondition switch
+            {
+                true => "SATISFIED now",
+                false => "not satisfied now",
+                null => "live n/a",
+            };
+            return sameVersion
+                ? $"Same version {PendingResearchCondition.VersionShort} · {live}"
+                : $"Stale scan (ver mismatch) · re-search required";
+        }
+    }
+
+    public bool CanBindResearchConditionToDraft =>
+        PendingResearchCondition is not null &&
+        PendingStrategyDraft is not null &&
+        PendingStrategyDraft is { IsLocked: false };
 
     public int ResearchEventSampleCount => ResearchDatasetDefinition?.Samples.Count ?? 0;
     public bool HasResearchExperimentEvidence => ResearchExperimentEvidence is not null;
@@ -315,6 +346,32 @@ public sealed partial class StrategyAuthoringViewModel
     }
 
     private bool CanSearchResearchConditionAction() => CanSearchResearchCondition;
+
+    [RelayCommand(CanExecute = nameof(CanBindResearchConditionToDraft))]
+    private void BindResearchConditionToDraft()
+    {
+        if (PendingResearchCondition is not { } condition || PendingStrategyDraft is null)
+            return;
+
+        var sampleIds = ResearchDatasetDefinition?.Samples
+            .Where(s => s.Condition is not null &&
+                        string.Equals(
+                            s.Condition.VersionHashSha256,
+                            condition.VersionHashSha256,
+                            StringComparison.Ordinal))
+            .Select(static s => s.EventSampleId)
+            .ToArray()
+            ?? Array.Empty<string>();
+
+        PendingStrategyDraft = StrategyDraftGestureApplierV1.BindResearchCondition(
+            PendingStrategyDraft,
+            condition,
+            sampleIds);
+        Status =
+            $"Draft bound to condition {condition.ConditionId} · ver {condition.VersionShort} " +
+            $"(not a formula re-narration).";
+        Save();
+    }
 
     [RelayCommand(CanExecute = nameof(CanLabelResearchSelection))]
     private void MarkPreBreakout() => CommitResearchSelection(ResearchEventLabelKindV1.PreBreakout);
@@ -800,7 +857,13 @@ public sealed partial class StrategyAuthoringViewModel
         PendingResearchChartSelection = null;
         PendingResearchOverlayIds = Array.Empty<string>();
         PendingResearchIndicatorBindings = Array.Empty<ResearchIndicatorBindingV1>();
-        if (string.IsNullOrWhiteSpace(session.ResearchDatasetJson)) return;
+        PendingResearchCondition = null;
+        ResearchConditionSearchResult = null;
+        if (string.IsNullOrWhiteSpace(session.ResearchDatasetJson))
+        {
+            RestoreResearchConditionState(session, ref restoreWarning);
+            return;
+        }
 
         try
         {
@@ -811,6 +874,48 @@ public sealed partial class StrategyAuthoringViewModel
             _logger.LogWarning(exception, "Could not restore research dataset for {Id}", session.StrategyId);
             restoreWarning = "The session was restored, but its research dataset failed structural or leakage validation and was detached.";
         }
+
+        RestoreResearchConditionState(session, ref restoreWarning);
+    }
+
+    private void RestoreResearchConditionState(AuthoringSessionSnapshot session, ref string? restoreWarning)
+    {
+        if (!string.IsNullOrWhiteSpace(session.ResearchConditionJson))
+        {
+            try
+            {
+                PendingResearchCondition = ResearchConditionCanonicalJsonV1.Deserialize(session.ResearchConditionJson);
+                PendingConditionMultipleText = PendingResearchCondition.Threshold.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture);
+                PendingConditionLookbackText = PendingResearchCondition.LookbackBars.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture);
+            }
+            catch (Exception exception) when (exception is ArgumentException or System.Text.Json.JsonException)
+            {
+                _logger.LogWarning(exception, "Could not restore research condition for {Id}", session.StrategyId);
+                restoreWarning ??= "Research condition failed restore and was detached.";
+                PendingResearchCondition = null;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(session.ResearchConditionSearchResultJson))
+        {
+            try
+            {
+                ResearchConditionSearchResult = ExecutableStrategyDefinitionCanonicalJson.Deserialize<ResearchConditionSearchResultV1>(
+                    session.ResearchConditionSearchResultJson);
+            }
+            catch (Exception exception) when (exception is ArgumentException or System.Text.Json.JsonException)
+            {
+                _logger.LogWarning(exception, "Could not restore condition search for {Id}", session.StrategyId);
+                ResearchConditionSearchResult = null;
+            }
+        }
+
+        SearchResearchConditionLocalCommand.NotifyCanExecuteChanged();
+        SearchResearchConditionTsdCommand.NotifyCanExecuteChanged();
+        BindResearchConditionToDraftCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(ResearchConditionValidityBadgeText));
     }
 
     private void RestoreResearchExperiment(AuthoringSessionSnapshot session, ref string? restoreWarning)
@@ -889,14 +994,18 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(PendingResearchConditionText));
         OnPropertyChanged(nameof(HasPendingResearchCondition));
         OnPropertyChanged(nameof(CanSearchResearchCondition));
+        OnPropertyChanged(nameof(CanBindResearchConditionToDraft));
+        OnPropertyChanged(nameof(ResearchConditionValidityBadgeText));
         SearchResearchConditionLocalCommand.NotifyCanExecuteChanged();
         SearchResearchConditionTsdCommand.NotifyCanExecuteChanged();
+        BindResearchConditionToDraftCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnResearchConditionSearchResultChanged(ResearchConditionSearchResultV1? value)
     {
         OnPropertyChanged(nameof(HasResearchConditionSearchResult));
         OnPropertyChanged(nameof(ResearchConditionSearchSummaryText));
+        OnPropertyChanged(nameof(ResearchConditionValidityBadgeText));
     }
 
     partial void OnIsResearchConditionSearchingChanged(bool value)

@@ -83,7 +83,7 @@ public sealed class ResearchConditionSearchV1 : IResearchConditionSearchV1
             : opts.BaseUrl.TrimEnd('/');
         var mappedSymbol = MapSymbolForTsd(symbol);
         var url =
-            $"{baseUrl}/api/mdms/bars/history?symbol={Uri.EscapeDataString(mappedSymbol)}&interval={Uri.EscapeDataString(interval)}&limit={Math.Clamp(limit, 50, 1000)}";
+            $"{baseUrl}/api/mdms/bars/history?symbol={Uri.EscapeDataString(mappedSymbol)}&interval={Uri.EscapeDataString(interval)}&limit={Math.Clamp(limit, 50, 5000)}";
 
         try
         {

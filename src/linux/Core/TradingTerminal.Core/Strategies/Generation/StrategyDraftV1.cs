@@ -57,7 +57,9 @@ public sealed record StrategyDraftV1(
     IReadOnlyList<StrategyDraftObjectV1> Objects,
     IReadOnlyList<string> LinkedEventSampleIds,
     bool IsLocked,
-    string? LockedTradeIrHashSha256)
+    string? LockedTradeIrHashSha256,
+    string? LinkedConditionId = null,
+    string? LinkedConditionVersionHashSha256 = null)
 {
     public const string CurrentSchemaVersion = "strategy-draft/v1";
 
@@ -69,7 +71,9 @@ public sealed record StrategyDraftV1(
             Array.Empty<StrategyDraftObjectV1>(),
             Array.Empty<string>(),
             IsLocked: false,
-            LockedTradeIrHashSha256: null);
+            LockedTradeIrHashSha256: null,
+            LinkedConditionId: null,
+            LinkedConditionVersionHashSha256: null);
 }
 
 public sealed record StrategyDraftIssueV1(string Code, string Path, string Message);
@@ -144,6 +148,24 @@ public static class StrategyDraftValidatorV1
                 "STRATEGY_DRAFT_LOCK_HASH_UNEXPECTED",
                 "lockedTradeIrHashSha256",
                 "An unlocked draft cannot carry a TradeIR lock hash."));
+        }
+
+        if (!string.IsNullOrWhiteSpace(draft.LinkedConditionVersionHashSha256) &&
+            !IsSha256(draft.LinkedConditionVersionHashSha256))
+        {
+            issues.Add(new(
+                "STRATEGY_DRAFT_CONDITION_HASH_INVALID",
+                "linkedConditionVersionHashSha256",
+                "Linked condition version must be a 64-character lowercase hex SHA-256."));
+        }
+
+        if (!string.IsNullOrWhiteSpace(draft.LinkedConditionId) &&
+            string.IsNullOrWhiteSpace(draft.LinkedConditionVersionHashSha256))
+        {
+            issues.Add(new(
+                "STRATEGY_DRAFT_CONDITION_HASH_REQUIRED",
+                "linkedConditionVersionHashSha256",
+                "A linked condition id requires its version hash (no prose-only binding)."));
         }
 
         return issues;
@@ -263,6 +285,42 @@ public static class StrategyDraftGestureApplierV1
 
     public static StrategyDraftV1 UpsertTarget(StrategyDraftV1 draft, string objectId, decimal price, string? note = null) =>
         UpsertLevel(draft, objectId, StrategyDraftObjectKindV1.ProfitTarget, StrategyDraftObjectRoleV1.ProfitTarget, price, note);
+
+    /// <summary>
+    /// Bind a versioned research condition by id+hash (and IndicatorThreshold object). Not a formula re-narration.
+    /// </summary>
+    public static StrategyDraftV1 BindResearchCondition(
+        StrategyDraftV1 draft,
+        ResearchConditionDefinitionV1 condition,
+        IReadOnlyList<string>? linkedEventSampleIds = null)
+    {
+        ArgumentNullException.ThrowIfNull(condition);
+        StrategyDraftValidatorV1.RequireUnlocked(draft);
+
+        var thresholdObject = new StrategyDraftObjectV1(
+            ObjectId: $"condition:{condition.ConditionId}",
+            Kind: StrategyDraftObjectKindV1.IndicatorThreshold,
+            Role: StrategyDraftObjectRoleV1.Filter,
+            IndicatorId: condition.ConditionId,
+            Threshold: (decimal)condition.Threshold,
+            Note: condition.Kind);
+
+        var sampleIds = linkedEventSampleIds is { Count: > 0 }
+            ? linkedEventSampleIds
+                .Where(static id => !string.IsNullOrWhiteSpace(id))
+                .Select(static id => id.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToArray()
+            : draft.LinkedEventSampleIds ?? Array.Empty<string>();
+
+        var withObject = ReplaceObject(draft, thresholdObject);
+        return withObject with
+        {
+            LinkedEventSampleIds = sampleIds,
+            LinkedConditionId = condition.ConditionId,
+            LinkedConditionVersionHashSha256 = condition.VersionHashSha256,
+        };
+    }
 
     public static StrategyDraftV1 RemoveObject(StrategyDraftV1 draft, string objectId)
     {

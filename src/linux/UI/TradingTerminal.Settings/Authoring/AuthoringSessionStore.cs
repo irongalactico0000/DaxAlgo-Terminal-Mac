@@ -73,7 +73,11 @@ public sealed record AuthoringSessionSnapshot(
     string? ResearchDatasetJson = null,
     string? ResearchExperimentJson = null,
     /// <summary>Optional chart-authored strategy draft (stop/target). Unlocked drafts are not TradeIR.</summary>
-    string? StrategyDraftJson = null)
+    string? StrategyDraftJson = null,
+    /// <summary>Pending editable research condition (R07) — survives reopen without file re-upload.</summary>
+    string? ResearchConditionJson = null,
+    /// <summary>Last condition search result (R09/R15), including LiveMeetsCondition.</summary>
+    string? ResearchConditionSearchResultJson = null)
 {
     public const int CurrentAuthoringUxVersion = 3;
 
