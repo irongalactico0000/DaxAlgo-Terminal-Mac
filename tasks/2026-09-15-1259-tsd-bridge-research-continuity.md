@@ -39,13 +39,19 @@ Documented under Verification as checks run.
 
 ## Diff summary
 
-(filled as work lands)
+- TSD `22a3b69` bridge; `0977176` research scan + MDMS ≤5000; `8a67d10` ASGI BTCUSDT proof.
+- Mac `db658f5` TsdBridge + conditions; `019cf23` draft bind, session restore, two-gate, conformance.
 
 ## Verification
 
-(filled as checks run)
+- `dotnet build TradingTerminal.Mac.slnx` → 0 errors
+- Headless filter ResearchCondition|StrategyDraft|TwoGate|Conformance → 9 passed
+- `pytest tests/test_bridge.py tests/test_research_scan.py tests/test_research_conformance.py` → green
+- ASGI: signal→intent confirm→fill ledger; POST `/api/research/scan` BTCUSDT hit_count
+- SoftFail: documented; lab mode ≠ signal (unit)
 
 ## Risks/deferred
 
-- Full GUI E2E for confirm card may be smoke-scripted via HTTP if Avalonia automation is out of scope.
-- Cross-engine conformance starts with volume-multiple verdicts only.
+- Live `:8000` process must be restarted to pick up `/api/research/scan` (old process 404s until restart).
+- Full Avalonia GUI confirm-card E2E not automated; HTTP/ASGI covers both bridge halves.
+- Cross-engine conformance is volume-multiple only (fixture twin).
