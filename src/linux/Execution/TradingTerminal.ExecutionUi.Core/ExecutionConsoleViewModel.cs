@@ -333,6 +333,73 @@ public sealed partial class ExecutionConsoleViewModel : ViewModelBase, IDisposab
     [RelayCommand]
     private void ToggleBrokers() => AreBrokersExpanded = !AreBrokersExpanded;
 
+    /// <summary>
+    /// Prefill the manual ticket from a pending sidecar confirm (Model A).
+    /// Returns false when no book/instrument can be matched — operator picks manually.
+    /// </summary>
+    public bool TryPrefillManualTicket(string symbol, string side, double quantity)
+    {
+        ManualTicketError = string.Empty;
+        if (SelectedBook is null)
+        {
+            ManualTicketError = "Select a Paper/Real book, then Confirm again.";
+            return false;
+        }
+
+        var needle = (symbol ?? string.Empty).Trim();
+        if (needle.Length == 0)
+        {
+            ManualTicketError = "Confirm has no symbol.";
+            return false;
+        }
+
+        var match = ManualInstruments.FirstOrDefault(item =>
+                        string.Equals(item.Symbol, needle, StringComparison.OrdinalIgnoreCase))
+                    ?? ManualInstruments.FirstOrDefault(item =>
+                        item.Symbol.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                        || needle.Contains(item.Symbol, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            ManualTicketError = $"No tradable instrument matching {needle} on this book.";
+            return false;
+        }
+
+        SelectedManualInstrument = match;
+        SelectedManualSide = side.Trim().StartsWith("S", StringComparison.OrdinalIgnoreCase)
+            ? ExecutionManualOrderSide.Sell
+            : ExecutionManualOrderSide.Buy;
+        SelectedManualOrderType = ExecutionManualOrderType.Market;
+        ManualQuantityText = quantity > 0
+            ? quantity.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture)
+            : "1";
+        ManualLimitPriceText = string.Empty;
+        ManualStopPriceText = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Prefill then submit when the selected book can take a manual market order (typical Paper path).
+    /// </summary>
+    public async Task<bool> ConfirmPendingIntoOmsAsync(
+        string symbol,
+        string side,
+        double quantity,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryPrefillManualTicket(symbol, side, quantity))
+            return false;
+        if (!CanSubmitManualTicket)
+        {
+            ManualTicketError = string.IsNullOrEmpty(ManualTicketError)
+                ? "Ticket prefilled — press Submit order when ready."
+                : ManualTicketError;
+            return false;
+        }
+
+        await SubmitManualOrderAsync().ConfigureAwait(true);
+        return string.IsNullOrEmpty(ManualTicketError);
+    }
+
     [RelayCommand]
     private async Task SubmitManualOrderAsync()
     {

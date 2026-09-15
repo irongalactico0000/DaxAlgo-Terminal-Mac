@@ -51,6 +51,58 @@ public sealed class ResearchDatasetV1Tests
         Assert.Contains(issues, issue => issue.Code == "RESEARCH_RANDOM_SPLIT_FORBIDDEN");
     }
 
+    [Fact]
+    public void Indicator_bindings_round_trip_on_sample()
+    {
+        var bindings = new[]
+        {
+            new ResearchIndicatorBindingV1("host.ema", "ema", 21),
+            new ResearchIndicatorBindingV1("host.rsi", "rsi", 14),
+        };
+        var sample = new ResearchEventSampleV1(
+            ResearchEventSampleV1.CurrentSchemaVersion,
+            "event-ema21",
+            Selection(),
+            ResearchEventLabelKindV1.PreBreakout,
+            null,
+            ResearchEventLabelSourceV1.Manual,
+            Note: null,
+            IndicatorBindings: bindings);
+        var dataset = Dataset(Selection()) with { Samples = [sample] };
+
+        var restored = ResearchDatasetCanonicalJsonV1.Deserialize(
+            ResearchDatasetCanonicalJsonV1.Serialize(dataset));
+        Assert.Single(restored.Samples);
+        Assert.Equal(2, restored.Samples[0].ResolvedIndicatorBindings.Count);
+        Assert.Equal(21, restored.Samples[0].ResolvedIndicatorBindings[0].Period);
+        Assert.Equal("ema", restored.Samples[0].ResolvedIndicatorBindings[0].Kind);
+    }
+
+    [Fact]
+    public void Condition_version_changes_when_threshold_changes()
+    {
+        var two = ResearchConditionDefinitionV1.VolumeMultiple(2, 20);
+        var three = ResearchConditionDefinitionV1.VolumeMultiple(3, 20);
+        Assert.NotEqual(two.VersionHashSha256, three.VersionHashSha256);
+        Assert.Equal("volume ≥ 2× avg(20 bars)", two.SummaryText);
+
+        var sample = new ResearchEventSampleV1(
+            ResearchEventSampleV1.CurrentSchemaVersion,
+            "event-cond",
+            Selection(),
+            ResearchEventLabelKindV1.PreBreakout,
+            null,
+            ResearchEventLabelSourceV1.Manual,
+            Note: null,
+            IndicatorBindings: [new ResearchIndicatorBindingV1("host.ema", "ema", 21)],
+            Condition: two);
+        var restored = ResearchDatasetCanonicalJsonV1.Deserialize(
+            ResearchDatasetCanonicalJsonV1.Serialize(Dataset(Selection()) with { Samples = [sample] }));
+        Assert.NotNull(restored.Samples[0].Condition);
+        Assert.Equal(two.VersionHashSha256, restored.Samples[0].Condition!.VersionHashSha256);
+        Assert.Contains("ema(21)", restored.Samples[0].IndicatorBindingsSummary, StringComparison.Ordinal);
+    }
+
     private static ResearchDatasetDefinitionV1 Dataset(ResearchChartSelectionV1 selection) => new(
         ResearchDatasetDefinitionV1.CurrentSchemaVersion,
         "breakout-events",

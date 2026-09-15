@@ -197,6 +197,7 @@ public partial class MainWindow : Window
             var window = services.GetRequiredService<
                 TradingTerminal.App.Avalonia.Execution.ExecutionConsoleWindow>();
             window.DataContext = viewModel;
+            window.AttachSidecarConfirms(services);
             _liveExecutionConsoleWindow = window;
             window.Closed += (_, _) => _liveExecutionConsoleWindow = null;
             ShowDisposing(window, viewModel);
@@ -684,7 +685,10 @@ public partial class MainWindow : Window
         selectionHandler = (_, args) =>
         {
             (authoringViewModel, authoringWindow) = EnsureAuthoringForResearchChart(services, authoringViewModel, authoringWindow);
-            authoringViewModel.SetResearchChartSelection(args.Selection);
+            authoringViewModel.SetResearchChartSelection(
+                args.Selection,
+                args.ActiveOverlayIds,
+                args.IndicatorBindings);
             authoringWindow.Activate();
             // Keep the single Charts window open for further gallery box focus.
         };

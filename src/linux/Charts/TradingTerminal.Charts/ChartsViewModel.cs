@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using TradingTerminal.Core.Brokers;
 using TradingTerminal.Core.Domain;
 using TradingTerminal.Core.MarketData;
+using TradingTerminal.Core.Strategies.Generation;
 using TradingTerminal.UI;
 using TradingTerminal.UI.Presets;
 using static TradingTerminal.Core.MarketData.Indicators;
@@ -191,6 +192,81 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
                 user.IsEnabled = true;
             }
         }
+    }
+
+    /// <summary>
+    /// Exact indicator settings currently enabled on this chart (research handoff R05).
+    /// Periods are the values the chart actually computes with — not catalog bucket ids.
+    /// </summary>
+    public IReadOnlyList<ResearchIndicatorBindingV1> CaptureActiveIndicatorBindings()
+    {
+        var list = new List<ResearchIndicatorBindingV1>();
+        if (ShowSma)
+            list.Add(new("host.sma", "sma", 20));
+        if (ShowEma)
+            list.Add(new("host.ema", "ema", EmaPeriod <= 0 ? 50 : EmaPeriod));
+        if (ShowRsi)
+            list.Add(new("host.rsi", "rsi", 14));
+        if (ShowMacd)
+            list.Add(new("host.macd", "macd", 0));
+        if (ShowBollinger)
+            list.Add(new("host.bollinger", "bollinger", 20));
+        if (ShowStochastic)
+            list.Add(new("host.stochastic", "stochastic", 14));
+        if (ShowAtr)
+            list.Add(new("host.atr", "atr", 14));
+        if (ShowVwap)
+            list.Add(new("host.vwap", "vwap", 0));
+        if (ShowAdx)
+            list.Add(new("host.adx", "adx", 14));
+        foreach (var user in UserIndicators.Where(static item => item.IsEnabled))
+        {
+            var def = user.Definition;
+            list.Add(new(
+                $"user.{def.Id}",
+                def.Kind.ToString().ToLowerInvariant(),
+                def.Period));
+        }
+
+        return list.Count == 0 ? Array.Empty<ResearchIndicatorBindingV1>() : list.AsReadOnly();
+    }
+
+    /// <summary>
+    /// Snapshot of host overlay ids currently enabled on this chart (research handoff).
+    /// Includes enabled user-indicator catalog ids. Prefer
+    /// <see cref="CaptureActiveIndicatorBindings"/> for exact periods.
+    /// </summary>
+    public IReadOnlyList<string> CaptureActiveOverlayIds()
+    {
+        var bindings = CaptureActiveIndicatorBindings();
+        if (bindings.Count == 0)
+            return Array.AsReadOnly(new[] { "candles" });
+
+        var ids = new List<string>();
+        foreach (var b in bindings)
+        {
+            if (b.BindingId.StartsWith("user.", StringComparison.Ordinal))
+            {
+                ids.Add(b.BindingId["user.".Length..]);
+                continue;
+            }
+
+            ids.Add(b.Kind switch
+            {
+                "sma" => "sma-20",
+                "ema" => b.Period <= 20 ? "ema-20" : b.Period == 50 ? "ema-50" : $"ema-{b.Period}",
+                "rsi" => "rsi-14",
+                "macd" => "macd-12-26-9",
+                "bollinger" => "bollinger-20",
+                "stochastic" => "stochastic-14-3-3",
+                "atr" => "atr-14",
+                "vwap" => "vwap",
+                "adx" => "adx-14",
+                _ => b.BindingId,
+            });
+        }
+
+        return ids.AsReadOnly();
     }
 
     private string? _pendingHostPreferredSymbol;
