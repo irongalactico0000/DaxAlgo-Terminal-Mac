@@ -126,7 +126,9 @@ public sealed partial class StrategyAuthoringViewModel
     {
         OnPropertyChanged(nameof(HasStrategyDraft));
         OnPropertyChanged(nameof(StrategyDraftSummaryText));
+        OnPropertyChanged(nameof(CanBindResearchConditionToDraft));
         LockPendingStrategyDraftCommand.NotifyCanExecuteChanged();
+        BindResearchConditionToDraftCommand.NotifyCanExecuteChanged();
     }
 
     private static string FormatDraftPrice(decimal? price) =>

@@ -1240,7 +1240,17 @@
                                 <Button Classes="ghost" Content="Clear condition"
                                         Command="{Binding ClearPendingResearchConditionCommand}"
                                         Margin="0,0,0,4" />
+                                <Button Classes="aiAction" Content="Bind to draft"
+                                        Command="{Binding BindResearchConditionToDraftCommand}"
+                                        IsEnabled="{Binding CanBindResearchConditionToDraft}"
+                                        Margin="6,0,0,4"
+                                        ToolTip.Tip="Carry condition id+version hash into StrategyDraft (not formula prose)"
+                                        AutomationProperties.Name="Bind research condition to strategy draft" />
                               </WrapPanel>
+                              <TextBlock Text="{Binding ResearchConditionValidityBadgeText}"
+                                         Classes="caption" TextWrapping="Wrap"
+                                         FontFamily="{StaticResource Font.Data}"
+                                         AutomationProperties.Name="Research condition still-valid badge" />
                               <Border Background="{StaticResource Background.Elevated}"
                                       BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
                                       CornerRadius="4" Padding="8,6"

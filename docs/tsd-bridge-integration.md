@@ -1,4 +1,8 @@
-# TSD sidecar bridge (Model A) — seamless
+# TSD ↔ DaxAlgo Mac bridge (canonical pointer)
+
+**Authority:** `/Users/w/Developer/tsd/.omx/plans/bridge-contract.md`
+
+Mac implementation notes below. Naming: **Model A** only (never “Option A”).
 
 User-facing: **DaxAlgo only**. Confirm trades / Execution Console / Alpaca Connect as usual.
 
@@ -9,7 +13,7 @@ Under the hood (invisible):
 3. `TsdBridgeHostedService` polls `/api/bridge/signals|intents`
 4. Pending items land in `ITsdPendingConfirmStore` as ordinary confirms
 5. **Confirm** → prefills Execution Console manual ticket and submits when the selected book can take a market order
-6. After OMS fill → `TsdBridgeClient.PostFillAsync` mirrors ledger (optional next)
+6. After OMS fill → `TsdBridgeClient.PostFillAsync` mirrors ledger
 
 If TSD is offline: SoftFail — app still trades via DaxAlgo OMS alone.
 
@@ -29,5 +33,8 @@ If TSD is offline: SoftFail — app still trades via DaxAlgo OMS alone.
 - `TradingTerminal.Infrastructure/TsdBridge/*`
 - Options: `TsdBridgeOptions` in Core
 - DI: `services.AddTsdBridge(configuration)` in `ServiceConfiguration`
+- Research scan client: `POST /api/research/scan` + `GET /api/mdms/bars/history` (limit ≤ 5000)
 
-Requires .NET 9 SDK to build the Mac solution.
+## Two-gate
+
+Authoring confirm / draft lock ≠ order authority. OMS risk may still `RiskRejected`.
