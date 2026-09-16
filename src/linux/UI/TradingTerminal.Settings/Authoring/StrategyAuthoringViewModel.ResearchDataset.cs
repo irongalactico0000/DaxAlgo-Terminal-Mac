@@ -95,9 +95,9 @@ public sealed partial class StrategyAuthoringViewModel
     public bool HasResearchReferenceA => _researchAnalysisReferences.ContainsKey("A");
     public bool HasResearchReferenceB => _researchAnalysisReferences.ContainsKey("B");
     public string ResearchReferenceAText =>
-        _researchAnalysisReferences.TryGetValue("A", out var a) ? a.SummaryText : "Reference A: empty";
+        _researchAnalysisReferences.TryGetValue("A", out var a) ? a.SummaryText : "Finding 1: empty";
     public string ResearchReferenceBText =>
-        _researchAnalysisReferences.TryGetValue("B", out var b) ? b.SummaryText : "Reference B: empty";
+        _researchAnalysisReferences.TryGetValue("B", out var b) ? b.SummaryText : "Finding 2: empty";
     public string ResearchConditionSearchSummaryText => ResearchConditionSearchResult is null
         ? "No condition search yet. Apply a condition, then Search local or Search TSD."
         : $"{ResearchConditionSearchResult.DataSource} · {ResearchConditionSearchResult.Symbol} · " +
