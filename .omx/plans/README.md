@@ -23,11 +23,21 @@ Code: `ResearchAnalysisReferenceV1` · session restore · `UseObservationInDesig
 
 ## Canon (read in this order)
 
-1. **[`research-strategy-reference-spine.md`](research-strategy-reference-spine.md)** — Research↔Strategy via **saved findings**.
-2. **[`research-strategy-backtest-reference-map.md`](research-strategy-backtest-reference-map.md)** — Research · Strategy · Backtest lanes + Nautilus (starts with terminology).
-3. **[`TSD_DaxAlgo_Dolpago_Requirements_v1.md`](TSD_DaxAlgo_Dolpago_Requirements_v1.md)** — locked G/U/S/C/Q/V product IDs.
-4. **[`TSD_DaxAlgo_Dolpago_Implementation_Checklist.md`](TSD_DaxAlgo_Dolpago_Implementation_Checklist.md)** — progress only.
-5. **[`research-continuity-matrix.md`](research-continuity-matrix.md)** — short pointer.
+1. **[`task-to-interface-map.md`](task-to-interface-map.md)** — what users accomplish in Research vs Builder; outputs; local gaps (Design conflict).
+2. **[`interaction-states-wireframes.md`](interaction-states-wireframes.md)** — empty/loading/success/unavailable/restored states + a11y.
+3. **[`acceptance-journey-research-to-validate.md`](acceptance-journey-research-to-validate.md)** — runnable Mac checklist.
+4. **[`research-strategy-reference-spine.md`](research-strategy-reference-spine.md)** — Research↔Strategy via **saved findings**.
+5. **[`research-strategy-backtest-reference-map.md`](research-strategy-backtest-reference-map.md)** — lanes + Nautilus (terminology first).
+6. **[`TSD_DaxAlgo_Dolpago_Requirements_v1.md`](TSD_DaxAlgo_Dolpago_Requirements_v1.md)** — locked G/U/S/C/Q/V product IDs.
+7. **[`TSD_DaxAlgo_Dolpago_Implementation_Checklist.md`](TSD_DaxAlgo_Dolpago_Implementation_Checklist.md)** — progress only.
+8. **[`research-continuity-matrix.md`](research-continuity-matrix.md)** — short pointer.
+
+## Immediate design targets
+
+1. Usable **Research** chart / comparison screen (compare may be blocked until real tiles).  
+2. Usable Builder **Design = rule editor** (not “Open Research” as Design home).
+
+Success = acceptance journey completion — no invented % probabilities.
 
 ## Supporting (do not reinvent the spine)
 

@@ -3,6 +3,10 @@
 - [Archived public mirror backlog](archive/public-mirror-backlog.md) — historical parity work from
   before this repository became independent.
 - [Context maintenance](../.claude/context/MAINTENANCE.md) — generated navigation upkeep.
+- **Interaction design (task map, states, acceptance journey):**
+  [`.omx/plans/task-to-interface-map.md`](../.omx/plans/task-to-interface-map.md) ·
+  [`.omx/plans/interaction-states-wireframes.md`](../.omx/plans/interaction-states-wireframes.md) ·
+  [`.omx/plans/acceptance-journey-research-to-validate.md`](../.omx/plans/acceptance-journey-research-to-validate.md).
 - **Research · Strategy · Backtest lane map (incl. Nautilus):**
   [`.omx/plans/research-strategy-backtest-reference-map.md`](../.omx/plans/research-strategy-backtest-reference-map.md)
   — terminology first; then lanes, types, docs, honest L1 vs later fill fidelity.
