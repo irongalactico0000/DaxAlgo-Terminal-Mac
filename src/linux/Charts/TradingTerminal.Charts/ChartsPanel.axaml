@@ -7,7 +7,7 @@
   <UserControl.Resources>
     <local:AvaloniaInstrumentTagsConverter x:Key="InstrumentTags" />
   </UserControl.Resources>
-  <Grid RowDefinitions="Auto,*,Auto">
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
     <Border x:Name="Toolbar"
             Grid.Row="0"
             Background="#1E222D"
@@ -16,6 +16,7 @@
             Padding="10,7">
       <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <StackPanel x:Name="ResearchShellWorkflow" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
           <TextBlock Text="{Binding ResearchShellProgressText}" FontSize="10" Foreground="#9AA0AC"
                      VerticalAlignment="Center" Width="320" TextWrapping="Wrap"
                      ToolTip.Tip="{Binding ResearchShellNextHint}" />
@@ -41,9 +42,18 @@
           <Button Content="Place TARGET" Command="{Binding ArmPlaceTargetCommand}"
                   ToolTip.Tip="Click price pane to set target (draft only)" />
           <Border Width="1" Height="24" Background="#2A2E39" />
-          <TextBlock Text="Symbol" FontSize="11" Foreground="#787B86" VerticalAlignment="Center" />
-          <AutoCompleteBox Width="376"
-                           Watermark="Type an instrument…"
+          </StackPanel>
+          <TextBlock Text="Selected" FontSize="11" Foreground="#787B86" VerticalAlignment="Center" />
+          <Border Background="#262B38" BorderBrush="#363A45" BorderThickness="1" CornerRadius="3"
+                  Padding="8,4" VerticalAlignment="Center"
+                  IsVisible="{Binding SelectedInstrument, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <TextBlock Text="{Binding SelectedInstrument.Contract.Symbol}" FontWeight="SemiBold"
+                       FontSize="12" Foreground="#D1D4DC" />
+          </Border>
+          <TextBlock Text="Search" Margin="8,0,0,0" FontSize="11"
+                     Foreground="#787B86" VerticalAlignment="Center" />
+          <AutoCompleteBox Width="220"
+                           Watermark="Search instruments…"
                            MinimumPrefixLength="0"
                            MinimumPopulateDelay="0:0:0.150"
                            MaxDropDownHeight="420"
@@ -107,21 +117,28 @@
           <ToggleButton Content="⏸"
                         IsChecked="{Binding IsPaused}"
                         ToolTip.Tip="Pause display updates; the live stream continues underneath" />
-          <Button Content="Capture event"
-                  Command="{Binding StartResearchSelectionCommand}"
-                  IsEnabled="{Binding HasData}"
-                  ToolTip.Tip="Select an observation window, then a separate future outcome window" />
-          <Button Content="Cancel capture"
-                  Command="{Binding CancelResearchSelectionCommand}"
-                  IsVisible="{Binding IsResearchRangeSelectionEnabled}" />
-          <Button Content="Send to Builder"
-                  Command="{Binding SendResearchSelectionCommand}"
-                  IsEnabled="{Binding CanSendResearchSelection}"
-                  ToolTip.Tip="Send only the typed time ranges and data requirements to Strategy Builder" />
-          <TextBlock Text="{Binding ResearchSelectionSummary}"
-                     Width="260" TextWrapping="Wrap" FontSize="10"
-                     Foreground="#9AA0AC" VerticalAlignment="Center" />
 
+          <!-- Standalone Charts: one capture entry (still multi-brush under the hood). -->
+          <StackPanel x:Name="ResearchCaptureClassic" Orientation="Horizontal" Spacing="8"
+                      VerticalAlignment="Center">
+            <Button x:Name="ResearchCaptureButton" Content="Capture event"
+                    Command="{Binding StartResearchSelectionCommand}"
+                    IsEnabled="{Binding HasData}"
+                    ToolTip.Tip="Select an observation window, then a separate future outcome window" />
+            <Button x:Name="ResearchCancelCaptureButton" Content="Cancel capture"
+                    Command="{Binding CancelResearchSelectionCommand}"
+                    IsVisible="{Binding IsResearchRangeSelectionEnabled}" />
+            <Button x:Name="ResearchSendSelectionButton" Content="Send to Builder"
+                    Command="{Binding SendResearchSelectionCommand}"
+                    IsEnabled="{Binding CanKeepResearchSetup}"
+                    ToolTip.Tip="Send the setup interval and indicator parameters to Strategy Builder" />
+            <TextBlock x:Name="ResearchSelectionSummaryText"
+                       Text="{Binding ResearchSelectionSummary}"
+                       Width="200" TextWrapping="Wrap" FontSize="10"
+                       Foreground="#9AA0AC" VerticalAlignment="Center" />
+          </StackPanel>
+
+          <StackPanel x:Name="ResearchShellDraftWorkflow" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
           <Border Width="1" Height="24" Margin="6,0" Background="#2A2E39" />
           <TextBlock Text="Stop" FontSize="10" Foreground="#9AA0AC" VerticalAlignment="Center" />
           <TextBox Width="72" Text="{Binding DraftStopPriceText}" Watermark="price"
@@ -145,6 +162,7 @@
           <TextBlock Text="{Binding StrategyDraftSummary}"
                      Width="220" TextWrapping="Wrap" FontSize="10"
                      Foreground="#9AA0AC" VerticalAlignment="Center" />
+          </StackPanel>
           <Button Content="↧"
                   Command="{Binding ExportCsvCommand}"
                   IsEnabled="{Binding HasData}"
@@ -158,7 +176,7 @@
                   <StackPanel Spacing="8">
                     <TextBlock Text="READING THE CHART" FontSize="12" FontWeight="SemiBold" Foreground="#D1D4DC" />
                     <TextBlock TextWrapping="Wrap" FontSize="11.5" Foreground="#B2B5BE" LineHeight="17"
-                               Text="Price — candles, bars, line or area. Scroll to zoom, drag to pan, and hover for OHLC.&#10;&#10;Research capture — choose Capture event, drag the blue observation window, then drag a later amber outcome window. The future window is label-only; pan is restored after selection.&#10;&#10;Volume — bottom histogram on the price pane.&#10;&#10;SMA 20 / EMA 50 — C# overlays shared with backtesting.&#10;&#10;RSI 14 — separate pane with 30 / 70 bands.&#10;&#10;MACD 12·26·9 — histogram, MACD and signal in a separate pane." />
+                               Text="Price — candles, bars, line or area. Scroll to zoom, drag to pan, and hover for OHLC.&#10;&#10;Research — drag a period on the chart, optionally add an outcome, then Find similar. Active indicators are included automatically.&#10;&#10;Volume — bottom histogram on the price pane.&#10;&#10;SMA 20 / EMA — overlays shared with backtesting.&#10;&#10;RSI 14 — separate pane with 30 / 70 bands.&#10;&#10;MACD 12·26·9 — histogram, MACD and signal in a separate pane." />
                   </StackPanel>
                 </Border>
               </Flyout>
@@ -170,7 +188,58 @@
       </ScrollViewer>
     </Border>
 
-    <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+    <!-- Selection bar: summary + restrained actions; Find similar is the primary control. -->
+    <Border x:Name="ResearchCompareSteps"
+            Grid.Row="1"
+            Background="#161A24"
+            BorderBrush="#2A2E39"
+            BorderThickness="0,0,0,1"
+            Padding="10,8"
+            IsVisible="False">
+      <DockPanel LastChildFill="True">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6"
+                    VerticalAlignment="Center" Margin="12,0,0,0">
+          <Button Content="Select period"
+                  Command="{Binding StartResearchSelectionCommand}"
+                  IsEnabled="{Binding HasData}"
+                  IsVisible="{Binding !HasResearchObservationRange}"
+                  ToolTip.Tip="Drag across the chart to mark an observation. Boundaries and period appear on the chart." />
+          <Button Content="Reselect"
+                  Command="{Binding StartResearchSelectionCommand}"
+                  IsEnabled="{Binding HasData}"
+                  IsVisible="{Binding HasResearchObservationRange}"
+                  ToolTip.Tip="Clear the current observation and drag a new period on the chart." />
+          <Button Content="Add outcome"
+                  Command="{Binding StartResearchResultSelectionCommand}"
+                  IsVisible="{Binding CanStartResearchResultSelection}"
+                  ToolTip.Tip="Optional. Drag a later amber interval for what happened after the observation." />
+          <Button Content="Save observation"
+                  Command="{Binding SendResearchSelectionCommand}"
+                  IsEnabled="{Binding CanKeepResearchSetup}"
+                  ToolTip.Tip="Save this period with the exact indicator settings currently on the chart." />
+          <Button Content="Find similar"
+                  FontWeight="SemiBold"
+                  Background="#2962FF" Foreground="#FFFFFF"
+                  Command="{Binding RequestFindSimilarChartsCommand}"
+                  IsEnabled="{Binding CanKeepResearchSetup}"
+                  ToolTip.Tip="Search history for comparable setups using this period and its indicators. Open Condition &amp; labels when you need universe or condition controls." />
+          <Button Content="Cancel"
+                  Command="{Binding CancelResearchSelectionCommand}"
+                  IsVisible="{Binding IsResearchRangeSelectionEnabled}"
+                  ToolTip.Tip="Cancel the current drag selection." />
+        </StackPanel>
+        <StackPanel Spacing="2" VerticalAlignment="Center">
+          <TextBlock Text="{Binding ResearchSelectionDetailSummary}"
+                     FontSize="11" FontWeight="SemiBold" Foreground="#D1D4DC"
+                     TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="2" />
+          <TextBlock Text="{Binding ResearchSelectionSummary}"
+                     FontSize="10" Foreground="#9AA0AC"
+                     TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="1" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
       <local:NativeChartSurface x:Name="ChartSurface" Grid.Column="0" />
 
       <Border x:Name="OptionsRail"
@@ -190,7 +259,11 @@
             <StackPanel x:Name="IndicatorsPanel" Spacing="5">
               <TextBlock Text="INDICATORS" FontSize="10" FontWeight="SemiBold" Foreground="#787B86" />
               <CheckBox Content="SMA (20)" IsChecked="{Binding ShowSma}" />
-              <CheckBox Content="EMA" IsChecked="{Binding ShowEma}" />
+              <CheckBox IsChecked="{Binding ShowEma}">
+                <TextBlock FontSize="12">
+                  <Run Text="EMA (" /><Run Text="{Binding EmaPeriod}" /><Run Text=")" />
+                </TextBlock>
+              </CheckBox>
               <CheckBox Content="RSI (14)" IsChecked="{Binding ShowRsi}" />
               <CheckBox Content="MACD (12·26·9)" IsChecked="{Binding ShowMacd}" />
               <CheckBox Content="Bollinger (20,2)" IsChecked="{Binding ShowBollinger}" />
@@ -218,7 +291,7 @@
     </Grid>
 
     <Border x:Name="StatusBar"
-            Grid.Row="2"
+            Grid.Row="3"
             Padding="10,5"
             Background="#1E222D"
             BorderBrush="#2A2E39"

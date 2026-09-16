@@ -48,21 +48,52 @@ public sealed partial class StrategyAuthoringViewModel
     [ObservableProperty]
     private bool _isResearchExperimentRunning;
 
+    private readonly Dictionary<string, ResearchAnalysisReferenceV1> _researchAnalysisReferences =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public bool HasResearchDataset => ResearchDatasetDefinition is not null;
     public bool HasResearchChartSelection => PendingResearchChartSelection is not null;
+
+    /// <summary>
+    /// Instrument currently bound on the Research chart surface (embedded or detached).
+    /// Shell updates this when host chart focus changes so event vs chart mismatch is visible.
+    /// </summary>
+    private string? _boundResearchChartInstrument;
+
+    public string? ResearchChartInstrumentText =>
+        _boundResearchChartInstrument ?? PendingResearchChartSelection?.CanonicalSymbol;
+
+    public void SetBoundResearchChartInstrument(string? symbol)
+    {
+        var normalized = string.IsNullOrWhiteSpace(symbol) ? null : symbol.Trim();
+        if (string.Equals(_boundResearchChartInstrument, normalized, StringComparison.OrdinalIgnoreCase))
+            return;
+        _boundResearchChartInstrument = normalized;
+        OnPropertyChanged(nameof(ResearchChartInstrumentText));
+        OnPropertyChanged(nameof(ResearchLinkedContextText));
+        OnPropertyChanged(nameof(ActiveArtifactKindText));
+        OnPropertyChanged(nameof(ActiveResearchContextText));
+    }
     public bool HasPendingResearchIndicatorBindings => PendingResearchIndicatorBindings.Count > 0;
     public bool HasPendingResearchCondition => PendingResearchCondition is not null;
     public string PendingResearchConditionText => PendingResearchCondition is null
-        ? "No condition set — optional for labeling; set volume multiple to attach R07 condition."
+        ? "No condition set — optional for labeling; set volume multiple to attach R08 condition."
         : $"{PendingResearchCondition.SummaryText} · ver {PendingResearchCondition.VersionShort}";
     public string PendingResearchIndicatorsText => PendingResearchIndicatorBindings.Count == 0
-        ? "No exact indicator bindings on this selection (chart had none enabled, or send again after toggling)."
+        ? "No indicators enabled on the Research chart — toggle SMA/EMA/… on the chart rail."
         : string.Join(" · ", PendingResearchIndicatorBindings.Select(static b => b.DisplayLabel));
     public bool HasResearchConditionSearchResult => ResearchConditionSearchResult is not null;
     public bool CanSearchResearchCondition =>
         PendingResearchCondition is not null &&
         !IsResearchConditionSearching &&
         _researchConditionSearch is not null;
+    public bool CanSaveResearchReference => PendingResearchCondition is not null;
+    public bool HasResearchReferenceA => _researchAnalysisReferences.ContainsKey("A");
+    public bool HasResearchReferenceB => _researchAnalysisReferences.ContainsKey("B");
+    public string ResearchReferenceAText =>
+        _researchAnalysisReferences.TryGetValue("A", out var a) ? a.SummaryText : "Reference A: empty";
+    public string ResearchReferenceBText =>
+        _researchAnalysisReferences.TryGetValue("B", out var b) ? b.SummaryText : "Reference B: empty";
     public string ResearchConditionSearchSummaryText => ResearchConditionSearchResult is null
         ? "No condition search yet. Apply a condition, then Search local or Search TSD."
         : $"{ResearchConditionSearchResult.DataSource} · {ResearchConditionSearchResult.Symbol} · " +
@@ -71,7 +102,7 @@ public sealed partial class StrategyAuthoringViewModel
           $"live {(ResearchConditionSearchResult.LiveMeetsCondition is null ? "n/a" : ResearchConditionSearchResult.LiveMeetsCondition.Value ? "MEETS" : "no")} · " +
           $"ver {ResearchConditionSearchResult.ConditionVersionHashSha256[..Math.Min(12, ResearchConditionSearchResult.ConditionVersionHashSha256.Length)]}";
 
-    /// <summary>R09 still-valid badge: same version hash as pending condition + live meet/fail.</summary>
+    /// <summary>Still-valid badge: same version hash as pending condition + live meet/fail.</summary>
     public string ResearchConditionValidityBadgeText
     {
         get
@@ -100,6 +131,32 @@ public sealed partial class StrategyAuthoringViewModel
         PendingResearchCondition is not null &&
         PendingStrategyDraft is not null &&
         PendingStrategyDraft is { IsLocked: false };
+
+    /// <summary>
+    /// Research → Design handoff: promote the current observation/condition into Design without
+    /// requiring an executable strategy to already exist.
+    /// </summary>
+    public bool CanUseObservationInDesign =>
+        GenerateCandidateFirst &&
+        !IsGenerating &&
+        (HasResearchChartSelection ||
+         HasResearchReferenceA ||
+         HasResearchReferenceB ||
+         SelectedResearchGalleryCard is not null ||
+         ResearchEventSampleCount > 0 ||
+         HasPendingResearchCondition);
+
+    /// <summary>
+    /// True after the user explicitly promotes Research evidence into Design. Existing drafts with
+    /// confirmed intent or a strategy specification also count as Design-ready without this flag.
+    /// </summary>
+    [ObservableProperty] private bool _hasResearchDesignHandoff;
+
+    partial void OnHasResearchDesignHandoffChanged(bool value)
+    {
+        NotifyWorkingFlowMapChanged();
+        NotifyAuthoringScreenStateChanged();
+    }
 
     public int ResearchEventSampleCount => ResearchDatasetDefinition?.Samples.Count ?? 0;
     public bool HasResearchExperimentEvidence => ResearchExperimentEvidence is not null;
@@ -151,10 +208,28 @@ public sealed partial class StrategyAuthoringViewModel
         PendingResearchOverlayIds = PendingResearchIndicatorBindings.Count > 0
             ? OverlayIdsFromBindings(PendingResearchIndicatorBindings)
             : NormalizeOverlayIds(activeOverlayIds);
-        ActiveScreen = StrategyAuthoringScreen.Research;
+        EnterResearchWorkspace();
         Status = PendingResearchIndicatorBindings.Count == 0
             ? "Observation and future outcome windows selected. Label the event B, C, or N."
             : $"Selection kept with [{string.Join(", ", PendingResearchIndicatorBindings.Select(static b => b.DisplayLabel))}]. Label B, C, or N.";
+        Save();
+    }
+
+    /// <summary>
+    /// Mirror the live Research chart's indicator toggles into pending Research state so DETAILS,
+    /// Find similar, and Design handoff stay in the same space without requiring Keep first.
+    /// Does not clear or invent a chart selection window.
+    /// </summary>
+    public void SyncResearchChartIndicators(
+        IReadOnlyList<ResearchIndicatorBindingV1>? indicatorBindings,
+        IReadOnlyList<string>? activeOverlayIds = null)
+    {
+        PendingResearchIndicatorBindings = NormalizeBindings(indicatorBindings);
+        PendingResearchOverlayIds = PendingResearchIndicatorBindings.Count > 0
+            ? OverlayIdsFromBindings(PendingResearchIndicatorBindings)
+            : NormalizeOverlayIds(activeOverlayIds);
+        OnPropertyChanged(nameof(ResearchChartSelectionText));
+        OnPropertyChanged(nameof(ActiveResearchContextText));
     }
 
     private static IReadOnlyList<ResearchIndicatorBindingV1> NormalizeBindings(
@@ -166,7 +241,7 @@ public sealed partial class StrategyAuthoringViewModel
             .Where(static b => b is not null && !string.IsNullOrWhiteSpace(b.Kind))
             .Select(static b => b with
             {
-                BindingId = b.BindingId.Trim(),
+                BindingId = (b.BindingId ?? string.Empty).Trim(),
                 Kind = b.Kind.Trim().ToLowerInvariant(),
                 Period = b.Period < 0 ? 0 : b.Period,
             })
@@ -217,7 +292,7 @@ public sealed partial class StrategyAuthoringViewModel
     private IReadOnlyList<string> OverlaysForResearchPreview() =>
         PendingResearchOverlayIds.Count > 0
             ? PendingResearchOverlayIds
-            : NativeChartOverlaySelectionV1.DefaultResearchCaptureOverlayIds;
+            : Array.Empty<string>();
 
     [RelayCommand]
     private void ApplyPendingResearchCondition()
@@ -249,6 +324,7 @@ public sealed partial class StrategyAuthoringViewModel
         Status = $"Condition set: {PendingResearchCondition.SummaryText} · ver {PendingResearchCondition.VersionShort}";
         SearchResearchConditionLocalCommand.NotifyCanExecuteChanged();
         SearchResearchConditionTsdCommand.NotifyCanExecuteChanged();
+        Save();
     }
 
     [RelayCommand]
@@ -273,6 +349,7 @@ public sealed partial class StrategyAuthoringViewModel
         Status = "Pending research condition cleared.";
         SearchResearchConditionLocalCommand.NotifyCanExecuteChanged();
         SearchResearchConditionTsdCommand.NotifyCanExecuteChanged();
+        Save();
     }
 
     [RelayCommand(CanExecute = nameof(CanSearchResearchConditionAction))]
@@ -347,6 +424,130 @@ public sealed partial class StrategyAuthoringViewModel
 
     private bool CanSearchResearchConditionAction() => CanSearchResearchCondition;
 
+    /// <summary>
+    /// Open a condition-search hit on the shared Research chart with the current indicator space.
+    /// </summary>
+    [RelayCommand]
+    private void OpenResearchConditionHit(ResearchConditionHitV1? hit)
+    {
+        if (hit is null || ResearchConditionSearchResult is null)
+            return;
+        if (PendingResearchChartSelection is not { } current || current.InstrumentId.IsNone)
+        {
+            Status = "Keep a setup on the Research chart first, then open condition hits in that space.";
+            return;
+        }
+
+        var symbol = ResearchConditionSearchResult.Symbol;
+        var timeframe = current.Timeframe;
+        var instrumentId = current.InstrumentId;
+        var lookback = PendingResearchCondition?.LookbackBars ?? 20;
+        var forward = ResearchConditionEvaluatorV1.DefaultForwardBars;
+
+        // Approximate observation length from lookback bars using the selection timeframe.
+        var bar = hit.BarTimeUtc;
+        var obsSpan = TimeSpanForBars(timeframe, lookback);
+        var outSpan = TimeSpanForBars(timeframe, forward);
+        var observationFrom = bar - obsSpan;
+        var observationTo = bar;
+        var outcomeFrom = bar;
+        var outcomeTo = bar + outSpan;
+
+        var selection = new ResearchChartSelectionV1(
+            instrumentId,
+            symbol,
+            timeframe,
+            observationFrom,
+            observationTo,
+            outcomeFrom,
+            outcomeTo,
+            StrategyDataRequirement.L1 | StrategyDataRequirement.Bars);
+        try
+        {
+            ResearchDatasetValidatorV1.RequireValidSelection(selection);
+        }
+        catch (ArgumentException exception)
+        {
+            Status = $"Cannot open hit: {exception.Message}";
+            return;
+        }
+
+        SetResearchChartSelection(
+            selection,
+            OverlaysForResearchPreview(),
+            PendingResearchIndicatorBindings.Count > 0 ? PendingResearchIndicatorBindings : null);
+        SetBoundResearchChartInstrument(symbol);
+        HostChartOverlayPreviewRequested?.Invoke(
+            this,
+            new HostChartOverlayPreviewRequestedEventArgs(
+                OverlaysForResearchPreview().ToArray(),
+                preferredSymbol: symbol,
+                researchSelection: selection));
+        Status =
+            $"Opened condition hit {symbol} @ {bar:u} · metric {hit.ConditionMetric:0.00} · fwd {hit.ForwardReturn:P1}.";
+    }
+
+    private static TimeSpan TimeSpanForBars(BarSize timeframe, int bars) =>
+        TimeSpan.FromTicks(Math.Max(1, bars) * timeframe.ToTimeSpan().Ticks);
+
+    [RelayCommand(CanExecute = nameof(CanUseObservationInDesign))]
+    private void UseObservationInDesign()
+    {
+        if (!CanUseObservationInDesign) return;
+
+        // Persist a reference when we have a condition so Design can reopen the exact evidence.
+        if (PendingResearchCondition is not null && !HasResearchReferenceA)
+            SaveResearchReference("A");
+
+        var eventSymbol = SelectedResearchGalleryCard?.Symbol
+            ?? PendingResearchChartSelection?.CanonicalSymbol
+            ?? "the selected instrument";
+        var indicators = HasPendingResearchIndicatorBindings
+            ? string.Join(", ", PendingResearchIndicatorBindings.Select(static b => b.DisplayLabel))
+            : PendingResearchOverlayIds.Count > 0
+                ? string.Join(", ", PendingResearchOverlayIds)
+                : "none locked yet";
+        var condition = PendingResearchConditionText;
+        var selection = ResearchChartSelectionText;
+        var evidence =
+            $"Use this Research observation in Design for {eventSymbol}.\n\n" +
+            $"Selection: {selection}\n" +
+            $"Analysis indicators (candidates — include only what Design confirms): {indicators}\n" +
+            $"Candidate condition: {condition}\n" +
+            $"Chart instrument binding: {ResearchChartInstrumentText ?? "unset"}\n" +
+            $"Samples labeled: {ResearchEventSampleCount}\n\n" +
+            "Write explicit entry, confirmation, exit, sizing, and risk rules from this evidence. " +
+            "Do not treat analysis-only indicators as strategy rules until confirmed here.";
+
+        if (string.IsNullOrWhiteSpace(Composer) || Composer.StartsWith("Investigate before writing", StringComparison.Ordinal))
+            Composer = evidence;
+        else
+            Composer = evidence + "\n\n---\n\n" + Composer.Trim();
+
+        HasResearchDesignHandoff = true;
+        AiStatus = "Design opened from Research evidence. Confirm which conditions become strategy rules.";
+        Status = IsResearchStudioShell
+            ? "Opening Strategy Builder with this research attached."
+            : "Research observation attached to Design. No compile or register yet.";
+        Append(AuthoringMessage.Tool(
+            "Ok",
+            IsResearchStudioShell ? "Use in Strategy Builder" : "Use observation in Design",
+            $"Event {eventSymbol} · indicators [{indicators}] · samples {ResearchEventSampleCount}."));
+        Save();
+
+        if (IsResearchStudioShell)
+            StrategyBuilderHandoffRequested?.Invoke(this, EventArgs.Empty);
+
+        ActiveScreen = StrategyAuthoringScreen.Design;
+        WorkbenchTab = 3;
+        NotifyWorkingFlowMapChanged();
+        NotifyAuthoringScreenStateChanged();
+        UseObservationInDesignCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Raised when Research Studio asks MainWindow to open Strategy Builder with this handoff.</summary>
+    public event EventHandler? StrategyBuilderHandoffRequested;
+
     [RelayCommand(CanExecute = nameof(CanBindResearchConditionToDraft))]
     private void BindResearchConditionToDraft()
     {
@@ -373,6 +574,105 @@ public sealed partial class StrategyAuthoringViewModel
         Save();
     }
 
+    [RelayCommand(CanExecute = nameof(CanSaveResearchReference))]
+    private void SaveResearchReferenceA() => SaveResearchReference("A");
+
+    [RelayCommand(CanExecute = nameof(CanSaveResearchReference))]
+    private void SaveResearchReferenceB() => SaveResearchReference("B");
+
+    [RelayCommand(CanExecute = nameof(HasResearchReferenceA))]
+    private void RestoreResearchReferenceA() => RestoreResearchReference("A");
+
+    [RelayCommand(CanExecute = nameof(HasResearchReferenceB))]
+    private void RestoreResearchReferenceB() => RestoreResearchReference("B");
+
+    private void SaveResearchReference(string label)
+    {
+        if (PendingResearchCondition is not { } condition)
+            return;
+
+        var reference = new ResearchAnalysisReferenceV1(
+            ResearchAnalysisReferenceV1.CurrentSchemaVersion,
+            ReferenceId: label.Trim().ToUpperInvariant(),
+            Label: label.Trim().ToUpperInvariant(),
+            SavedAtUtc: DateTimeOffset.UtcNow,
+            Condition: condition,
+            SearchResult: ResearchConditionSearchResult,
+            Selection: PendingResearchChartSelection,
+            IndicatorBindings: PendingResearchIndicatorBindings.Count == 0
+                ? Array.Empty<ResearchIndicatorBindingV1>()
+                : PendingResearchIndicatorBindings.ToArray());
+
+        _researchAnalysisReferences[reference.ReferenceId] = reference;
+        NotifyResearchReferencesChanged();
+        Status = $"Saved research reference {reference.ReferenceId} in-app (no file upload) · {reference.SummaryText}";
+        Save();
+    }
+
+    private void RestoreResearchReference(string label)
+    {
+        if (!_researchAnalysisReferences.TryGetValue(label, out var reference))
+        {
+            Status = $"Research reference {label} is empty.";
+            return;
+        }
+
+        PendingResearchCondition = reference.Condition;
+        PendingConditionMultipleText = reference.Condition.Threshold.ToString(
+            System.Globalization.CultureInfo.InvariantCulture);
+        PendingConditionLookbackText = reference.Condition.LookbackBars.ToString(
+            System.Globalization.CultureInfo.InvariantCulture);
+        ResearchConditionSearchResult = reference.SearchResult;
+        if (reference.Selection is not null)
+            PendingResearchChartSelection = reference.Selection;
+        PendingResearchIndicatorBindings = reference.IndicatorBindings.Count == 0
+            ? Array.Empty<ResearchIndicatorBindingV1>()
+            : reference.IndicatorBindings.ToArray();
+        PendingResearchOverlayIds = PendingResearchIndicatorBindings.Count > 0
+            ? OverlayIdsFromBindings(PendingResearchIndicatorBindings)
+            : Array.Empty<string>();
+        EnterResearchWorkspace();
+        Status = $"Restored reference {reference.ReferenceId} · {reference.SummaryText}";
+        SearchResearchConditionLocalCommand.NotifyCanExecuteChanged();
+        SearchResearchConditionTsdCommand.NotifyCanExecuteChanged();
+        BindResearchConditionToDraftCommand.NotifyCanExecuteChanged();
+        SaveResearchReferenceACommand.NotifyCanExecuteChanged();
+        SaveResearchReferenceBCommand.NotifyCanExecuteChanged();
+        Save();
+
+        // Drive the shared Research chart so Restore A/B is not authoring-only.
+        if (reference.Selection is { } selection)
+        {
+            HostChartOverlayPreviewRequested?.Invoke(
+                this,
+                new HostChartOverlayPreviewRequestedEventArgs(
+                    OverlaysForResearchPreview().ToArray(),
+                    preferredSymbol: selection.CanonicalSymbol,
+                    researchSelection: selection));
+        }
+        else if (PendingResearchOverlayIds.Count > 0)
+        {
+            HostChartOverlayPreviewRequested?.Invoke(
+                this,
+                new HostChartOverlayPreviewRequestedEventArgs(OverlaysForResearchPreview().ToArray()));
+        }
+    }
+
+    private void NotifyResearchReferencesChanged()
+    {
+        OnPropertyChanged(nameof(HasResearchReferenceA));
+        OnPropertyChanged(nameof(HasResearchReferenceB));
+        OnPropertyChanged(nameof(ResearchReferenceAText));
+        OnPropertyChanged(nameof(ResearchReferenceBText));
+        OnPropertyChanged(nameof(CanSaveResearchReference));
+        OnPropertyChanged(nameof(CanUseObservationInDesign));
+        RestoreResearchReferenceACommand.NotifyCanExecuteChanged();
+        RestoreResearchReferenceBCommand.NotifyCanExecuteChanged();
+        SaveResearchReferenceACommand.NotifyCanExecuteChanged();
+        SaveResearchReferenceBCommand.NotifyCanExecuteChanged();
+        UseObservationInDesignCommand.NotifyCanExecuteChanged();
+    }
+
     [RelayCommand(CanExecute = nameof(CanLabelResearchSelection))]
     private void MarkPreBreakout() => CommitResearchSelection(ResearchEventLabelKindV1.PreBreakout);
 
@@ -391,6 +691,7 @@ public sealed partial class StrategyAuthoringViewModel
         PendingResearchOverlayIds = Array.Empty<string>();
         PendingResearchIndicatorBindings = Array.Empty<ResearchIndicatorBindingV1>();
         Status = "Chart research selection cleared. No dataset sample was changed.";
+        Save();
     }
 
     [RelayCommand]
@@ -509,19 +810,13 @@ public sealed partial class StrategyAuthoringViewModel
 
         ResearchDatasetDefinition = updated;
         PendingResearchChartSelection = null;
-        var previewOverlays = OverlaysForResearchPreview();
-        PendingResearchOverlayIds = Array.Empty<string>();
-        PendingResearchIndicatorBindings = Array.Empty<ResearchIndicatorBindingV1>();
-        // Keep PendingResearchCondition so next samples can reuse until cleared.
+        // Keep indicator bindings — they define the current Research study space for the next event.
         ApplyResearchDatasetWorkspaceChange(updated, $"Added {label} research event sample");
         var remaining = Math.Max(0, 4 - updated.Samples.Count);
         Status = remaining > 0
             ? $"Added {label} sample ({updated.Samples.Count}/4 for research experiment). Future outcome excluded from features."
             : $"Added {label} sample. Dataset has {updated.Samples.Count} events — run the research experiment when ready.";
         Save();
-        HostChartOverlayPreviewRequested?.Invoke(
-            this,
-            new HostChartOverlayPreviewRequestedEventArgs(previewOverlays));
         if (!_suppressGalleryAdvance)
             TryAdvanceToNextUnusedGalleryMatch();
         PublishTurnFollowUps(lastUserText: null);
@@ -586,14 +881,16 @@ public sealed partial class StrategyAuthoringViewModel
             return;
         }
 
-        ActiveScreen = StrategyAuthoringScreen.Research;
+        EnterResearchWorkspace();
         Append(new AuthoringMessage(
             CodegenRole.User,
             $"Auto-collect research samples from my local Simulated history ({displayName})."));
         HostChartOverlayPreviewRequested?.Invoke(
             this,
             new HostChartOverlayPreviewRequestedEventArgs(
-                NativeChartOverlaySelectionV1.DefaultResearchCaptureOverlayIds,
+                PendingResearchOverlayIds.Count > 0
+                    ? PendingResearchOverlayIds.ToArray()
+                    : Array.Empty<string>(),
                 startResearchCapture: true));
 
         IsScanningResearchGallery = true;
@@ -763,6 +1060,7 @@ public sealed partial class StrategyAuthoringViewModel
         {
             Composer = string.Empty;
             Append(new AuthoringMessage(CodegenRole.User, prompt));
+            ApplyResearchOverlayAnalysis(chartChoice);
             HostChartOverlayPreviewRequested?.Invoke(
                 this,
                 new HostChartOverlayPreviewRequestedEventArgs(
@@ -770,8 +1068,9 @@ public sealed partial class StrategyAuthoringViewModel
                     startResearchCapture: false));
             Append(new AuthoringMessage(
                 CodegenRole.Assistant,
-                $"Opened the live chart with {AuthoredChartChoiceCatalogV1.DescribeSelection(chartChoice)}. No AI key required for this preview."));
-            AiStatus = "Chart overlays applied from the suggestion chip.";
+                $"Opened the live chart with {AuthoredChartChoiceCatalogV1.DescribeSelection(chartChoice)}. " +
+                "Analysis only — Use in Design when a condition is worth testing."));
+            AiStatus = "Chart overlays applied for investigation. Not strategy rules yet.";
             PublishTurnFollowUps(prompt);
             Save();
             return;
@@ -859,6 +1158,8 @@ public sealed partial class StrategyAuthoringViewModel
         PendingResearchIndicatorBindings = Array.Empty<ResearchIndicatorBindingV1>();
         PendingResearchCondition = null;
         ResearchConditionSearchResult = null;
+        _researchAnalysisReferences.Clear();
+        NotifyResearchReferencesChanged();
         if (string.IsNullOrWhiteSpace(session.ResearchDatasetJson))
         {
             RestoreResearchConditionState(session, ref restoreWarning);
@@ -916,6 +1217,72 @@ public sealed partial class StrategyAuthoringViewModel
         SearchResearchConditionTsdCommand.NotifyCanExecuteChanged();
         BindResearchConditionToDraftCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(ResearchConditionValidityBadgeText));
+        OnPropertyChanged(nameof(CanSaveResearchReference));
+        SaveResearchReferenceACommand.NotifyCanExecuteChanged();
+        SaveResearchReferenceBCommand.NotifyCanExecuteChanged();
+
+        if (!string.IsNullOrWhiteSpace(session.ResearchAnalysisReferencesJson))
+        {
+            try
+            {
+                _researchAnalysisReferences.Clear();
+                foreach (var reference in ResearchAnalysisReferenceCanonicalJsonV1.DeserializeMany(
+                             session.ResearchAnalysisReferencesJson))
+                {
+                    _researchAnalysisReferences[reference.ReferenceId] = reference;
+                }
+
+                NotifyResearchReferencesChanged();
+            }
+            catch (Exception exception) when (exception is ArgumentException or System.Text.Json.JsonException)
+            {
+                _logger.LogWarning(exception, "Could not restore research references for {Id}", session.StrategyId);
+                _researchAnalysisReferences.Clear();
+                NotifyResearchReferencesChanged();
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(session.ResearchChartSelectionJson))
+        {
+            try
+            {
+                var selection = ExecutableStrategyDefinitionCanonicalJson.Deserialize<ResearchChartSelectionV1>(
+                    session.ResearchChartSelectionJson);
+                if (selection is not null)
+                {
+                    ResearchDatasetValidatorV1.RequireValidSelection(selection);
+                    PendingResearchChartSelection = selection;
+                }
+            }
+            catch (Exception exception) when (exception is ArgumentException or System.Text.Json.JsonException)
+            {
+                _logger.LogWarning(exception, "Could not restore research chart selection for {Id}", session.StrategyId);
+                restoreWarning ??= "Research chart selection failed restore and was detached.";
+                PendingResearchChartSelection = null;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(session.ResearchIndicatorBindingsJson))
+        {
+            try
+            {
+                var bindings = ExecutableStrategyDefinitionCanonicalJson.Deserialize<ResearchIndicatorBindingV1[]>(
+                    session.ResearchIndicatorBindingsJson);
+                PendingResearchIndicatorBindings = bindings is null || bindings.Length == 0
+                    ? Array.Empty<ResearchIndicatorBindingV1>()
+                    : NormalizeBindings(bindings);
+                PendingResearchOverlayIds = PendingResearchIndicatorBindings.Count > 0
+                    ? OverlayIdsFromBindings(PendingResearchIndicatorBindings)
+                    : Array.Empty<string>();
+            }
+            catch (Exception exception) when (exception is ArgumentException or System.Text.Json.JsonException)
+            {
+                _logger.LogWarning(exception, "Could not restore research indicator bindings for {Id}", session.StrategyId);
+                restoreWarning ??= "Research indicator bindings failed restore and were cleared.";
+                PendingResearchIndicatorBindings = Array.Empty<ResearchIndicatorBindingV1>();
+                PendingResearchOverlayIds = Array.Empty<string>();
+            }
+        }
     }
 
     private void RestoreResearchExperiment(AuthoringSessionSnapshot session, ref string? restoreWarning)
@@ -965,28 +1332,46 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(ResearchEvidenceReadyForGeneration));
         OnPropertyChanged(nameof(CanGenerateFourCandidates));
         OnPropertyChanged(nameof(CanGenerateCanonicalPaperStrategy));
+        OnPropertyChanged(nameof(CanUseObservationInDesign));
         RunResearchExperimentCommand.NotifyCanExecuteChanged();
         GenerateFourCandidatesCommand.NotifyCanExecuteChanged();
         GenerateCanonicalPaperStrategyCommand.NotifyCanExecuteChanged();
+        UseObservationInDesignCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnPendingResearchChartSelectionChanged(ResearchChartSelectionV1? value)
     {
         OnPropertyChanged(nameof(HasResearchChartSelection));
         OnPropertyChanged(nameof(ResearchChartSelectionText));
+        OnPropertyChanged(nameof(ResearchChartInstrumentText));
+        OnPropertyChanged(nameof(ResearchLinkedContextText));
+        OnPropertyChanged(nameof(ActiveArtifactKindText));
+        NotifyWorkingFlowMapChanged();
         MarkPreBreakoutCommand.NotifyCanExecuteChanged();
         MarkPreCrashCommand.NotifyCanExecuteChanged();
         MarkNeutralCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanUseObservationInDesign));
+        UseObservationInDesignCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(ShowResearchObservationTools));
     }
 
-    partial void OnPendingResearchOverlayIdsChanged(IReadOnlyList<string> value) =>
+    partial void OnPendingResearchOverlayIdsChanged(IReadOnlyList<string> value)
+    {
         OnPropertyChanged(nameof(ResearchChartSelectionText));
+        OnPropertyChanged(nameof(CanUseObservationInDesign));
+        UseObservationInDesignCommand.NotifyCanExecuteChanged();
+    }
 
     partial void OnPendingResearchIndicatorBindingsChanged(IReadOnlyList<ResearchIndicatorBindingV1> value)
     {
         OnPropertyChanged(nameof(ResearchChartSelectionText));
         OnPropertyChanged(nameof(PendingResearchIndicatorsText));
         OnPropertyChanged(nameof(HasPendingResearchIndicatorBindings));
+        OnPropertyChanged(nameof(ResearchIndicatorInspectText));
+        OnPropertyChanged(nameof(ResearchIndicatorCompareText));
+        OnPropertyChanged(nameof(ActiveResearchContextText));
+        OnPropertyChanged(nameof(CanUseObservationInDesign));
+        UseObservationInDesignCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnPendingResearchConditionChanged(ResearchConditionDefinitionV1? value)
@@ -995,10 +1380,15 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(HasPendingResearchCondition));
         OnPropertyChanged(nameof(CanSearchResearchCondition));
         OnPropertyChanged(nameof(CanBindResearchConditionToDraft));
+        OnPropertyChanged(nameof(CanSaveResearchReference));
         OnPropertyChanged(nameof(ResearchConditionValidityBadgeText));
+        OnPropertyChanged(nameof(CanUseObservationInDesign));
         SearchResearchConditionLocalCommand.NotifyCanExecuteChanged();
         SearchResearchConditionTsdCommand.NotifyCanExecuteChanged();
         BindResearchConditionToDraftCommand.NotifyCanExecuteChanged();
+        SaveResearchReferenceACommand.NotifyCanExecuteChanged();
+        SaveResearchReferenceBCommand.NotifyCanExecuteChanged();
+        UseObservationInDesignCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnResearchConditionSearchResultChanged(ResearchConditionSearchResultV1? value)

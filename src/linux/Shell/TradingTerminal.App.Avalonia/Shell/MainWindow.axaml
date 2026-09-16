@@ -235,8 +235,10 @@
           <TextBlock Text="Strategy Studio" Foreground="{DynamicResource Ai.Text.Brush}" FontWeight="Bold" />
         </MenuItem.Header>
         <MenuItem Header="_Vibe Code">
-          <MenuItem Header="⚡ _Vibe Quant&#x2026;" Click="OnAuthoring"
-                    ToolTip.Tip="Lane 1 · Research / Builder. Compile→Register consent before Historical BT. Does not arm LIVE." />
+          <MenuItem Header="🔬 _Research Studio&#x2026;" Click="OnResearchStudio"
+                    ToolTip.Tip="Lane 1 · Chart-first research. Save findings without creating a strategy." />
+          <MenuItem Header="⚡ _Strategy Builder&#x2026;" Click="OnAuthoring"
+                    ToolTip.Tip="Lane 1 · Design → Build → Validate → Run. Compile→Register consent before Historical BT. Does not arm LIVE." />
           <Separator />
           <MenuItem x:Name="CliMenu" Header="Launch _CLI" />
         </MenuItem>

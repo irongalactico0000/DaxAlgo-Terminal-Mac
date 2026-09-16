@@ -38,7 +38,7 @@ public sealed partial class StrategyAuthoringViewModel
     {
         StrategyDraftValidatorV1.RequireStructurallyValid(draft);
         PendingStrategyDraft = draft;
-        ActiveScreen = StrategyAuthoringScreen.Research;
+        EnterResearchWorkspace();
         Status = "Chart strategy draft received (stop/target). Refine in Brief when ready — this does not place orders.";
         Save();
     }
@@ -57,7 +57,7 @@ public sealed partial class StrategyAuthoringViewModel
         try
         {
             PendingStrategyDraft = StrategyDraftGestureApplierV1.Lock(draft, tradeIrHashSha256);
-            ActiveScreen = StrategyAuthoringScreen.Research;
+            EnterResearchWorkspace();
             message = $"Chart draft locked to TradeIR {tradeIrHashSha256[..8]}…";
             Status = message;
             Save();

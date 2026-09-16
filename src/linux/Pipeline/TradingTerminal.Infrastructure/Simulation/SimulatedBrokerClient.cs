@@ -78,6 +78,10 @@ internal sealed class SimulatedBrokerClient : IBrokerClient
         }
 
         var synthetic = _options.Instruments
+            .Concat(_options.IncludeSp100Equities
+                ? Sp100Sp500Catalog.Sp100.Select(static s => s.Symbol)
+                : [])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(s => new TradableInstrument(s, "Simulated", SyntheticContract(s), BrokerKind.Simulated))
             .ToList();
         return Task.FromResult<IReadOnlyList<TradableInstrument>>(synthetic);

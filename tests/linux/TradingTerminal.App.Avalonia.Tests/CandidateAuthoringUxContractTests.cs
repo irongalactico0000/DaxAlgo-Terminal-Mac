@@ -10,6 +10,7 @@ namespace TradingTerminal.App.Avalonia.Tests;
 public sealed class CandidateAuthoringUxContractTests
 {
     private static readonly XNamespace Avalonia = "https://github.com/avaloniaui";
+    private static readonly XNamespace Xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
 
     [Fact]
     public void Strategy_request_review_is_plain_language_editable_and_keeps_authority_locked()
@@ -199,7 +200,7 @@ public sealed class CandidateAuthoringUxContractTests
     }
 
     [Fact]
-    public void Builder_exposes_six_workspace_stages_with_truthful_gates()
+    public void Builder_exposes_five_workspace_stages_with_research_first()
     {
         var root = LoadAuthoringWindow();
         var navigation = root.Descendants(Avalonia + "Border").Single(element =>
@@ -207,7 +208,7 @@ public sealed class CandidateAuthoringUxContractTests
         navigation.Descendants(Avalonia + "StackPanel").Should().Contain(element =>
             (string?)element.Attribute("IsVisible") == "{Binding ShowScreenNavigation}");
         var buttons = navigation.Descendants(Avalonia + "Button").ToArray();
-        var brief = buttons.Single(element =>
+        buttons.Should().NotContain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Open Brief screen");
         var research = buttons.Single(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Open Research screen");
@@ -220,8 +221,12 @@ public sealed class CandidateAuthoringUxContractTests
         var paper = buttons.Single(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Open Paper screen");
 
-        brief.Attribute("Command")!.Value.Should().Be("{Binding OpenBriefScreenCommand}");
-        brief.Attribute("IsEnabled")!.Value.Should().Be("{Binding CanOpenBriefScreen}");
+        research.Attribute("Content")!.Value.Should().Be("1  Research Studio");
+        design.Attribute("Content")!.Value.Should().Be("2  Design");
+        build.Attribute("Content")!.Value.Should().Be("3  Build");
+        validate.Attribute("Content")!.Value.Should().Be("4  Validate");
+        paper.Attribute("Content")!.Value.Should().Be("5  Run");
+
         research.Attribute("Command")!.Value.Should().Be("{Binding OpenResearchScreenCommand}");
         research.Attribute("IsEnabled")!.Value.Should().Be("{Binding CanOpenResearchScreen}");
         design.Attribute("Command")!.Value.Should().Be("{Binding OpenDesignScreenCommand}");
@@ -246,7 +251,7 @@ public sealed class CandidateAuthoringUxContractTests
             (string?)element.Attribute("Text") == "{Binding WorkspaceRevisionText}");
         foreach (var state in new[]
                  {
-                     "BriefStageState", "ResearchStageState", "DesignStageState",
+                     "ResearchStageState", "DesignStageState",
                      "BuildStageState", "ValidateStageState", "PaperStageState",
                  })
         {
@@ -257,10 +262,53 @@ public sealed class CandidateAuthoringUxContractTests
         var researchWorkspace = root.Descendants(Avalonia + "Border").Single(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Research event discovery workspace");
         researchWorkspace.Attribute("IsVisible")!.Value.Should().Be("{Binding ShowResearchWorkspace}");
+        // Builder hosts the markup but ShowResearchWorkspace is Studio-shell-only — never Research stage alone.
+        root.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Execution fidelity applied checklist");
+        root.Descendants(Avalonia + "CheckBox").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Queue position (unavailable)" &&
+            (string?)element.Attribute("IsEnabled") == "{Binding ExecutionUnsupportedOptionsAvailable}");
+        root.Descendants(Avalonia + "CheckBox").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Partial fills (unavailable)");
+        researchWorkspace.Descendants(Avalonia + "Border").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Research embedded chart surface");
+        researchWorkspace.Descendants(Avalonia + "Border").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Research results column");
+        researchWorkspace.Descendants(Avalonia + "ScrollViewer").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Research details column" &&
+            (string?)element.Attribute("IsVisible") == "{Binding ResearchDetailsOpen}");
+        researchWorkspace.Descendants(Avalonia + "ItemsControl").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Research results event list");
+        researchWorkspace.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Research results coverage summary");
+        researchWorkspace.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Research results data provenance");
+        researchWorkspace.Descendants(Avalonia + "Grid").Should().Contain(element =>
+            (string?)element.Attribute("ColumnDefinitions") == "*,Auto" &&
+            (string?)element.Attribute("AutomationProperties.Name") == "Research chart-first layout");
+        researchWorkspace.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Toggle research details");
         researchWorkspace.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") ==
                 "Open host chart for research selection" &&
-            (string?)element.Attribute("Click") == "OnResearchChartRequested");
+            (string?)element.Attribute("Click") == "OnResearchChartRequested" &&
+            (string?)element.Attribute("IsVisible") == "{Binding HasEmbeddedResearchChart}");
+        researchWorkspace.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Retry open research chart");
+        researchWorkspace.Descendants(Avalonia + "Button").Should().NotContain(element =>
+            (string?)element.Attribute("Content") == "Save ref A");
+        researchWorkspace.Descendants(Avalonia + "Button").Should().NotContain(element =>
+            (string?)element.Attribute("Content") == "Save ref B");
+        root.Descendants(Avalonia + "Button").Should().NotContain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Open research chart from details");
+        root.Descendants(Avalonia + "Border").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Research Hyperion hint");
+        root.Descendants(Avalonia + "StackPanel").Should().Contain(element =>
+            (string?)element.Attribute("IsVisible") == "{Binding ShowConversationEmptyState}");
+        root.Descendants(Avalonia + "Border").Should().NotContain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Research quick actions");
+        root.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("Text") == "{Binding WorkingFlowNextActionText}");
         researchWorkspace.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("Command") == "{Binding MarkPreBreakoutCommand}" &&
             (string?)element.Attribute("IsEnabled") == "{Binding HasResearchChartSelection}");
@@ -271,6 +319,27 @@ public sealed class CandidateAuthoringUxContractTests
         researchWorkspace.Descendants(Avalonia + "ItemsControl").Should().Contain(element =>
             (string?)element.Attribute("ItemsSource") == "{Binding ResearchEventSamples}");
 
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Detach research chart");
+        root.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Active artifact kind" &&
+            (string?)element.Attribute("Text") == "{Binding ActiveArtifactKindText}");
+        root.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Research linked instrument context");
+
+        var conversation = root.Descendants(Avalonia + "Grid").Single(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Design and Confirm screen");
+        conversation.Attribute("MinWidth")!.Value.Should().Be("{Binding ConversationColumnMinWidth}");
+        conversation.Attribute("MaxWidth")!.Value.Should().Be("{Binding ConversationColumnMaxWidth}");
+        conversation.Attribute("Width")!.Value.Should().Be("{Binding ConversationColumnWidth}");
+
+        var workbench = root.Descendants(Avalonia + "Border").Single(element =>
+            ((string?)element.Attribute("Classes"))?.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Contains("workbench") == true);
+        workbench.Attribute("MinWidth")!.Value.Should().Be("{Binding DesignInspectorMinWidth}");
+
+        root.Descendants(Avalonia + "Grid").Should().Contain(element =>
+            (string?)element.Attribute(Xaml + "Name") == "MainWorkspaceGrid");
         root.Descendants(Avalonia + "Grid").Should().ContainSingle(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Design and Confirm screen" &&
             (string?)element.Attribute("IsVisible") == "{Binding IsDesignScreen}");
@@ -278,9 +347,6 @@ public sealed class CandidateAuthoringUxContractTests
             (string?)element.Attribute("IsVisible") == "{Binding ShowDesignRequestHeader}");
         root.Descendants(Avalonia + "StackPanel").Should().Contain(element =>
             (string?)element.Attribute("IsVisible") == "{Binding ShowImplementationHeader}");
-        var workbench = root.Descendants(Avalonia + "Border").Single(element =>
-            ((string?)element.Attribute("Classes"))?.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Contains("workbench") == true);
         workbench.Attribute("Grid.Column")!.Value.Should().Be("{Binding WorkbenchGridColumn}");
         workbench.Attribute("Grid.ColumnSpan")!.Value.Should().Be("{Binding WorkbenchGridColumnSpan}");
 
@@ -561,13 +627,13 @@ public sealed class CandidateAuthoringUxContractTests
         var send = root.Descendants(Avalonia + "Button").Single(element =>
             (string?)element.Attribute("Command") == "{Binding SendCommand}" &&
             (string?)element.Attribute("Content") == "{Binding SendButtonText}");
+        // Send sits on its own row under Attach/Model so it never competes for width.
         var actionGrid = send.Ancestors(Avalonia + "Grid").First(element =>
-            (string?)element.Attribute("ColumnDefinitions") == "*,Auto");
-
+            (string?)element.Attribute("RowDefinitions") == "Auto,Auto");
         actionGrid.Descendants(Avalonia + "WrapPanel").Should().ContainSingle(panel =>
-            (string?)panel.Attribute("Grid.Column") == "0");
+            (string?)panel.Attribute("Grid.Row") == "0");
         send.Ancestors(Avalonia + "StackPanel").First()
-            .Attribute("Grid.Column")!.Value.Should().Be("1");
+            .Attribute("Grid.Row")!.Value.Should().Be("1");
     }
 
     [Fact]
@@ -589,6 +655,59 @@ public sealed class CandidateAuthoringUxContractTests
             .Descendants(Avalonia + "WrapPanel").Should().ContainSingle();
         cliList.Descendants(Avalonia + "ItemsPanelTemplate").Single()
             .Descendants(Avalonia + "StackPanel").Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Research_Studio_exposes_market_screen_rank_table_and_linked_chart_controls()
+    {
+        var root = XDocument.Load(Fixture("ResearchStudioWindow.axaml")).Root
+            ?? throw new InvalidOperationException("The Research Studio fixture has no root element.");
+
+        root.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("Text") == "MARKET SCREEN");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Rank" &&
+            (string?)element.Attribute("Command") == "{Binding RunResearchMarketScreenCommand}");
+        root.Descendants(Avalonia + "ComboBox").Should().Contain(element =>
+            (string?)element.Attribute("ItemsSource") == "{Binding ResearchScreenUniverseOptions}");
+        root.Descendants(Avalonia + "ComboBox").Should().Contain(element =>
+            (string?)element.Attribute("ItemsSource") == "{Binding ResearchScreenMetricOptions}");
+        root.Descendants(Avalonia + "ComboBox").Should().Contain(element =>
+            (string?)element.Attribute("ItemsSource") == "{Binding ResearchScreenTopNOptions}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Table" &&
+            (string?)element.Attribute("Command") == "{Binding SetResearchScreenViewModeCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Chart grid");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Open chart" &&
+            (string?)element.Attribute("Command") == "{Binding OpenSelectedScreenChartsCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Order book" &&
+            (string?)element.Attribute("Command") == "{Binding OpenResearchOrderBookCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Footprint");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Bookmap");
+        root.Descendants(Avalonia + "ComboBox").Should().Contain(element =>
+            (string?)element.Attribute("ItemsSource") == "{Binding ResearchScreenBarSizeOptions}");
+        root.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("Text") == "{Binding ResearchScreenResultHeaderText}");
+        root.Descendants(Avalonia + "ItemsControl").Should().Contain(element =>
+            (string?)element.Attribute("ItemsSource") == "{Binding ResearchScreenRows}");
+        root.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("Text") == "{Binding ActiveResearchContextText}");
+        root.Descendants(Avalonia + "ComboBox").Should().Contain(element =>
+            (string?)element.Attribute("ItemsSource") == "{Binding ResearchScreenUniverseOptions}");
+        root.ToString().Should().Contain("ResearchIndicatorInspectText");
+        root.ToString().Should().Contain("ResearchIndicatorCompareText");
+        root.ToString().Should().Contain("ResearchLinkedContextText");
+        root.ToString().Should().Contain("OpenResearchScreenRowCommand");
+        root.Descendants(Avalonia + "Grid").Should().Contain(element =>
+            (string?)element.Attribute(Xaml + "Name") == "MainWorkspaceGrid" &&
+            ((string?)element.Attribute("ColumnDefinitions"))!.Contains("52"));
+        root.ToString().Should().Contain("HyperionCollapsed");
+        root.ToString().Should().Contain("ClipToBounds");
     }
 
     private static XElement LoadAuthoringWindow() =>

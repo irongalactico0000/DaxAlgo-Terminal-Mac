@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using TradingTerminal.Core.Brokers;
 using TradingTerminal.Core.Domain;
 using TradingTerminal.Core.Strategies.Generation;
 
@@ -22,4 +23,11 @@ public sealed partial class ResearchGalleryCardViewModel : ObservableObject
     public string ScoreText => string.IsNullOrWhiteSpace(Match.IndicatorScoreSummary)
         ? "scores —"
         : Match.IndicatorScoreSummary!;
+
+    /// <summary>Per-event bar provenance — not the app-wide simulated banner.</summary>
+    public string DataSourceText => Match.Source switch
+    {
+        BrokerKind.Simulated => "Data: Simulated local history",
+        _ => $"Data: {Match.Source} bars",
+    };
 }

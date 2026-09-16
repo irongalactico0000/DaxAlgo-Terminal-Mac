@@ -32,12 +32,18 @@ public sealed class StrategyStarterCatalogTests
     }
 
     [Fact]
-    public void QuoteL1_ema_starter_names_the_installed_synthetic_smoke_boundary()
+    public void QuoteL1_ema_starter_shows_user_facing_data_and_keeps_verified_prompt_boundary()
     {
         var starter = Find("starter.quote-l1-ema-smoke");
 
-        starter.Title.Should().Contain("smoke compatible");
-        starter.Summary.Should().Contain("in-process synthetic TradeIR smoke target");
+        starter.Title.Should().Contain("EMA crossover");
+        starter.Title.Should().NotContain("smoke");
+        starter.Summary.Should().Be(
+            "Simple quote-driven EMA crossover for equities. Use when you need a minimal verified starter.");
+        starter.Summary.Should().NotContain("TradeIR");
+        starter.Summary.Should().NotContain("smoke");
+        starter.Summary.Should().NotContain("in-process synthetic");
+        starter.AxisLabels.Data.Should().Contain("Quotes");
         starter.Prompt.Should().Be(StrategyStarterCatalog.QuoteL1EmaSmokePrompt);
         starter.Prompt.Should().ContainAll(
             "ALPHA on XNAS in USD",
@@ -56,7 +62,7 @@ public sealed class StrategyStarterCatalogTests
         starter.Classification.Execution.Policies.Should().Equal(StrategyExecutionPolicyKind.Market);
         starter.Classification.State.Adaptation.Should().Be(StrategyAdaptationKind.Fixed);
 
-        StrategyStarterCatalog.Filter("smoke QuoteL1 EMA")
+        StrategyStarterCatalog.Filter("QuoteL1 EMA")
             .Should().ContainSingle(candidate => candidate.Id == starter.Id);
     }
 

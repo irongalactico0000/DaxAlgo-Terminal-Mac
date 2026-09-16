@@ -25,10 +25,19 @@ public partial class ChartsPanel : UserControl
         set => SetValue(FeaturesProperty, value);
     }
 
+    static ChartsPanel()
+    {
+        FeaturesProperty.Changed.AddClassHandler<ChartsPanel>((panel, _) => panel.ApplyFeatureGates());
+    }
+
     private readonly NativeChartSurface _surface;
     private readonly Control _toolbar;
     private readonly Control _indicatorsPanel;
     private readonly Control _statusBar;
+    private readonly Control _researchShellWorkflow;
+    private readonly Control _researchShellDraftWorkflow;
+    private readonly Control _researchCaptureClassic;
+    private readonly Control _researchCompareSteps;
     private readonly ToggleButton _optionsToggle;
     private ChartsViewModel? _viewModel;
     private ChartsViewModel? _readyViewModel;
@@ -42,6 +51,10 @@ public partial class ChartsPanel : UserControl
         _toolbar = this.FindControl<Control>("Toolbar")!;
         _indicatorsPanel = this.FindControl<Control>("IndicatorsPanel")!;
         _statusBar = this.FindControl<Control>("StatusBar")!;
+        _researchShellWorkflow = this.FindControl<Control>("ResearchShellWorkflow")!;
+        _researchShellDraftWorkflow = this.FindControl<Control>("ResearchShellDraftWorkflow")!;
+        _researchCaptureClassic = this.FindControl<Control>("ResearchCaptureClassic")!;
+        _researchCompareSteps = this.FindControl<Control>("ResearchCompareSteps")!;
         _optionsToggle = this.FindControl<ToggleButton>("OptionsToggle")!;
 
         Loaded += OnLoaded;
@@ -99,6 +112,13 @@ public partial class ChartsPanel : UserControl
         _statusBar.IsVisible = features.Status;
         _optionsToggle.IsChecked = features.OptionsRail;
         _indicatorsPanel.IsVisible = features.Indicators;
+        _researchShellWorkflow.IsVisible = features.ResearchShellWorkflow;
+        _researchShellDraftWorkflow.IsVisible = features.ResearchShellWorkflow;
+        _researchCaptureClassic.IsVisible = !features.ResearchCompareLabels;
+        _researchCompareSteps.IsVisible = features.ResearchCompareLabels;
+        // Research embed: keep indicators available via ⚙, but start with a full-width chart.
+        if (features.ResearchCompareLabels)
+            _optionsToggle.IsChecked = false;
 
         if (_viewModel is not null && !features.Indicators)
         {

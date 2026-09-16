@@ -11,6 +11,33 @@ public sealed partial class StrategyAuthoringViewModel
     [ObservableProperty]
     private HistoricalValidationEvidenceV1? _historicalValidationEvidence;
 
+    /// <summary>
+    /// Validate/Replay execution fidelity. Only L1 touch ± slippage at 0 ms latency is applied today;
+    /// unsupported options stay unavailable (not “intent” checkboxes).
+    /// </summary>
+    [ObservableProperty] private string _executionBookType = SupportedExecutionBookType;
+    [ObservableProperty] private bool _executionEnableQueuePosition;
+    [ObservableProperty] private bool _executionEnableLiquidityConsumption;
+    [ObservableProperty] private bool _executionEnablePartialFills;
+    [ObservableProperty] private int _executionLatencyMs;
+    [ObservableProperty] private string _executionFillModel = SupportedExecutionFillModel;
+
+    public const string SupportedExecutionBookType = "L1 quotes (applied)";
+    public const string SupportedExecutionFillModel = "L1 touch ± slippage (applied)";
+
+    /// <summary>Only engine-applied book types — unsupported L2/L3 are not selectable.</summary>
+    public IReadOnlyList<string> ExecutionBookTypeOptions { get; } = [SupportedExecutionBookType];
+
+    /// <summary>Only engine-applied fill models — unsupported walks/queue fills are not selectable.</summary>
+    public IReadOnlyList<string> ExecutionFillModelOptions { get; } = [SupportedExecutionFillModel];
+
+    /// <summary>Queue / liquidity / true partials / latency≠0 are not applied by L1TouchFillModel.</summary>
+    public bool ExecutionUnsupportedOptionsAvailable => false;
+
+    public string ExecutionUnsupportedOptionsExplanation =>
+        "Unavailable today: L2/L3 books, liquidity walk, queue position, book consumption, true partial fills, and latency ≠ 0 ms. " +
+        "The engine applies L1TouchFillModel (immediate full remaining qty at touch ± slippage ticks).";
+
     public bool HasHistoricalValidationEvidence => HistoricalValidationEvidence is { } evidence &&
         string.Equals(
             StrategyWorkspace.Bindings.ValidationEvidenceHashSha256,
@@ -20,7 +47,8 @@ public sealed partial class StrategyAuthoringViewModel
         IsRegistered &&
         AuthoredUnitSpecification is not null &&
         StrategyWorkspace.Bindings.BuildArtifactHashSha256 is not null &&
-        !IsGenerating;
+        !IsGenerating &&
+        TryGetAppliedExecutionFidelity(out _, out _);
 
     /// <summary>
     /// Lane 3 · export registered authored unit as installable <c>.daxalgostrategy</c>.
@@ -38,6 +66,118 @@ public sealed partial class StrategyAuthoringViewModel
         : $"Validated {HistoricalValidationEvidence!.FromUtc:u} → {HistoricalValidationEvidence.ToUtc:u} · " +
           $"{HistoricalValidationEvidence.TradeCount} trades · {HistoricalValidationEvidence.DataMode}. " +
           "Next: Paper → Bind selected book → Harness.";
+
+    /// <summary>
+    /// Honest checklist: applied engine settings only — not requested-but-ignored intent.
+    /// </summary>
+    public string ExecutionFidelityChecklistText
+    {
+        get
+        {
+            if (!TryGetAppliedExecutionFidelity(out var applied, out var rejection))
+            {
+                return
+                    "Execution fidelity (Validate → Replay):\n" +
+                    $"• Blocked: {rejection}\n" +
+                    ExecutionUnsupportedOptionsExplanation;
+            }
+
+            return
+                "Execution fidelity (Validate → Replay) — applied by engine:\n" +
+                $"• Book / data: {applied.BookType}\n" +
+                $"• Fill model: {applied.FillModel}\n" +
+                $"• Queue position: off (not available)\n" +
+                $"• Liquidity consumption: off (not available)\n" +
+                $"• Partial fills / lifecycle: off — L1 fills full remaining qty in one event\n" +
+                $"• Execution latency: {applied.LatencyMs} ms (immediate)\n" +
+                "• Order books in Research: live L2 windows are separate; not synchronized to this replay clock\n" +
+                $"Applied report token: {applied.DataModeToken}";
+        }
+    }
+
+    /// <summary>Token recorded on validation evidence DataMode when the run uses applied L1 settings.</summary>
+    public string ExecutionFidelityDataModeText =>
+        TryGetAppliedExecutionFidelity(out var applied, out _)
+            ? applied.DataModeToken
+            : "execution-fidelity-rejected";
+
+    public readonly record struct AppliedExecutionFidelityV1(
+        string BookType,
+        string FillModel,
+        int LatencyMs,
+        string DataModeToken);
+
+    /// <summary>
+    /// Returns the settings the engine will actually use, or rejects unsupported combinations.
+    /// </summary>
+    public bool TryGetAppliedExecutionFidelity(
+        out AppliedExecutionFidelityV1 applied,
+        out string rejection)
+    {
+        // Read-only: do not coerce observables here (CanRunHistoricalValidation evaluates this).
+        var bookOk = string.Equals(ExecutionBookType, SupportedExecutionBookType, StringComparison.Ordinal);
+        var fillOk = string.Equals(ExecutionFillModel, SupportedExecutionFillModel, StringComparison.Ordinal);
+        if (!bookOk || !fillOk)
+        {
+            applied = default;
+            rejection =
+                "Execution book/fill selection is not an applied engine option. " +
+                $"Use {SupportedExecutionBookType} / {SupportedExecutionFillModel}.";
+            return false;
+        }
+
+        if (ExecutionEnableQueuePosition ||
+            ExecutionEnableLiquidityConsumption ||
+            ExecutionEnablePartialFills ||
+            ExecutionLatencyMs != 0)
+        {
+            applied = default;
+            rejection =
+                "Unsupported execution options are enabled. Turn off queue position, liquidity consumption, " +
+                "partial fills, and set latency to 0 ms — or wait until L2/queue/latency fill models ship.";
+            return false;
+        }
+
+        applied = new AppliedExecutionFidelityV1(
+            SupportedExecutionBookType,
+            SupportedExecutionFillModel,
+            LatencyMs: 0,
+            DataModeToken:
+                "L1TouchFillModel|book=L1|queue=off|liq=off|partials=off|latencyMs=0|applied");
+        rejection = string.Empty;
+        return true;
+    }
+
+    /// <summary>Normalize restored/legacy planned labels to the only applied L1 options.</summary>
+    internal void CoerceLegacyExecutionFidelitySettings()
+    {
+        if (!string.Equals(ExecutionBookType, SupportedExecutionBookType, StringComparison.Ordinal))
+            ExecutionBookType = SupportedExecutionBookType;
+        if (!string.Equals(ExecutionFillModel, SupportedExecutionFillModel, StringComparison.Ordinal))
+            ExecutionFillModel = SupportedExecutionFillModel;
+        if (ExecutionEnablePartialFills)
+            ExecutionEnablePartialFills = false;
+        if (ExecutionEnableQueuePosition)
+            ExecutionEnableQueuePosition = false;
+        if (ExecutionEnableLiquidityConsumption)
+            ExecutionEnableLiquidityConsumption = false;
+        if (ExecutionLatencyMs != 0)
+            ExecutionLatencyMs = 0;
+    }
+
+    partial void OnExecutionBookTypeChanged(string value) => NotifyExecutionFidelityChanged();
+    partial void OnExecutionEnableQueuePositionChanged(bool value) => NotifyExecutionFidelityChanged();
+    partial void OnExecutionEnableLiquidityConsumptionChanged(bool value) => NotifyExecutionFidelityChanged();
+    partial void OnExecutionEnablePartialFillsChanged(bool value) => NotifyExecutionFidelityChanged();
+    partial void OnExecutionLatencyMsChanged(int value) => NotifyExecutionFidelityChanged();
+    partial void OnExecutionFillModelChanged(string value) => NotifyExecutionFidelityChanged();
+
+    private void NotifyExecutionFidelityChanged()
+    {
+        OnPropertyChanged(nameof(ExecutionFidelityChecklistText));
+        OnPropertyChanged(nameof(ExecutionFidelityDataModeText));
+        OnPropertyChanged(nameof(CanRunHistoricalValidation));
+    }
 
     /// <summary>
     /// Actionable blocker for Charts shell ⑤ / Validate. Lock draft ≠ historical-ready.
@@ -72,6 +212,13 @@ public sealed partial class StrategyAuthoringViewModel
         out string reason)
     {
         SynchronizeStrategyWorkspace();
+        if (!TryGetAppliedExecutionFidelity(out _, out var executionRejection))
+        {
+            context = null;
+            reason = executionRejection;
+            return false;
+        }
+
         var specificationHash = StrategyWorkspace.Bindings.AuthoredUnitSpecificationHashSha256;
         var buildHash = StrategyWorkspace.Bindings.BuildArtifactHashSha256;
         if (!IsRegistered || AuthoredUnitSpecification is null || specificationHash is null || buildHash is null)

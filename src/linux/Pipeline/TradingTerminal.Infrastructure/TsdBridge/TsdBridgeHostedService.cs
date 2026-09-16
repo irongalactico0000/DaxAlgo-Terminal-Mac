@@ -76,7 +76,8 @@ internal sealed class TsdBridgeHostedService : BackgroundService
                         Strength: s.Strength,
                         Note: string.IsNullOrWhiteSpace(s.Note) ? "Strategy signal" : s.Note,
                         CreatedAtMs: s.CreatedAtMs,
-                        SignalKind: MapKind(s.Kind)));
+                        SignalKind: MapKind(s.Kind),
+                        MarkPrice: s.MarkPrice));
                 }
 
                 var intents = await _client.GetPendingIntentsAsync(stoppingToken)
