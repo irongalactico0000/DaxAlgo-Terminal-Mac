@@ -3,12 +3,12 @@
 - [Archived public mirror backlog](archive/public-mirror-backlog.md) — historical parity work from
   before this repository became independent.
 - [Context maintenance](../.claude/context/MAINTENANCE.md) — generated navigation upkeep.
-- **Research · Strategy · Backtest references (incl. Nautilus):**
+- **Research · Strategy · Backtest lane map (incl. Nautilus):**
   [`.omx/plans/research-strategy-backtest-reference-map.md`](../.omx/plans/research-strategy-backtest-reference-map.md)
-  — lanes, in-app reference types, docs, and honest L1 vs Nautilus-class fidelity.
-- **Research↔Strategy spine:**
+  — terminology first; then lanes, types, docs, honest L1 vs later fill fidelity.
+- **Research↔Strategy via saved findings:**
   [`.omx/plans/research-strategy-reference-spine.md`](../.omx/plans/research-strategy-reference-spine.md)
-  — handoff = Reference A/B.
+  — handoff = saved finding (not “Reference A/B”).
 - [Plans index](../.omx/plans/README.md) — ordered canon for agents.
 - [Vibe Quant four-lane workflow](vibe-quant-four-lane-workflow.md) — how four initial AI requests,
   bounded invalid-response repair, immediate per-lane artifact inspection, durable strategy

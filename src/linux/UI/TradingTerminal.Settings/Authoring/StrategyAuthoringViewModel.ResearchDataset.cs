@@ -509,7 +509,7 @@ public sealed partial class StrategyAuthoringViewModel
     {
         if (!CanUseObservationInDesign) return;
 
-        // Handoff unit is a versioned reference (U07/R11), not chat prose alone.
+        // Handoff unit is a saved finding (U07/R11), not chat prose alone.
         if (PendingResearchCondition is not null)
         {
             if (!HasResearchReferenceA)
@@ -518,8 +518,8 @@ public sealed partial class StrategyAuthoringViewModel
         else if (!HasResearchReferenceA && !HasResearchReferenceB)
         {
             Status =
-                "Bookmark Reference A (or B) from an applied condition before Use in Strategy Builder. " +
-                "Research and Builder stay linked through references, not duplicated toolbars.";
+                "Save a finding (applied condition + chart context) before Use in Strategy Builder. " +
+                "Research and Builder stay linked through saved findings, not duplicated toolbars.";
             return;
         }
 
@@ -532,7 +532,7 @@ public sealed partial class StrategyAuthoringViewModel
                 ? refB.Selection?.CanonicalSymbol
                 : null)
             ?? "the selected instrument";
-        var activeReference = HasResearchReferenceA
+        var activeFinding = HasResearchReferenceA
             ? ResearchReferenceAText
             : HasResearchReferenceB
                 ? ResearchReferenceBText
@@ -545,8 +545,8 @@ public sealed partial class StrategyAuthoringViewModel
         var condition = PendingResearchConditionText;
         var selection = ResearchChartSelectionText;
         var evidence =
-            $"Use this Research reference in Design for {eventSymbol}.\n\n" +
-            $"Active reference: {activeReference}\n" +
+            $"Use this saved Research finding in Design for {eventSymbol}.\n\n" +
+            $"Saved finding: {activeFinding}\n" +
             $"Selection: {selection}\n" +
             $"Analysis indicators (candidates — include only what Design confirms): {indicators}\n" +
             $"Candidate condition: {condition}\n" +
@@ -561,14 +561,14 @@ public sealed partial class StrategyAuthoringViewModel
             Composer = evidence + "\n\n---\n\n" + Composer.Trim();
 
         HasResearchDesignHandoff = true;
-        AiStatus = "Design opened from Research reference. Confirm which conditions become strategy rules.";
+        AiStatus = "Design opened from a saved Research finding. Confirm which conditions become strategy rules.";
         Status = IsResearchStudioShell
-            ? "Opening Strategy Builder with the saved research reference."
-            : "Research reference attached to Design. No compile or register yet.";
+            ? "Opening Strategy Builder with the saved finding."
+            : "Saved finding attached to Design. No compile or register yet.";
         Append(AuthoringMessage.Tool(
             "Ok",
             IsResearchStudioShell ? "Use in Strategy Builder" : "Use observation in Design",
-            $"Reference · {eventSymbol} · indicators [{indicators}] · samples {ResearchEventSampleCount}."));
+            $"Saved finding · {eventSymbol} · indicators [{indicators}] · samples {ResearchEventSampleCount}."));
         Save();
 
         if (IsResearchStudioShell)

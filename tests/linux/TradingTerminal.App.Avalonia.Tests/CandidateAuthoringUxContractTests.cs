@@ -688,6 +688,8 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("PendingConditionMultipleText");
         root.ToString().Should().Contain("ApplyPendingResearchConditionCommand");
         root.ToString().Should().Contain("SaveResearchReferenceACommand");
+        root.ToString().Should().Contain("Save finding 1");
+        root.ToString().Should().Contain("SAVED FINDINGS");
         root.ToString().Should().Contain("OpenResearchConditionHitCommand");
         root.Descendants(Avalonia + "ComboBox").Should().Contain(element =>
             (string?)element.Attribute("ItemsSource") == "{Binding ResearchScreenBarSizeOptions}");

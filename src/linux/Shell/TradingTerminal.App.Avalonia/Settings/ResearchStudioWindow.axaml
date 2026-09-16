@@ -495,17 +495,20 @@
                       ToolTip.Tip="Uses the open chart's symbol and bar size." />
               <TextBlock Text="{Binding ResearchConditionValidityBadgeText}" Classes="caption" TextWrapping="Wrap"
                          FontFamily="{StaticResource Font.Data}" />
-              <TextBlock Text="REFERENCES" Classes="eyebrow" Margin="0,4,0,0" />
+              <TextBlock Text="SAVED FINDINGS" Classes="eyebrow" Margin="0,4,0,0"
+                         ToolTip.Tip="Keep one or two research cases (chart + indicators + condition) to reopen or send to Strategy Builder. Not a separate product called Reference A/B." />
               <TextBlock Text="{Binding ResearchReferenceAText}" Classes="caption" TextWrapping="Wrap" FontFamily="{StaticResource Font.Data}" />
               <TextBlock Text="{Binding ResearchReferenceBText}" Classes="caption" TextWrapping="Wrap" FontFamily="{StaticResource Font.Data}" />
               <WrapPanel>
-                <Button Classes="ghost" Content="Bookmark A" Command="{Binding SaveResearchReferenceACommand}"
-                        IsEnabled="{Binding CanSaveResearchReference}" Margin="0,0,4,4" />
-                <Button Classes="ghost" Content="Restore A" Command="{Binding RestoreResearchReferenceACommand}"
+                <Button Classes="ghost" Content="Save finding 1" Command="{Binding SaveResearchReferenceACommand}"
+                        IsEnabled="{Binding CanSaveResearchReference}" Margin="0,0,4,4"
+                        ToolTip.Tip="Save the current chart selection, indicators, and condition as finding 1." />
+                <Button Classes="ghost" Content="Restore 1" Command="{Binding RestoreResearchReferenceACommand}"
                         IsEnabled="{Binding HasResearchReferenceA}" Margin="0,0,4,4" />
-                <Button Classes="ghost" Content="Bookmark B" Command="{Binding SaveResearchReferenceBCommand}"
-                        IsEnabled="{Binding CanSaveResearchReference}" Margin="0,0,4,4" />
-                <Button Classes="ghost" Content="Restore B" Command="{Binding RestoreResearchReferenceBCommand}"
+                <Button Classes="ghost" Content="Save finding 2" Command="{Binding SaveResearchReferenceBCommand}"
+                        IsEnabled="{Binding CanSaveResearchReference}" Margin="0,0,4,4"
+                        ToolTip.Tip="Optional second finding for contrast (e.g. a case that failed)." />
+                <Button Classes="ghost" Content="Restore 2" Command="{Binding RestoreResearchReferenceBCommand}"
                         IsEnabled="{Binding HasResearchReferenceB}" Margin="0,0,4,4" />
               </WrapPanel>
               <StackPanel Spacing="4" IsVisible="{Binding HasResearchConditionSearchResult}">

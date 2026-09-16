@@ -5,28 +5,29 @@
 | Surface | Owns | Does not own |
 |---|---|---|
 | **Open chart** | Instrument, timeframe, history, indicators, drawings, Order book / Footprint / Bookmap | Ranking, Hyperion chat, strategy rules |
-| **Research Studio** | Market screen, Hyperion, compare, **saved references (A/B)**, condition search | Execution fill models |
-| **Strategy Builder** | Entry/exit/sizing from a **reference**, Validate, Paper | Re-implementing chart tools |
+| **Research Studio** | Market screen, Hyperion, compare, **saved findings**, condition search | Execution fill models |
+| **Strategy Builder** | Entry/exit/sizing from a **saved finding**, Validate, Paper | Re-implementing chart tools |
 
-**Connection between Research and Strategy = a versioned reference**, not shared chrome:
+**Connection between Research and Strategy = a saved finding**, not shared chrome:
 
 ```text
 Chart (same component)
   → observation + indicator bindings + optional condition
-  → ResearchAnalysisReferenceV1 (Bookmark A / B)
+  → saved finding (ResearchAnalysisReferenceV1)
   → Use in Strategy Builder (draft binds condition id + hash)
   → Validate / Paper under an explicit fill model
 ```
 
-Code: `ResearchAnalysisReferenceV1` · session restore · `UseObservationInDesign` / `BindResearchConditionToDraft`.
+Code: `ResearchAnalysisReferenceV1` · session restore · `UseObservationInDesign` / `BindResearchConditionToDraft`.  
+**Product language:** say **saved finding**, not “Reference A/B”.
 
 ## Canon (read in this order)
 
-1. **[`research-strategy-reference-spine.md`](research-strategy-reference-spine.md)** — how Research and Strategy stay linked through references (UI/workflow contract).
-2. **[`research-strategy-backtest-reference-map.md`](research-strategy-backtest-reference-map.md)** — Research · Strategy · Backtest lanes + Nautilus and all important references.
-3. **[`TSD_DaxAlgo_Dolpago_Requirements_v1.md`](TSD_DaxAlgo_Dolpago_Requirements_v1.md)** — locked G/U/S/C/Q/V product IDs (R11–R12 / U07 = references).
-4. **[`TSD_DaxAlgo_Dolpago_Implementation_Checklist.md`](TSD_DaxAlgo_Dolpago_Implementation_Checklist.md)** — progress only; never upgrades a V-scenario without evidence.
-5. **[`research-continuity-matrix.md`](research-continuity-matrix.md)** — short pointer into the above.
+1. **[`research-strategy-reference-spine.md`](research-strategy-reference-spine.md)** — Research↔Strategy via **saved findings**.
+2. **[`research-strategy-backtest-reference-map.md`](research-strategy-backtest-reference-map.md)** — Research · Strategy · Backtest lanes + Nautilus (starts with terminology).
+3. **[`TSD_DaxAlgo_Dolpago_Requirements_v1.md`](TSD_DaxAlgo_Dolpago_Requirements_v1.md)** — locked G/U/S/C/Q/V product IDs.
+4. **[`TSD_DaxAlgo_Dolpago_Implementation_Checklist.md`](TSD_DaxAlgo_Dolpago_Implementation_Checklist.md)** — progress only.
+5. **[`research-continuity-matrix.md`](research-continuity-matrix.md)** — short pointer.
 
 ## Supporting (do not reinvent the spine)
 
@@ -43,4 +44,4 @@ Code: `ResearchAnalysisReferenceV1` · session restore · `UseObservationInDesig
 ## Agent reporting rule
 
 Always: **Spec ID → user action → code path → verification → remaining**.  
-Never invent alternate R-number schemes. Prefer restoring **Reference A/B** over re-adding UI buttons.
+Never invent alternate R-number schemes. Prefer restoring a **saved finding** over re-adding UI buttons. Never lead with “Reference A/B” in user-facing text.
