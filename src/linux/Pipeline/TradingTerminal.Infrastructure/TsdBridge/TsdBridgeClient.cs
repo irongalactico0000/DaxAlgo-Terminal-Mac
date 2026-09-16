@@ -19,7 +19,9 @@ public sealed record TsdPendingConfirm(
     double Strength,
     string Note,
     long CreatedAtMs,
-    StrategySignalKind SignalKind);
+    StrategySignalKind SignalKind,
+    double? MarkPrice = null);
+
 
 /// <summary>In-memory inbox the Execution Console / shell can bind without knowing about HTTP.</summary>
 public interface ITsdPendingConfirmStore
@@ -63,6 +65,7 @@ public sealed class TsdBridgeClient
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
@@ -177,6 +180,7 @@ public sealed class BridgeSignalDto
     public string Side { get; set; } = "";
     public string Note { get; set; } = "";
     public long CreatedAtMs { get; set; }
+    public double? MarkPrice { get; set; }
 }
 
 public sealed class BridgeIntentDto

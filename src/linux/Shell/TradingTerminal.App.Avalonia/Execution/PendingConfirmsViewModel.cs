@@ -75,6 +75,25 @@ public sealed partial class PendingConfirmsViewModel : ObservableObject, IDispos
             return;
         }
 
+        // Model A: mirror fill back to TSD outbox/ledger (SoftFail if TSD down).
+        var fillPrice = item.MarkPrice is > 0 ? item.MarkPrice.Value : 0d;
+        await _client.PostFillAsync(
+                new BridgeFillDto
+                {
+                    Symbol = item.Symbol,
+                    Exchange = item.Exchange,
+                    Side = item.Side,
+                    Quantity = item.Quantity,
+                    Price = fillPrice,
+                    SignalId = string.Equals(item.Kind, "signal", StringComparison.OrdinalIgnoreCase)
+                        ? item.Id
+                        : "",
+                    ClientOrderId = $"confirm:{item.Id}",
+                    DaxOrderId = $"dax:{item.Id}",
+                },
+                CancellationToken.None)
+            .ConfigureAwait(true);
+
         if (string.Equals(item.Kind, "intent", StringComparison.OrdinalIgnoreCase))
             await _client.SetIntentStatusAsync(item.Id, "confirmed", CancellationToken.None)
                 .ConfigureAwait(true);

@@ -306,11 +306,17 @@ public static class StrategyWorkspaceRevisionPolicyV1
         Stage(StrategyWorkspaceStageV1.Brief, StrategyWorkspaceStageRequirementV1.Required,
             bindings.BriefHashSha256 is null ? StrategyWorkspaceStageStateV1.NeedsReview : StrategyWorkspaceStageStateV1.Completed,
             bindings.BriefHashSha256 is null ? "Interpret and confirm the request." : "The interpreted brief is hash-bound."),
-        OptionalStage(StrategyWorkspaceStageV1.Research, researchRequirement, bindings.ResearchCaseHashSha256,
-            "Research is optional for this request.", "Research evidence is hash-bound."),
+        OptionalStage(StrategyWorkspaceStageV1.Research, researchRequirement,
+            bindings.ResearchCaseHashSha256 ?? bindings.DatasetDefinitionHashSha256,
+            "Investigate on the chart and save observations before specifying rules.",
+            "Research evidence is hash-bound."),
         OptionalStage(StrategyWorkspaceStageV1.Design, designRequirement,
-            bindings.DrawingSemanticsHashSha256 ?? bindings.AppearanceHashSha256,
-            "Host-owned automatic chart design will be used.", "Chart semantics and appearance are hash-bound."),
+            bindings.ConfirmedIntentHashSha256 ??
+            (bindings.DrawingSemanticsHashSha256 is not null && bindings.AuthoredUnitSpecificationHashSha256 is not null
+                ? bindings.DrawingSemanticsHashSha256
+                : null),
+            "Promote a research observation into explicit entry, exit, sizing, and risk rules.",
+            "Chart semantics and confirmed design are hash-bound."),
         Stage(StrategyWorkspaceStageV1.Build, StrategyWorkspaceStageRequirementV1.Required,
             bindings.BuildArtifactHashSha256 is not null
                 ? StrategyWorkspaceStageStateV1.Completed

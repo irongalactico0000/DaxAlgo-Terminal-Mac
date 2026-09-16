@@ -1,0 +1,503 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:TradingTerminal.App.Avalonia.Settings"
+        x:Class="TradingTerminal.App.Avalonia.Settings.ResearchStudioWindow"
+        Width="1440" Height="900"
+        MinWidth="1180" MinHeight="720"
+        Background="{DynamicResource Background.Primary}"
+        Foreground="{DynamicResource Text.Primary}"
+        Title="DaxAlgo — Research Studio"
+        WindowStartupLocation="CenterOwner">
+
+  <Window.Styles>
+    <Style Selector="Border.rail">
+      <Setter Property="Background" Value="{StaticResource Gradient.Surface}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Border.Brush}" />
+      <Setter Property="BorderThickness" Value="0,0,1,0" />
+    </Style>
+    <Style Selector="Border.composer">
+      <Setter Property="Background" Value="{StaticResource Background.Elevated}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Ai.Glow.Brush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Border.message">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Margin" Value="0,3" />
+      <Setter Property="MaxWidth" Value="420" />
+    </Style>
+    <Style Selector="Border.userMessage">
+      <Setter Property="Background" Value="{StaticResource Accent.Soft}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Accent.Brush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.assistantMessage">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Border.systemMessage">
+      <Setter Property="Background" Value="{StaticResource Ai.Soft}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Border.Strong}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Border.chip">
+      <Setter Property="Background" Value="{StaticResource Background.Elevated}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Border.Strong}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style Selector="TextBlock.eyebrow">
+      <Setter Property="FontSize" Value="9" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+    </Style>
+    <Style Selector="Button.ghost">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{StaticResource Border.Brush}" />
+      <Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style Selector="Button.aiAction">
+      <Setter Property="Background" Value="{StaticResource Gradient.Ai}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Ai.Accent.Brush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="ListBox.chromeLess">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,*">
+    <StackPanel Grid.Row="0">
+      <Border x:Name="SimulatedDataBanner" Background="#B45309" Padding="12,6" IsVisible="False">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="&#x26A0;" Foreground="White" FontWeight="Bold" />
+          <TextBlock Text="SIMULATED DATA — not a live feed"
+                     Foreground="White" FontWeight="SemiBold" />
+        </StackPanel>
+      </Border>
+
+      <Border Padding="14,10"
+              Background="{StaticResource Background.Surface}"
+              BorderBrush="{StaticResource Border.Brush}" BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Grid.Column="0" Spacing="2">
+            <TextBlock Text="Research Studio" FontWeight="SemiBold" FontSize="14" />
+            <TextBlock Text="Inspect markets, study indicators, compare cases, save findings — no strategy required."
+                       Classes="caption" TextWrapping="Wrap" MaxWidth="640" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Classes="ghost" Content="{Binding HyperionToggleText}"
+                    Command="{Binding ToggleHyperionCommand}"
+                    ToolTip.Tip="Show or hide Hyperion beside the chart." />
+            <Button Classes="ghost" Content="{Binding ResearchDetailsToggleText}"
+                    Command="{Binding ToggleResearchDetailsCommand}"
+                    ToolTip.Tip="Condition, labels, and similarity criteria — opens when needed." />
+            <Button Classes="aiAction" Content="{Binding UseInStrategyBuilderText}"
+                    Command="{Binding UseObservationInDesignCommand}"
+                    IsEnabled="{Binding CanUseObservationInDesign}"
+                    ToolTip.Tip="Carry this research into Strategy Builder Design. Does not edit an existing strategy version silently." />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </StackPanel>
+
+    <!-- Rail | Hyperion | splitter | Chart -->
+    <Grid x:Name="MainWorkspaceGrid" Grid.Row="1" ColumnDefinitions="Auto,52,0,*">
+
+      <!-- Saved research list (compact; collapsible with rail). -->
+      <Border Grid.Column="0" Classes="rail" Width="200"
+              IsVisible="{Binding !RailCollapsed}">
+        <DockPanel Margin="10,12,10,10">
+          <StackPanel DockPanel.Dock="Top" Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Grid.Column="0" Spacing="1">
+                <TextBlock Text="DaxAlgo" FontWeight="SemiBold" FontSize="12" />
+                <TextBlock Text="Saved research" Classes="caption" />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="ghost" Content="‹"
+                      Command="{Binding ToggleRailCommand}" ToolTip.Tip="Collapse list" />
+            </Grid>
+            <Button Classes="aiAction" Content="{Binding NewSessionActionText}"
+                    IsEnabled="{Binding !IsGenerating}"
+                    Command="{Binding NewChatCommand}" />
+          </StackPanel>
+          <ListBox Classes="chromeLess" Margin="0,10,0,0"
+                   ItemsSource="{Binding SavedSessions}"
+                   IsEnabled="{Binding !IsGenerating}"
+                   SelectedItem="{Binding SelectedSavedSession, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Border Background="{StaticResource Background.Elevated}"
+                        BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                        CornerRadius="5" Padding="8,6" Margin="0,2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
+                                 TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="caption" FontFamily="{StaticResource Font.Data}">
+                        <Run Text="{Binding StrategyId}" /><Run Text="  ·  " /><Run Text="{Binding Age}" />
+                      </TextBlock>
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="ghost" Content="×" Padding="5,1"
+                            Tag="{Binding}" Click="OnDeleteSession" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </DockPanel>
+      </Border>
+      <Border Grid.Column="0" Classes="rail" Width="48" IsVisible="{Binding RailCollapsed}">
+        <StackPanel Margin="6,12" Spacing="10">
+          <Button Classes="ghost" Content="›" FontSize="16"
+                  Command="{Binding ToggleRailCommand}" ToolTip.Tip="Show saved research" />
+          <Button Classes="ghost" Content="＋"
+                  Command="{Binding NewChatCommand}" ToolTip.Tip="New research" />
+        </StackPanel>
+      </Border>
+
+      <!-- Hyperion: fixed column; never overlays the chart -->
+      <Grid Grid.Column="1" Margin="8,8,4,8" RowDefinitions="Auto,*,Auto"
+            ClipToBounds="True"
+            ZIndex="0">
+        <Grid.Width>
+          <Binding Path="ConversationColumnWidth" />
+        </Grid.Width>
+        <Grid.IsVisible>
+          <Binding Path="!HyperionCollapsed" />
+        </Grid.IsVisible>
+        <StackPanel Grid.Row="0" Spacing="4" Margin="2,0,2,6">
+          <TextBlock Text="HYPERION" Classes="eyebrow" />
+          <TextBlock Text="{Binding ActiveResearchContextText}" Classes="caption" TextWrapping="Wrap"
+                     ToolTip.Tip="Active chart context Hyperion uses for this session." />
+          <Border Classes="chip" HorizontalAlignment="Left"
+                  IsVisible="{Binding HasConversation}">
+            <TextBlock Text="{Binding ModelPillText}" FontSize="9.5"
+                       Foreground="{StaticResource Ai.Text.Brush}" />
+          </Border>
+        </StackPanel>
+
+        <ScrollViewer x:Name="ChatScroll" Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <Border Margin="2,0,2,8" Padding="8,6"
+                    Background="{StaticResource Ai.Soft}"
+                    BorderBrush="{StaticResource Ai.Glow.Brush}" BorderThickness="1"
+                    CornerRadius="4"
+                    IsVisible="{Binding ShowResearchComposerHint}">
+              <TextBlock Text="Ask about the open chart, indicators, or what is common across similar setups."
+                         Classes="caption" TextWrapping="Wrap" />
+            </Border>
+            <ItemsControl ItemsSource="{Binding Messages}" Margin="2,0,4,0"
+                          IsVisible="{Binding HasConversation}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Grid>
+                    <Border Classes="message userMessage" HorizontalAlignment="Right"
+                            IsVisible="{Binding IsUser}">
+                      <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap" LineHeight="17" />
+                    </Border>
+                    <Border Classes="message assistantMessage" HorizontalAlignment="Left"
+                            IsVisible="{Binding IsAssistant}">
+                      <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap" LineHeight="17" />
+                    </Border>
+                    <Border Classes="message systemMessage" HorizontalAlignment="Left"
+                            IsVisible="{Binding IsSystem}">
+                      <StackPanel Spacing="2">
+                        <TextBlock Text="{Binding ToolTitle}" FontSize="9" FontWeight="Bold"
+                                   Foreground="{StaticResource Ai.Text.Brush}" />
+                        <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Classes="composer" Margin="0,6,0,0" Padding="8">
+          <Grid RowDefinitions="*,Auto">
+            <TextBox MinHeight="52" MaxHeight="110" AcceptsReturn="True" TextWrapping="Wrap"
+                     Background="Transparent" BorderThickness="0" Padding="2"
+                     FontSize="12"
+                     Watermark="Ask about this chart or research…"
+                     Text="{Binding Composer, Mode=TwoWay}"
+                     KeyDown="OnComposerKeyDown" />
+            <DockPanel Grid.Row="1" Margin="0,6,0,0">
+              <Button DockPanel.Dock="Right" Classes="aiAction" MinWidth="72" Padding="12,6"
+                      Content="{Binding SendButtonText}" Command="{Binding SendCommand}"
+                      IsVisible="{Binding !IsGenerating}" />
+              <TextBlock Text="{Binding ActiveResearchContextText}" Classes="caption"
+                         TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            </DockPanel>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- Collapsed Hyperion affordance (own narrow column when pane is hidden) -->
+      <Border Grid.Column="1" Margin="4,8" Width="44" HorizontalAlignment="Left"
+              IsVisible="{Binding HyperionCollapsed}" ZIndex="0">
+        <Button Classes="ghost" Content="◇"
+                Command="{Binding ToggleHyperionCommand}"
+                ToolTip.Tip="Show Hyperion"
+                HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4" />
+      </Border>
+
+      <GridSplitter Grid.Column="2" Width="4" HorizontalAlignment="Stretch"
+                    Background="Transparent"
+                    IsVisible="{Binding !HyperionCollapsed}" />
+
+      <!-- Chart owns the remaining space; never under Hyperion -->
+      <Border Grid.Column="3" Margin="4,8,10,8"
+              Background="{StaticResource Background.Elevated}"
+              BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+              CornerRadius="6" Padding="4"
+              MinWidth="520" MinHeight="360"
+              ClipToBounds="True"
+              ZIndex="1">
+        <Grid ColumnDefinitions="*,Auto">
+          <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*">
+            <!-- Market screen: universe → rank → table / grid (compact; chart owns remaining height) -->
+            <Border Grid.Row="0" Margin="4,4,4,6" Padding="8,7"
+                    MaxHeight="210"
+                    Background="{StaticResource Background.Base}"
+                    BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                    CornerRadius="4"
+                    ClipToBounds="True">
+              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+              <StackPanel Spacing="6">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Left" Text="MARKET SCREEN" Classes="eyebrow" VerticalAlignment="Center" />
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding ResearchScreenCalculatedText}"
+                             Classes="caption" HorizontalAlignment="Right" />
+                </DockPanel>
+                <TextBlock Text="{Binding ResearchScreenResultHeaderText}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <WrapPanel Orientation="Horizontal">
+                  <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,10,4">
+                    <TextBlock Text="Universe" Classes="caption" VerticalAlignment="Center" />
+                    <ComboBox Width="110" ItemsSource="{Binding ResearchScreenUniverseOptions}"
+                              SelectedItem="{Binding ResearchScreenUniverseId}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,10,4">
+                    <TextBlock Text="Rank by" Classes="caption" VerticalAlignment="Center" />
+                    <ComboBox Width="170" ItemsSource="{Binding ResearchScreenMetricOptions}"
+                              SelectedItem="{Binding ResearchScreenMetricChoice}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,10,4">
+                    <TextBlock Text="Bar size" Classes="caption" VerticalAlignment="Center" />
+                    <ComboBox Width="64" ItemsSource="{Binding ResearchScreenBarSizeOptions}"
+                              SelectedItem="{Binding ResearchScreenBarSizeChoice}"
+                              ToolTip.Tip="Required for every instrument. Mixing 1h with 1D is not allowed." />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,10,4">
+                    <TextBlock Text="Top" Classes="caption" VerticalAlignment="Center" />
+                    <ComboBox Width="64" ItemsSource="{Binding ResearchScreenTopNOptions}"
+                              SelectedItem="{Binding ResearchScreenTopN}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,10,4">
+                    <TextBlock Text="Lookback bars" Classes="caption" VerticalAlignment="Center" />
+                    <TextBox Width="48" Text="{Binding ResearchScreenLookbackBars}" />
+                  </StackPanel>
+                  <Button Classes="aiAction" Content="Rank"
+                          Command="{Binding RunResearchMarketScreenCommand}"
+                          IsEnabled="{Binding CanRunResearchScreen}"
+                          Margin="0,0,8,4"
+                          ToolTip.Tip="Rank on one shared completed-bar window at the required bar size. Top N is not padded." />
+                  <Button Classes="ghost" Content="Table" Margin="0,0,4,4"
+                          Command="{Binding SetResearchScreenViewModeCommand}" CommandParameter="Table" />
+                  <Button Classes="ghost" Content="Chart grid" Margin="0,0,4,4"
+                          Command="{Binding SetResearchScreenViewModeCommand}" CommandParameter="Grid" />
+                  <Button Classes="ghost" Content="Detail" Margin="0,0,4,4"
+                          Command="{Binding SetResearchScreenViewModeCommand}" CommandParameter="Detail" />
+                  <Button Classes="aiAction" Content="Open chart"
+                          Command="{Binding OpenSelectedScreenChartsCommand}"
+                          IsEnabled="{Binding CanOpenSelectedScreenCharts}"
+                          Margin="0,0,4,4" />
+                  <Button Classes="ghost" Content="Order book" Margin="0,0,4,4"
+                          Command="{Binding OpenResearchOrderBookCommand}"
+                          IsEnabled="{Binding CanOpenResearchMarketStructure}"
+                          ToolTip.Tip="Open the existing Order book window for the selected research instrument." />
+                  <Button Classes="ghost" Content="Footprint" Margin="0,0,4,4"
+                          Command="{Binding OpenResearchVolumeFootprintCommand}"
+                          IsEnabled="{Binding CanOpenResearchMarketStructure}" />
+                  <Button Classes="ghost" Content="Bookmap" Margin="0,0,0,4"
+                          Command="{Binding OpenResearchBookmapCommand}"
+                          IsEnabled="{Binding CanOpenResearchMarketStructure}" />
+                </WrapPanel>
+                <TextBlock Text="{Binding ResearchScreenCoverageText}" Classes="caption" TextWrapping="Wrap"
+                           ToolTip.Tip="{Binding ResearchScreenMetricDefinitionText}" />
+                <TextBlock Text="{Binding ResearchScreenExclusionSummaryText}" Classes="caption" TextWrapping="Wrap"
+                           IsVisible="{Binding HasResearchMarketScreenResult}"
+                           ToolTip.Tip="{Binding ResearchScreenProvenanceText}" />
+              </StackPanel>
+              </ScrollViewer>
+            </Border>
+
+            <!-- Ranked results: table or compact grid tiles -->
+            <Border Grid.Row="1" Margin="4,0,4,6" Padding="6"
+                    MaxHeight="160"
+                    Background="{StaticResource Background.Base}"
+                    BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                    CornerRadius="4"
+                    IsVisible="{Binding HasResearchScreenRows}">
+              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                  <ItemsControl ItemsSource="{Binding ResearchScreenRows}"
+                                IsVisible="{Binding ResearchScreenViewMode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border Margin="0,0,6,6" Padding="8,6" MinWidth="150"
+                                Background="{StaticResource Background.Elevated}"
+                                BorderBrush="{StaticResource Border.Strong}" BorderThickness="1"
+                                CornerRadius="4">
+                          <StackPanel Spacing="3">
+                            <DockPanel>
+                              <TextBlock DockPanel.Dock="Left" FontWeight="SemiBold">
+                                <Run Text="#" /><Run Text="{Binding Rank}" /><Run Text="  " /><Run Text="{Binding CanonicalSymbol}" />
+                              </TextBlock>
+                              <Button DockPanel.Dock="Right" Classes="ghost" Content="Select" Padding="6,2"
+                                      Command="{Binding DataContext.ToggleResearchScreenRowSelectionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      CommandParameter="{Binding}" />
+                            </DockPanel>
+                            <TextBlock Classes="caption" FontFamily="{StaticResource Font.Data}" TextWrapping="Wrap">
+                              <Run Text="{Binding MetricValue, StringFormat={}{0:N0}}" /><Run Text=" · " /><Run Text="{Binding MetricLabel}" />
+                            </TextBlock>
+                            <TextBlock Classes="caption">
+                              <Run Text="{Binding BarsUsed}" /><Run Text=" bars · " /><Run Text="{Binding BarSizeLabel}" />
+                            </TextBlock>
+                            <Button Classes="ghost" Content="Open chart" HorizontalAlignment="Left" Padding="6,2"
+                                    Command="{Binding DataContext.OpenResearchScreenRowCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}" />
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </ScrollViewer>
+            </Border>
+
+            <DockPanel Grid.Row="2" Margin="4,0,4,0" LastChildFill="True">
+              <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
+                  <Button Classes="ghost" Content="Detach chart"
+                          Click="OnDetachResearchChartRequested"
+                          ToolTip.Tip="Open chart in a separate window (shared instrument and indicators)." />
+                  <Button Classes="ghost" Content="{Binding ChartLoadActionText}"
+                          Click="OnResearchChartRequested" />
+                </StackPanel>
+                <StackPanel Spacing="2">
+                  <TextBlock Text="CHART" Classes="eyebrow" />
+                  <TextBlock Text="{Binding ResearchLinkedContextText}" Classes="caption" TextWrapping="Wrap" />
+                </StackPanel>
+              </DockPanel>
+
+              <Border DockPanel.Dock="Top" Margin="0,0,0,6" Padding="6" MaxHeight="56"
+                      Background="{StaticResource Background.Base}"
+                      BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                      CornerRadius="4"
+                      IsVisible="{Binding HasResearchGalleryCards}">
+                <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="SIMILAR" Classes="eyebrow" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ItemsControl ItemsSource="{Binding ResearchGalleryCards}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <StackPanel Orientation="Horizontal" Spacing="4" />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Button Classes="ghost" Padding="8,4"
+                                  Command="{Binding DataContext.UseResearchOutcomeGalleryMatchCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  CommandParameter="{Binding Match}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                              <TextBlock Text="{Binding Symbol}" FontWeight="SemiBold" />
+                              <TextBlock Text="{Binding ReturnText}" Classes="caption"
+                                         FontFamily="{StaticResource Font.Data}" />
+                            </StackPanel>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </ScrollViewer>
+              </Border>
+
+              <Grid>
+                <ContentControl x:Name="ResearchChartHost"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch" />
+                <StackPanel x:Name="ResearchChartPlaceholder"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Spacing="8" Margin="20">
+                  <TextBlock Text="Opening chart…" Classes="caption" HorizontalAlignment="Center" />
+                  <Button Classes="ghost" Content="Retry open chart"
+                          HorizontalAlignment="Center"
+                          Click="OnResearchChartRequested" />
+                </StackPanel>
+              </Grid>
+            </DockPanel>
+          </Grid>
+
+          <!-- Optional inspector -->
+          <ScrollViewer Grid.Column="1" Width="220" Margin="6,0,0,0"
+                        VerticalScrollBarVisibility="Auto"
+                        IsVisible="{Binding ResearchDetailsOpen}">
+            <StackPanel Spacing="8" Margin="0,0,4,0">
+              <TextBlock Text="INSPECTOR" Classes="eyebrow" />
+              <TextBlock Text="{Binding ResearchLinkedContextText}" Classes="caption" TextWrapping="Wrap"
+                         AutomationProperties.Name="Research linked instrument context" />
+              <TextBlock Text="INDICATORS" Classes="eyebrow" Margin="0,4,0,0" />
+              <TextBlock Text="{Binding ResearchIndicatorInspectText}" Classes="caption" TextWrapping="Wrap"
+                         FontFamily="{StaticResource Font.Data}"
+                         AutomationProperties.Name="Research indicator inspect formulas" />
+              <TextBlock Text="COMPARE" Classes="eyebrow" Margin="0,4,0,0"
+                         IsVisible="{Binding HasResearchIndicatorCompare}" />
+              <TextBlock Text="{Binding ResearchIndicatorCompareText}" Classes="caption" TextWrapping="Wrap"
+                         FontFamily="{StaticResource Font.Data}"
+                         AutomationProperties.Name="Research indicator compare summary" />
+              <TextBlock Text="{Binding ResearchChartSelectionText}" Classes="caption" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding PendingResearchConditionText}" Classes="caption" TextWrapping="Wrap"
+                         FontFamily="{StaticResource Font.Data}" />
+              <Button Classes="aiAction" Content="Find similar charts"
+                      Command="{Binding SearchResearchConditionLocalCommand}"
+                      IsEnabled="{Binding CanSearchResearchCondition}"
+                      HorizontalAlignment="Stretch"
+                      ToolTip.Tip="Search with the current condition and indicators." />
+              <Button Classes="ghost" Content="Search TSD"
+                      Command="{Binding SearchResearchConditionTsdCommand}"
+                      IsEnabled="{Binding CanSearchResearchCondition}"
+                      HorizontalAlignment="Stretch" />
+              <TextBlock Text="Event labels (optional experiment tool)" Classes="eyebrow" Margin="0,8,0,0" />
+              <WrapPanel>
+                <Button Classes="ghost" Content="B" Command="{Binding MarkPreBreakoutCommand}"
+                        IsEnabled="{Binding HasResearchChartSelection}" Margin="0,0,4,4" />
+                <Button Classes="ghost" Content="C" Command="{Binding MarkPreCrashCommand}"
+                        IsEnabled="{Binding HasResearchChartSelection}" Margin="0,0,4,4" />
+                <Button Classes="ghost" Content="N" Command="{Binding MarkNeutralCommand}"
+                        IsEnabled="{Binding HasResearchChartSelection}" Margin="0,0,4,4" />
+              </WrapPanel>
+              <TextBlock Text="{Binding ResearchDatasetStatusText}" Classes="caption" TextWrapping="Wrap" />
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

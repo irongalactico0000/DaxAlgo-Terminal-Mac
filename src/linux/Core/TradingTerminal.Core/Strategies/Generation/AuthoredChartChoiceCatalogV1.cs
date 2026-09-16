@@ -55,17 +55,19 @@ public sealed class HostChartOverlayPreviewRequestedEventArgs : EventArgs
         ResearchOutcomeGalleryMatchV1? galleryMatch = null,
         DateTime? historyFromUtc = null,
         DateTime? historyToUtc = null,
-        BarSize? historyBarSize = null)
+        BarSize? historyBarSize = null,
+        ResearchChartSelectionV1? researchSelection = null)
     {
         OverlayIds = overlayIds ?? Array.Empty<string>();
         StartResearchCapture = startResearchCapture;
         PreferredSymbol = string.IsNullOrWhiteSpace(preferredSymbol)
-            ? galleryMatch?.CanonicalSymbol
+            ? galleryMatch?.CanonicalSymbol ?? researchSelection?.CanonicalSymbol
             : preferredSymbol.Trim();
         GalleryMatch = galleryMatch;
         HistoryFromUtc = historyFromUtc;
         HistoryToUtc = historyToUtc;
         HistoryBarSize = historyBarSize;
+        ResearchSelection = researchSelection;
     }
 
     public IReadOnlyList<string> OverlayIds { get; }
@@ -87,6 +89,36 @@ public sealed class HostChartOverlayPreviewRequestedEventArgs : EventArgs
     public DateTime? HistoryToUtc { get; }
 
     public BarSize? HistoryBarSize { get; }
+
+    /// <summary>
+    /// When set (e.g. condition-search hit), Charts loads this observation→outcome as the current
+    /// Research space capture — same path as gallery focus.
+    /// </summary>
+    public ResearchChartSelectionV1? ResearchSelection { get; }
+}
+
+public enum ResearchMarketStructureViewKind
+{
+    OrderBook = 0,
+    VolumeFootprint = 1,
+    Bookmap = 2,
+}
+
+/// <summary>
+/// Shell event: Research Studio selected an instrument and wants an existing market-structure view opened.
+/// </summary>
+public sealed class HostResearchMarketStructureRequestedEventArgs : EventArgs
+{
+    public HostResearchMarketStructureRequestedEventArgs(
+        ResearchMarketStructureViewKind viewKind,
+        string canonicalSymbol)
+    {
+        ViewKind = viewKind;
+        CanonicalSymbol = (canonicalSymbol ?? string.Empty).Trim();
+    }
+
+    public ResearchMarketStructureViewKind ViewKind { get; }
+    public string CanonicalSymbol { get; }
 }
 
 /// <summary>
@@ -133,6 +165,25 @@ public readonly record struct NativeChartOverlaySelectionV1(
             ShowAtr: ids.Contains("atr-14") || ids.Contains("atr"),
             ShowVwap: ids.Contains("vwap") || ids.Contains("vwap-session"),
             ShowAdx: ids.Contains("adx-14") || ids.Contains("adx"));
+    }
+
+    /// <summary>
+    /// Inverse of <see cref="FromHostOverlayIds"/> for research handoff: persist what the operator
+    /// actually had on the chart when the observation/outcome windows were sent.
+    /// </summary>
+    public IReadOnlyList<string> ToHostOverlayIds()
+    {
+        var ids = new List<string>();
+        if (ShowSma) ids.Add("sma-20");
+        if (ShowEma) ids.Add(EmaPeriod <= 20 ? "ema-20" : "ema-50");
+        if (ShowRsi) ids.Add("rsi-14");
+        if (ShowMacd) ids.Add("macd-12-26-9");
+        if (ShowBollinger) ids.Add("bollinger-20");
+        if (ShowStochastic) ids.Add("stochastic-14-3-3");
+        if (ShowAtr) ids.Add("atr-14");
+        if (ShowVwap) ids.Add("vwap");
+        if (ShowAdx) ids.Add("adx-14");
+        return ids.Count == 0 ? Array.AsReadOnly(new[] { "candles" }) : ids.AsReadOnly();
     }
 
     /// <summary>

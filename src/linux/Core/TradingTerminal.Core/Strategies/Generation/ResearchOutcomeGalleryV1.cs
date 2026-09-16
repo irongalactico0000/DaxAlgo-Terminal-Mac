@@ -42,7 +42,13 @@ public sealed record ResearchOutcomeGalleryResultV1(
     string Explanation,
     int RemoteHydrationAttempts = 0,
     int RemoteHydrationSuccesses = 0,
-    int RemoteHydrationFailures = 0);
+    int RemoteHydrationFailures = 0,
+    string RequestedUniverseLabel = "S&P 100",
+    int RequestedUniverseSize = 0,
+    int PreferredUniverseEligibleInRegistry = 0,
+    bool WidenedBeyondPreferredUniverse = false,
+    string CoverageSummary = "",
+    string DataProvenanceSummary = "");
 
 public interface IResearchOutcomeGalleryScanV1
 {

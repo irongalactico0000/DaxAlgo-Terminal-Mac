@@ -1,90 +1,121 @@
 namespace TradingTerminal.App.Authoring;
 
 /// <summary>
-/// Always-visible map of the path that actually runs a strategy on Mac:
-/// Brief → Build/Register → Historical Validate → Paper → Harness
-/// (optional Lane 3 export is software install, not part of the run path).
+/// Strategy Builder workflow vocabulary:
+/// Research → Design → Build → Validate → Run.
+/// Brief is an editable project description, not the first stage.
 /// </summary>
 public sealed partial class StrategyAuthoringViewModel
 {
-    public bool ShowWorkingFlowMap => GenerateCandidateFirst;
+    private bool _showWorkflowHelp;
 
-    /// <summary>
-    /// How a strategy enters this Mac. OMS/Harness only run a unit that already exists.
-    /// </summary>
+    /// <summary>Expanded help only — never permanent top chrome.</summary>
+    public bool ShowWorkingFlowMap => GenerateCandidateFirst && _showWorkflowHelp;
+
+    public bool ShowWorkflowHelp
+    {
+        get => _showWorkflowHelp;
+        set
+        {
+            if (_showWorkflowHelp == value) return;
+            _showWorkflowHelp = value;
+            OnPropertyChanged(nameof(ShowWorkflowHelp));
+            OnPropertyChanged(nameof(ShowWorkingFlowMap));
+            OnPropertyChanged(nameof(WorkflowHelpToggleText));
+        }
+    }
+
+    public string WorkflowHelpToggleText => ShowWorkflowHelp ? "Hide help" : "Help";
+
     public string HowStrategyGetsInText =>
-        "MAKE a strategy here: type the idea in Brief → AI writes C# → Compile & Register. " +
-        "OR Charts: place STOP/TARGET → Send draft. " +
-        "OR someone already made one: they send a .daxalgostrategy file → Strategy Manager → Install open package… (skip generate).";
+        "Research on the chart and save observations → Design makes rules precise → Build registers a version → " +
+        "Validate on history → Run on Paper (or Live when authorized). Brief is the editable project description.";
 
-    /// <summary>One-line map with checkmarks for completed gates.</summary>
+    /// <summary>Same five stages as the toolbar pills (one vocabulary).</summary>
     public string WorkingFlowMapText
     {
         get
         {
-            var brief = HasCandidate || AuthoredUnitSpecification is not null ||
-                        StrategyWorkspace.Bindings.BriefHashSha256 is not null
-                ? "① Brief ✓"
-                : "① Brief";
-            var build = IsRegistered || StrategyWorkspace.Bindings.BuildArtifactHashSha256 is not null
-                ? "② Build·Register ✓"
-                : "② Build·Register";
-            var validate = HasHistoricalValidationEvidence
-                ? "③ Historical Validate ✓"
-                : "③ Historical Validate";
-            var paper = StrategyWorkspace.Bindings.PaperBindingHashSha256 is not null
-                ? "④ Paper book ✓"
-                : "④ Paper book";
-            var harness = StrategyWorkspace.Bindings.PaperBindingHashSha256 is not null
-                ? "⑤ Harness ✓"
-                : "⑤ Harness";
-            return $"{brief} → {build} → {validate} → {paper} → {harness}";
+            string Mark(string label, bool done) => done ? $"{label} ✓" : label;
+
+            var research = Mark("1 Research",
+                StrategyWorkspace.Bindings.ResearchCaseHashSha256 is not null ||
+                StrategyWorkspace.Bindings.DatasetDefinitionHashSha256 is not null ||
+                HasChartReferences);
+            var design = Mark("2 Design",
+                HasResearchDesignHandoff ||
+                StrategyWorkspace.Bindings.ConfirmedIntentHashSha256 is not null);
+            var build = Mark("3 Build",
+                IsRegistered || StrategyWorkspace.Bindings.BuildArtifactHashSha256 is not null);
+            var validate = Mark("4 Validate", HasHistoricalValidationEvidence);
+            var run = Mark("5 Run", StrategyWorkspace.Bindings.PaperBindingHashSha256 is not null);
+            return $"{research} → {design} → {build} → {validate} → {run}";
         }
     }
 
-    /// <summary>What the operator should do next on this working path.</summary>
     public string WorkingFlowNextActionText
     {
         get
         {
             if (!GenerateCandidateFirst)
-                return "Expert C# path: Compile & Register, then use Validate / Paper when available.";
+                return "Expert C#: Compile & Register, then Validate / Run when available.";
 
             if (IsGenerating)
-                return "Wait for generation to finish, then continue the map above.";
+                return "Wait for the current task to finish.";
+
+            // While Research is selected, next-action must describe the research task — never skip
+            // ahead to Build because a visualizer/spec freeze left AuthoredUnitSpecification set.
+            if (IsResearchStage)
+            {
+                if (IsScanningResearchGallery)
+                    return "Research: scanning local history for outcome events…";
+                if (HasResearchOutcomeGalleryMatches && SelectedResearchGalleryCard is null)
+                    return "Next: select an event in RESULTS to load it on the Research chart.";
+                if (SelectedResearchGalleryCard is not null || HasResearchChartSelection)
+                {
+                    if (ResearchEventSampleCount == 0 && !HasResearchReferenceA && !HasResearchReferenceB)
+                        return "Next: review indicators on the linked chart, label B/C/N or Save reference — then Use in Design.";
+                    return "Next: Use in Design to turn this observation into explicit rules.";
+                }
+                if (HasResearchOutcomeGalleryResult && !HasResearchOutcomeGalleryMatches)
+                    return "Next: no gallery hits — brush manually on the Research chart or try another scan.";
+                return "Next: Load chart, add indicators, run a scan or brush an observation.";
+            }
+
+            if (IsChartDesignStage)
+            {
+                if (!HasCandidate && AuthoredUnitSpecification is null)
+                    return "Next: turn Research observations into explicit entry, exit, sizing, and risk rules.";
+                return "Next: confirm the design, then open Build to compile and register.";
+            }
 
             if (!(IsRegistered || StrategyWorkspace.Bindings.BuildArtifactHashSha256 is not null))
             {
                 if (AuthoredUnitSpecification is null && !HasCandidate)
-                    return "Next: finish Brief (confirm request) → open Build → generate → Compile & Register.";
-                return "Next: open Build → Compile & Register this unit (that unlocks Validate).";
+                    return "Next: finish Research/Design, then open Build.";
+                return "Next: open Build → compile and register.";
             }
 
             if (!HasHistoricalValidationEvidence)
-                return "Next: open Validate → Run historical validation (exact revision). Optional: Export open package… for another Mac.";
+                return "Next: open Validate → run historical validation.";
 
             if (StrategyWorkspace.Bindings.PaperBindingHashSha256 is null)
-                return "Next: open Paper → Bind selected Paper book → Harness (your book only; not live money).";
+                return "Next: open Run → bind Paper book and start.";
 
-            return "Path complete for this revision: Harness can run Paper. Optional: Export open package… → Strategy Manager → Install.";
+            return "Ready: Run book bound for this revision.";
         }
     }
 
-    /// <summary>Where you are in the UI vs the working path.</summary>
-    public string WorkingFlowYouAreHereText => ActiveScreen switch
-    {
-        StrategyAuthoringScreen.Brief => "You are here: Brief (define what to build).",
-        StrategyAuthoringScreen.Research => "You are here: Research (optional discovery) — not required for every strategy.",
-        StrategyAuthoringScreen.Design => "You are here: Chart Design (optional) — hiding layers does not change rules.",
-        StrategyAuthoringScreen.Build => "You are here: Build — generate / compile / register so Validate can run.",
-        StrategyAuthoringScreen.Validate => "You are here: Validate — historical proof for this exact revision.",
-        StrategyAuthoringScreen.Paper => "You are here: Paper → Harness handoff (run on your Paper book).",
-        _ => "You are here: Strategy Builder.",
-    };
+    public string WorkingFlowYouAreHereText =>
+        $"You are here: {ActiveScreenTitle}.";
+
+    public void ToggleWorkflowHelp() => ShowWorkflowHelp = !ShowWorkflowHelp;
 
     private void NotifyWorkingFlowMapChanged()
     {
         OnPropertyChanged(nameof(ShowWorkingFlowMap));
+        OnPropertyChanged(nameof(ShowWorkflowHelp));
+        OnPropertyChanged(nameof(WorkflowHelpToggleText));
         OnPropertyChanged(nameof(HowStrategyGetsInText));
         OnPropertyChanged(nameof(WorkingFlowMapText));
         OnPropertyChanged(nameof(WorkingFlowNextActionText));

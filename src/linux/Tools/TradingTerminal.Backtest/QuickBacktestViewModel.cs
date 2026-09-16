@@ -74,6 +74,7 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
     private IReadOnlyList<CanonicalBacktestSelection> _canonicalSelections = [];
     private QuickBacktestPaperLaunchRequest? _paperLaunchRequest;
     private HistoricalValidationContextV1? _validationContext;
+    private string? _appliedExecutionFidelityToken;
 
     public QuickBacktestViewModel(
         IBacktestStrategyRegistry registry,
@@ -217,6 +218,7 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
     {
         ClearPaperLaunchRequest();
         _validationContext = null;
+        _appliedExecutionFidelityToken = null;
         _kernelOption = null;
         _canonicalSelections = [];
         Parameters = null;
@@ -256,11 +258,15 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
     /// </summary>
     public bool Initialize(
         StrategyKernelRegistration registration,
-        HistoricalValidationContextV1? validationContext = null)
+        HistoricalValidationContextV1? validationContext = null,
+        string? appliedExecutionFidelityToken = null)
     {
         ArgumentNullException.ThrowIfNull(registration);
         ClearPaperLaunchRequest();
         _validationContext = validationContext;
+        _appliedExecutionFidelityToken = string.IsNullOrWhiteSpace(appliedExecutionFidelityToken)
+            ? null
+            : appliedExecutionFidelityToken.Trim();
         StrategyDisplayName = registration.DisplayName;
         _option = null;
         _kernelOption = _kernelRegistry.Find(registration.Id);
@@ -632,6 +638,9 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
                 HistoricalValidationEvidenceV1? validationEvidence = null;
                 if (_validationContext is { } validationContext)
                 {
+                    var dataMode = string.IsNullOrWhiteSpace(_appliedExecutionFidelityToken)
+                        ? SelectedDataMode.ToString()
+                        : $"{SelectedDataMode}|{_appliedExecutionFidelityToken}";
                     validationEvidence = new HistoricalValidationEvidenceV1(
                         HistoricalValidationEvidenceV1.CurrentSchemaVersion,
                         validationContext,
@@ -641,7 +650,7 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
                             .ToArray()),
                         fromUtc,
                         toUtc,
-                        SelectedDataMode.ToString(),
+                        dataMode,
                         FeedQuality ?? "Historical replay completed.",
                         result.Trades.Count,
                         result.StartingCash,

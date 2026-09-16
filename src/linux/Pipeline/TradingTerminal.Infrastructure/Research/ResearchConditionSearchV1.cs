@@ -82,12 +82,81 @@ public sealed class ResearchConditionSearchV1 : IResearchConditionSearchV1
             ? "http://127.0.0.1:8000"
             : opts.BaseUrl.TrimEnd('/');
         var mappedSymbol = MapSymbolForTsd(symbol);
+        var http = _httpClientFactory.CreateClient(nameof(ResearchConditionSearchV1));
+
+        // Prefer TSD compute path (POST /api/research/scan); fall back to MDMS bars + local eval.
+        try
+        {
+            var scanUrl = $"{baseUrl}/api/research/scan";
+            using var scanResponse = await http.PostAsJsonAsync(
+                    scanUrl,
+                    new
+                    {
+                        symbol = mappedSymbol,
+                        interval,
+                        limit = Math.Clamp(limit, 50, 5000),
+                        condition = new
+                        {
+                            kind = condition.Kind,
+                            threshold = condition.Threshold,
+                            lookback_bars = condition.LookbackBars,
+                            condition_id = condition.ConditionId,
+                            version_hash_sha256 = condition.VersionHashSha256,
+                        },
+                        forward_bars = ResearchConditionEvaluatorV1.DefaultForwardBars,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            if (scanResponse.IsSuccessStatusCode)
+            {
+                var scan = await scanResponse.Content
+                    .ReadFromJsonAsync<TsdResearchScanDto>(cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+                if (scan is not null)
+                {
+                    var hits = (scan.Hits ?? [])
+                        .Select(hit => new ResearchConditionHitV1(
+                            DateTimeOffset.FromUnixTimeSeconds(hit.Time),
+                            hit.ConditionMetric,
+                            hit.Threshold,
+                            hit.ForwardReturn,
+                            hit.ForwardPositive))
+                        .ToArray();
+                    return new ResearchConditionSearchResultV1(
+                        ResearchConditionSearchResultV1.CurrentSchemaVersion,
+                        condition.VersionHashSha256,
+                        condition.SummaryText,
+                        DataSource: scan.DataSource ?? "tsd_research_scan",
+                        Symbol: scan.Symbol ?? mappedSymbol,
+                        UniverseBars: scan.UniverseBars,
+                        EvaluatedBars: scan.EvaluatedBars,
+                        HitCount: scan.HitCount,
+                        PositiveForwardCount: scan.PositiveForwardCount,
+                        NegativeForwardCount: scan.NegativeForwardCount,
+                        InsufficientDataCount: scan.InsufficientDataCount,
+                        LiveMeetsCondition: scan.LiveMeetsCondition,
+                        Hits: hits,
+                        Note: scan.Note ?? "TSD /api/research/scan");
+                }
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "TSD research scan {Status}; falling back to MDMS bars",
+                    (int)scanResponse.StatusCode);
+            }
+        }
+        catch (Exception ex) when (opts.SoftFail)
+        {
+            _logger.LogDebug(ex, "TSD research scan soft-fail; trying MDMS bars");
+        }
+
         var url =
             $"{baseUrl}/api/mdms/bars/history?symbol={Uri.EscapeDataString(mappedSymbol)}&interval={Uri.EscapeDataString(interval)}&limit={Math.Clamp(limit, 50, 5000)}";
 
         try
         {
-            var http = _httpClientFactory.CreateClient(nameof(ResearchConditionSearchV1));
             using var response = await http.GetAsync(url, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
@@ -195,5 +264,59 @@ public sealed class ResearchConditionSearchV1 : IResearchConditionSearchV1
 
         [JsonPropertyName("volume")]
         public double Volume { get; set; }
+    }
+
+    private sealed class TsdResearchScanDto
+    {
+        [JsonPropertyName("data_source")]
+        public string? DataSource { get; set; }
+
+        [JsonPropertyName("symbol")]
+        public string? Symbol { get; set; }
+
+        [JsonPropertyName("note")]
+        public string? Note { get; set; }
+
+        [JsonPropertyName("universe_bars")]
+        public int UniverseBars { get; set; }
+
+        [JsonPropertyName("evaluated_bars")]
+        public int EvaluatedBars { get; set; }
+
+        [JsonPropertyName("hit_count")]
+        public int HitCount { get; set; }
+
+        [JsonPropertyName("positive_forward_count")]
+        public int PositiveForwardCount { get; set; }
+
+        [JsonPropertyName("negative_forward_count")]
+        public int NegativeForwardCount { get; set; }
+
+        [JsonPropertyName("insufficient_data_count")]
+        public int InsufficientDataCount { get; set; }
+
+        [JsonPropertyName("live_meets_condition")]
+        public bool? LiveMeetsCondition { get; set; }
+
+        [JsonPropertyName("hits")]
+        public List<TsdResearchHitDto>? Hits { get; set; }
+    }
+
+    private sealed class TsdResearchHitDto
+    {
+        [JsonPropertyName("time")]
+        public long Time { get; set; }
+
+        [JsonPropertyName("condition_metric")]
+        public double ConditionMetric { get; set; }
+
+        [JsonPropertyName("threshold")]
+        public double Threshold { get; set; }
+
+        [JsonPropertyName("forward_return")]
+        public double ForwardReturn { get; set; }
+
+        [JsonPropertyName("forward_positive")]
+        public bool ForwardPositive { get; set; }
     }
 }

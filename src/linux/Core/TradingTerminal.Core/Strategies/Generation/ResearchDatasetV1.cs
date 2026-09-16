@@ -30,6 +30,35 @@ public sealed record ResearchIndicatorBindingV1(
     int Period)
 {
     public string DisplayLabel => Period > 0 ? $"{Kind}({Period})" : Kind;
+
+    /// <summary>Human-readable formula for Research Studio inspect panel.</summary>
+    public string FormulaDescription
+    {
+        get
+        {
+            var kind = Kind.Trim();
+            if (Period > 0 &&
+                (kind.Contains("SMA", StringComparison.OrdinalIgnoreCase) ||
+                 kind.Equals("Sma", StringComparison.OrdinalIgnoreCase)))
+                return $"SMA({Period}) = mean of last {Period} completed closes";
+            if (Period > 0 &&
+                (kind.Contains("EMA", StringComparison.OrdinalIgnoreCase) ||
+                 kind.Equals("Ema", StringComparison.OrdinalIgnoreCase)))
+                return $"EMA({Period}) = exponential moving average of closes, span {Period}";
+            if (Period > 0 && kind.Contains("RSI", StringComparison.OrdinalIgnoreCase))
+                return $"RSI({Period}) = relative strength over {Period} bars";
+            if (kind.Contains("MACD", StringComparison.OrdinalIgnoreCase))
+                return "MACD = EMA(fast) − EMA(slow) with signal line (chart defaults)";
+            if (kind.Contains("BB", StringComparison.OrdinalIgnoreCase) ||
+                kind.Contains("Bollinger", StringComparison.OrdinalIgnoreCase))
+                return Period > 0
+                    ? $"Bollinger({Period}) = SMA({Period}) ± k·σ"
+                    : "Bollinger bands = SMA ± k·σ (chart defaults)";
+            return Period > 0
+                ? $"{DisplayLabel} — chart series with period {Period}"
+                : $"{DisplayLabel} — chart overlay";
+        }
+    }
 }
 
 /// <summary>

@@ -2,7 +2,10 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using TradingTerminal.App.Authoring;
 using TradingTerminal.Core.Backtest;
+using TradingTerminal.Core.Domain;
+using TradingTerminal.Core.Strategies;
 using TradingTerminal.Core.Strategies.Authoring;
+using TradingTerminal.Core.Strategies.Generation;
 using TradingTerminal.Infrastructure.Backtest;
 using TradingTerminal.Infrastructure.Strategies.Authoring;
 using Xunit;
@@ -179,6 +182,7 @@ public sealed class StrategyAuthoringFreshSessionTests
             NullLogger<StrategyAuthoringViewModel>.Instance,
             sessionRepository: sessions);
 
+        viewModel.SelectedSavedSession = sessions.List().First();
         viewModel.SelectedSavedSession.Should().NotBeNull();
         viewModel.Composer = "unsent follow-up";
         viewModel.StarterSearchText = "futures";
@@ -240,14 +244,45 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.SelectedStarterFamily.Should().Be(viewModel.StarterFamilyOptions[0]);
         viewModel.SelectedStarterHorizon.Should().Be(viewModel.StarterHorizonOptions[0]);
         viewModel.SelectedStarterData.Should().Be(viewModel.StarterDataOptions[0]);
-        viewModel.VisibleStarterBriefs.Should().HaveCount(viewModel.AllStarterBriefs.Count);
+        viewModel.VisibleStarterBriefs.Should().HaveCount(viewModel.AllStarterBriefs.Count - 1,
+            "QuoteL1 EMA smoke is Build-only and must not appear in Design/Research starters");
+        viewModel.VisibleStarterBriefs.Should().NotContain(brief =>
+            string.Equals(brief.Id, "starter.quote-l1-ema-smoke", StringComparison.Ordinal));
+        viewModel.CanOpenDesignScreen.Should().BeTrue(
+            "Strategy Builder starts on Design; Research Studio is the separate investigation workspace");
+        viewModel.HasResearchDesignHandoff.Should().BeFalse();
         viewModel.InputTokens.Should().Be(0);
         viewModel.OutputTokens.Should().Be(0);
         viewModel.CachedTokens.Should().Be(0);
         viewModel.WorkbenchTab.Should().Be(3, "a fresh Design screen must select the visible Request tab");
         viewModel.IsDesignScreen.Should().BeTrue();
-        viewModel.IsBriefStage.Should().BeTrue();
-        viewModel.ActiveScreenTitle.Should().Be("Brief");
+        viewModel.IsChartDesignStage.Should().BeTrue();
+        viewModel.IsResearchStage.Should().BeFalse();
+        viewModel.ActiveScreenTitle.Should().Be("Design");
+        viewModel.CanOpenResearchScreen.Should().BeTrue();
+        viewModel.ShowResearchWorkspace.Should().BeFalse();
+        viewModel.IsResearchStudioShell.Should().BeFalse();
+        viewModel.ExecutionFillModelOptions.Should().ContainSingle()
+            .Which.Should().Be(StrategyAuthoringViewModel.SupportedExecutionFillModel);
+        viewModel.ExecutionBookTypeOptions.Should().ContainSingle()
+            .Which.Should().Be(StrategyAuthoringViewModel.SupportedExecutionBookType);
+        viewModel.TryGetAppliedExecutionFidelity(out var applied, out var rejection).Should().BeTrue(rejection);
+        applied.DataModeToken.Should().Contain("L1TouchFillModel");
+        applied.DataModeToken.Should().Contain("applied");
+        viewModel.ExecutionEnableQueuePosition = true;
+        viewModel.TryGetAppliedExecutionFidelity(out _, out rejection).Should().BeFalse();
+        rejection.Should().Contain("Unsupported");
+        viewModel.ExecutionEnableQueuePosition = false;
+        viewModel.ShowImplementationTabs.Should().BeFalse(
+            "Design must not expose Strategy.cs / Code — that belongs in Build");
+        viewModel.ActiveArtifactKindText.Should().NotBeNullOrWhiteSpace();
+        viewModel.DesignInspectorMinWidth.Should().Be(0);
+        viewModel.ConversationColumnMaxWidth.Should().Be(double.PositiveInfinity);
+        viewModel.MainWorkspaceColumnDefinitions.Should().Be("Auto,*,4,Auto");
+        viewModel.ResearchStageState.Should().Be("PENDING");
+        viewModel.DesignStageState.Should().Be("PENDING");
+        viewModel.ResearchStageState.Should().NotBe("OPTIONAL");
+        viewModel.DesignStageState.Should().NotBe("OPTIONAL");
         viewModel.StrategyWorkspace.WorkspaceId.Should().Be("myStrategy");
         viewModel.StrategyWorkspace.Stages.Should().HaveCount(6);
         viewModel.ValidateStageState.Should().Be("LOCKED");
@@ -270,6 +305,201 @@ public sealed class StrategyAuthoringFreshSessionTests
             "starting a new strategy must release transient raw provider output");
         viewModel.Files.Should().ContainSingle(file => file.Name == StrategyFile.DefaultName);
         viewModel.SelectedFile.Should().BeSameAs(viewModel.Files[0]);
+        viewModel.Status.Should().Contain("Research Studio");
+        viewModel.AuthoredUnitSpecification.Should().BeNull();
+        viewModel.ConfirmedStrategyIntent.Should().BeNull();
+        viewModel.CanUseObservationInDesign.Should().BeFalse(
+            "a blank project has no observation to promote yet");
+    }
+
+    [Fact]
+    public void Opening_ranked_screen_row_binds_Hyperion_to_that_symbol()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.IsResearchStudioShell = true;
+        viewModel.SetBoundResearchChartInstrument("BTCUSD");
+        viewModel.ActiveResearchContextText.Should().Contain("BTCUSD");
+
+        var from = new DateTime(2026, 9, 15, 7, 0, 0, DateTimeKind.Utc);
+        var to = from.AddHours(24);
+        var row = new ResearchMarketScreenRowV1(
+            Rank: 1,
+            CanonicalSymbol: "C",
+            DisplayName: "Citigroup",
+            MetricValue: 700_123,
+            MetricLabel: "estimated traded value",
+            MetricDefinition: "Σ(volume × close)",
+            BarsUsed: 24,
+            BarSizeLabel: "1h",
+            WindowFromUtc: from,
+            WindowToUtcExclusive: to,
+            VolumeSum: 1,
+            TradedValueSum: 700_123,
+            PercentChange: null);
+
+        string? previewedSymbol = null;
+        viewModel.HostChartOverlayPreviewRequested += (_, args) =>
+            previewedSymbol = args.PreferredSymbol;
+
+        viewModel.OpenResearchScreenRowCommand.Execute(row);
+
+        previewedSymbol.Should().Be("C");
+        viewModel.SelectedResearchScreenRow!.CanonicalSymbol.Should().Be("C");
+        viewModel.ResearchChartInstrumentText.Should().Be("C");
+        viewModel.ActiveResearchContextText.Should().StartWith("#1 C");
+        viewModel.ResearchLinkedContextText.Should().Contain("linked");
+        viewModel.ResearchIndicatorInspectText.Should().Contain("C");
+        viewModel.ResearchScreenUniverseOptions.Should().Contain("S&P 100");
+        viewModel.ResearchScreenUniverseOptions.Should().Contain("Available instruments");
+    }
+
+    [Fact]
+    public void Research_led_path_saves_observation_before_any_strategy_artifact()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.IsResearchStudioShell = true;
+        viewModel.NewChatCommand.Execute(null);
+        viewModel.IsResearchStage.Should().BeTrue();
+        viewModel.ShowResearchWorkspace.Should().BeTrue(
+            "Research Studio shell is the only host for the Research workspace chrome");
+        viewModel.AuthoredUnitSpecification.Should().BeNull();
+        viewModel.CompiledOk.Should().BeFalse();
+        viewModel.IsRegistered.Should().BeFalse();
+        viewModel.DesignStageState.Should().Be("PENDING");
+        viewModel.BuildStageState.Should().Be("PENDING");
+
+        var starter = viewModel.AllStarterBriefs.First(brief =>
+            !string.Equals(brief.Id, "starter.quote-l1-ema-smoke", StringComparison.Ordinal));
+        viewModel.UseStarterPromptCommand.Execute(starter);
+        viewModel.IsResearchStage.Should().BeTrue();
+        viewModel.Composer.Should().StartWith("Investigate before writing trading rules:");
+        viewModel.ConfirmedStrategyIntent.Should().BeNull(
+            "templates seed a research question, not a confirmed strategy intent");
+        viewModel.AuthoredUnitSpecification.Should().BeNull();
+        viewModel.DesignStageState.Should().Be("PENDING");
+        viewModel.BuildStageState.Should().Be("PENDING");
+
+        var start = new DateTimeOffset(2026, 9, 16, 14, 0, 0, TimeSpan.Zero);
+        viewModel.SetResearchChartSelection(
+            new ResearchChartSelectionV1(
+                new InstrumentId(7),
+                "MSFT",
+                BarSize.OneHour,
+                start,
+                start.AddHours(4),
+                start.AddHours(4),
+                start.AddHours(8),
+                StrategyDataRequirement.Bars),
+            indicatorBindings:
+            [
+                new ResearchIndicatorBindingV1("ema-50", "ema", 50),
+                new ResearchIndicatorBindingV1("rsi-14", "rsi", 14),
+            ]);
+        viewModel.PendingConditionMultipleText = "2";
+        viewModel.PendingConditionLookbackText = "20";
+        viewModel.ApplyPendingResearchConditionCommand.Execute(null);
+        viewModel.SaveResearchReferenceACommand.Execute(null);
+
+        viewModel.AuthoredUnitSpecification.Should().BeNull(
+            "saving a research observation must not freeze a visualizer or strategy specification");
+        viewModel.CompiledOk.Should().BeFalse();
+        viewModel.IsRegistered.Should().BeFalse();
+        viewModel.CanUseObservationInDesign.Should().BeTrue();
+        viewModel.DesignStageState.Should().Be("PENDING",
+            "Design stays pending until Use in Design promotes evidence into rules");
+        viewModel.BuildStageState.Should().Be("PENDING");
+        viewModel.ShowImplementationTabs.Should().BeFalse();
+
+        viewModel.UseObservationInDesignCommand.Execute(null);
+
+        viewModel.IsChartDesignStage.Should().BeTrue();
+        viewModel.HasResearchDesignHandoff.Should().BeTrue();
+        viewModel.CanOpenDesignScreen.Should().BeTrue();
+        viewModel.WorkingFlowMapText.Should().Contain("2 Design ✓");
+        viewModel.Composer.Should().Contain("Use this Research observation in Design");
+        viewModel.Composer.Should().Contain("MSFT");
+        viewModel.Composer.Should().Contain("ema");
+        viewModel.AuthoredUnitSpecification.Should().BeNull(
+            "Use in Design attaches evidence only — no generate/compile/register");
+        viewModel.CompiledOk.Should().BeFalse();
+        viewModel.IsRegistered.Should().BeFalse();
+        viewModel.BuildStageState.Should().Be("PENDING");
+        viewModel.Status.Should().Match(s =>
+            s.Contains("No compile or register", StringComparison.Ordinal) ||
+            s.Contains("Strategy Builder", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Research_overlays_are_analysis_only_and_do_not_complete_Design_or_Build()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.NewChatCommand.Execute(null);
+        viewModel.PendingResearchOverlayIds = ["ema-20", "rsi-14"];
+
+        viewModel.AuthoredUnitSpecification.Should().BeNull();
+        viewModel.DesignStageState.Should().Be("PENDING");
+        viewModel.BuildStageState.Should().Be("PENDING");
+        viewModel.CanUseObservationInDesign.Should().BeFalse(
+            "analysis overlays alone are not Design evidence — need a chart selection, reference, or condition");
+        viewModel.HasResearchDesignHandoff.Should().BeFalse();
+        viewModel.StrategyWorkspace.Bindings.AuthoredUnitSpecificationHashSha256.Should().BeNull();
+        viewModel.StrategyWorkspace.Bindings.DrawingSemanticsHashSha256.Should().BeNull();
+    }
+
+    [Fact]
+    public void Constructor_starts_blank_Research_without_restoring_latest_strategy_session()
+    {
+        var saved = new AuthoringSessionSnapshot(
+            StrategyId: "alpha-quote-l1",
+            DisplayName: "ALPHA QuoteL1",
+            Chat:
+            [
+                new AuthoringChatEntry(
+                    AuthoringChatEntry.User,
+                    "ALPHA on XNAS QuoteL1 EMA 4/12 targets +5/-5",
+                    DateTime.Now),
+            ],
+            Thread: [],
+            Files: [new StrategyFile("Saved.cs", "// saved")],
+            InputTokens: 50,
+            OutputTokens: 10,
+            GenerateCandidateFirst: true,
+            AuthoringUxVersion: AuthoringSessionSnapshot.CurrentAuthoringUxVersion,
+            UpdatedUtc: DateTime.UtcNow);
+        var sessions = new MemoryAuthoringSessionRepository(saved);
+
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: sessions);
+
+        viewModel.SavedSessions.Should().ContainSingle(session => session.StrategyId == "alpha-quote-l1");
+        viewModel.SelectedSavedSession.Should().BeNull();
+        viewModel.StrategyId.Should().Be("myStrategy");
+        viewModel.IsChartDesignStage.Should().BeTrue();
+        viewModel.IsResearchStage.Should().BeFalse();
+        viewModel.Messages.Should().BeEmpty();
+        viewModel.Composer.Should().BeEmpty();
+        viewModel.AuthoredUnitSpecification.Should().BeNull();
+        viewModel.CanOpenDesignScreen.Should().BeTrue();
+        viewModel.DesignStageState.Should().Be("PENDING");
+        viewModel.BuildStageState.Should().Be("PENDING");
     }
 
     private sealed class MemoryAuthoringSessionRepository(params AuthoringSessionSnapshot[] sessions)

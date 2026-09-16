@@ -682,20 +682,64 @@ public sealed class NativeChartSurface : Control
         var firstTime = candles[start].Time;
         var lastTime = candles[end - 1].Time;
         var pointIndex = LowerBound(points, firstTime);
-        PathFigure? figure = null;
+        Point? previous = null;
+        var lastCandleIndex = -2;
         while (pointIndex < points.Length && points[pointIndex].Time <= lastTime)
         {
             var point = points[pointIndex++];
-            var candleIndex = FindExact(candles, point.Time);
-            if (candleIndex < start || candleIndex >= end) continue;
+            var candleIndex = FindNearestCandle(candles, point.Time, start, end);
+            if (candleIndex < start || candleIndex >= end)
+            {
+                previous = null;
+                lastCandleIndex = -2;
+                continue;
+            }
+
             var p = new Point(X(candleIndex, pane, start, end), Y(point.Value, pane, min, max));
-            if (figure is null) figure = new PathFigure { StartPoint = p };
-            else figure.Segments!.Add(new LineSegment { Point = p });
+            // Only stroke adjacent candles — never chord across gaps or backward jumps.
+            if (previous is { } from && candleIndex == lastCandleIndex + 1)
+                context.DrawLine(pen, from, p);
+
+            previous = p;
+            lastCandleIndex = candleIndex;
         }
-        if (figure?.Segments is not { Count: > 0 }) return;
-        var geometry = new PathGeometry();
-        geometry.Figures!.Add(figure);
-        context.DrawGeometry(null, pen, geometry);
+    }
+
+    /// <summary>
+    /// Map an indicator sample onto a visible candle. Exact match preferred; otherwise nearest
+    /// candle within one step so minor timestamp skew cannot skip most points and leave
+    /// long diagonal chords between the few that remain.
+    /// </summary>
+    private static int FindNearestCandle(ChartCandle[] candles, long time, int start, int end)
+    {
+        var exact = FindExact(candles, time);
+        if (exact >= start && exact < end) return exact;
+
+        var lo = LowerBound(candles, time);
+        var best = -1;
+        var bestDelta = long.MaxValue;
+        foreach (var candidate in new[] { lo - 1, lo, lo + 1 })
+        {
+            if (candidate < start || candidate >= end) continue;
+            var delta = Math.Abs(candles[candidate].Time - time);
+            if (delta < bestDelta)
+            {
+                bestDelta = delta;
+                best = candidate;
+            }
+        }
+
+        if (best < 0) return -1;
+        // Reject matches farther than ~1.5× the local bar spacing (avoids weekend chords).
+        var span = end - start;
+        if (span >= 2)
+        {
+            var typical = Math.Abs(candles[Math.Min(end - 1, start + 1)].Time - candles[start].Time);
+            if (typical > 0 && bestDelta > typical + typical / 2)
+                return -1;
+        }
+
+        return best;
     }
 
     private static void DrawOscillatorPane(

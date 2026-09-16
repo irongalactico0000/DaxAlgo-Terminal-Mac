@@ -56,4 +56,12 @@ public static class BarSizeExtensions
         "1D"  => BarSize.OneDay,
         _ => throw new ArgumentException($"Unknown bar size '{s}'.", nameof(s))
     };
+
+    public static BarSize ParseOrDefault(string? display, BarSize fallback = BarSize.OneHour)
+    {
+        if (string.IsNullOrWhiteSpace(display))
+            return fallback;
+        try { return FromDisplayString(display.Trim()); }
+        catch (ArgumentException) { return fallback; }
+    }
 }

@@ -41,6 +41,7 @@ public sealed class StrategyResearchDatasetAuthoringTests
         }
 
         using var restored = Create(repository);
+        restored.SelectedSavedSession = repository.Saved;
         restored.IsResearchStage.Should().BeTrue();
         restored.ResearchEventSamples.Should().ContainSingle();
         restored.ResearchEventSamples[0].EventSampleId.Should().StartWith("event-");

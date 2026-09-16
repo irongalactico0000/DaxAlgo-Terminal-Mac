@@ -288,11 +288,13 @@ public partial class App : Application
                             argument.StartsWith("--preview-overlays=", StringComparison.OrdinalIgnoreCase));
                         var previewResearchCapture = args.Any(argument =>
                             string.Equals(argument, "--preview-research-capture", StringComparison.OrdinalIgnoreCase));
+                        var previewResearchScreen = args.Any(argument =>
+                            string.Equals(argument, "--preview-research-screen", StringComparison.OrdinalIgnoreCase));
                         var previewResearchAuto = args.FirstOrDefault(argument =>
                             argument.StartsWith("--preview-research-auto", StringComparison.OrdinalIgnoreCase));
                         var previewDraftE2e = args.FirstOrDefault(argument =>
                             argument.StartsWith("--preview-draft-e2e", StringComparison.OrdinalIgnoreCase));
-                        if (previewArg is not null || previewResearchCapture || previewResearchAuto is not null || previewDraftE2e is not null)
+                        if (previewArg is not null || previewResearchCapture || previewResearchScreen || previewResearchAuto is not null || previewDraftE2e is not null)
                         {
                             var overlayIds = previewArg is null
                                 ? Array.Empty<string>()
@@ -313,11 +315,11 @@ public partial class App : Application
                                 : previewDraftE2e.Contains('=', StringComparison.Ordinal)
                                     ? previewDraftE2e.Split('=', 2, StringSplitOptions.TrimEntries)[1]
                                     : null;
-                            if (overlayIds.Length > 0 || previewResearchCapture || autoScanId is not null || previewDraftE2e is not null)
+                            if (overlayIds.Length > 0 || previewResearchCapture || previewResearchScreen || autoScanId is not null || previewDraftE2e is not null)
                             {
                                 File.WriteAllText(
                                     "/tmp/daxalgo-preview-overlays.log",
-                                    $"scheduled overlays=[{string.Join(',', overlayIds)}] researchCapture={previewResearchCapture} researchAuto={autoScanId} draftE2e={previewDraftE2e is not null} at {DateTime.UtcNow:O}\n");
+                                    $"scheduled overlays=[{string.Join(',', overlayIds)}] researchCapture={previewResearchCapture} researchScreen={previewResearchScreen} researchAuto={autoScanId} draftE2e={previewDraftE2e is not null} at {DateTime.UtcNow:O}\n");
                                 _ = Dispatcher.UIThread.InvokeAsync(async () =>
                                 {
                                     try
@@ -333,6 +335,16 @@ public partial class App : Application
                                             File.AppendAllText(
                                                 "/tmp/daxalgo-preview-overlays.log",
                                                 $"completed PreviewDraftPlaceE2EAsync at {DateTime.UtcNow:O}\n");
+                                        }
+                                        else if (previewResearchScreen)
+                                        {
+                                            File.AppendAllText(
+                                                "/tmp/daxalgo-preview-overlays.log",
+                                                $"invoking PreviewResearchMarketScreenAsync at {DateTime.UtcNow:O}\n");
+                                            await main.PreviewResearchMarketScreenAsync();
+                                            File.AppendAllText(
+                                                "/tmp/daxalgo-preview-overlays.log",
+                                                $"completed PreviewResearchMarketScreenAsync at {DateTime.UtcNow:O}\n");
                                         }
                                         else if (autoScanId is not null)
                                         {
@@ -379,6 +391,7 @@ public partial class App : Application
                     var isOverlayPreview = args.Any(argument =>
                         argument.StartsWith("--preview-overlays=", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(argument, "--preview-research-capture", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(argument, "--preview-research-screen", StringComparison.OrdinalIgnoreCase) ||
                         argument.StartsWith("--preview-research-auto", StringComparison.OrdinalIgnoreCase) ||
                         argument.StartsWith("--preview-draft-e2e", StringComparison.OrdinalIgnoreCase));
                     var skipSupportPrompt = isOverlayPreview || bypassLoginRequested || bypassAccountLoginRequested;

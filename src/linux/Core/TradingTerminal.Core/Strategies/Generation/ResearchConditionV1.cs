@@ -3,7 +3,7 @@ using TradingTerminal.Core.Strategies.Definition;
 namespace TradingTerminal.Core.Strategies.Generation;
 
 /// <summary>
-/// Editable research condition (R07). Version changes when parameters change (V05).
+/// Editable research condition (canon R08). Version changes when parameters change.
 /// First slice: volume vs trailing average; later kinds reuse the same version surface.
 /// </summary>
 public sealed record ResearchConditionDefinitionV1(

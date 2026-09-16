@@ -125,12 +125,12 @@ public sealed partial class StrategyAuthoringViewModel
         var intentHash = ConfirmedStrategyIntent is null
             ? null
             : StrategyIntentCanonicalJsonV1.Hash(ConfirmedStrategyIntent);
-        var drawingHash = AuthoredUnitSpecification is null
-            ? null
-            : StrategyWorkspaceCanonicalJsonV1.HashArtifact(AuthoredUnitSpecification.Drawing);
-        var specificationHash = AuthoredUnitSpecification is null
-            ? null
-            : AuthoredUnitSpecificationCanonicalJsonV1.Hash(AuthoredUnitSpecification);
+        var drawingHash = AuthoredUnitSpecification is { Kind: AuthoredUnitKindV1.Strategy }
+            ? StrategyWorkspaceCanonicalJsonV1.HashArtifact(AuthoredUnitSpecification.Drawing)
+            : null;
+        var specificationHash = AuthoredUnitSpecification is { Kind: AuthoredUnitKindV1.Strategy }
+            ? AuthoredUnitSpecificationCanonicalJsonV1.Hash(AuthoredUnitSpecification)
+            : null;
         var buildHash = IsRegistered && specificationHash is not null
             ? StrategyWorkspaceCanonicalJsonV1.HashArtifact(new StrategyWorkspaceBuildBinding(
                 specificationHash,
@@ -167,9 +167,10 @@ public sealed partial class StrategyAuthoringViewModel
     private string StageStateText(StrategyWorkspaceStageV1 stage)
     {
         var snapshot = StrategyWorkspace.Stage(stage);
+        // Research/Design may be non-gating in the revision policy, but they are first-class
+        // workflow stages — never label them "optional" in the stage pills.
         return snapshot.Requirement switch
         {
-            StrategyWorkspaceStageRequirementV1.Optional when snapshot.State == StrategyWorkspaceStageStateV1.Pending => "OPTIONAL",
             StrategyWorkspaceStageRequirementV1.Skipped => "SKIPPED",
             _ => snapshot.State switch
             {

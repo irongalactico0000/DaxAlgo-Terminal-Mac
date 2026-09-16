@@ -138,6 +138,29 @@ public sealed partial class VolumeFootprintViewModel : ViewModelBase, IDisposabl
     public ObservableCollection<SignalInstrument> Instruments { get; }
     public ObservableCollection<FootprintInterval> Intervals { get; }
 
+    private string? _preferredSymbol;
+
+    /// <summary>Prefer this symbol when opened from Research Studio.</summary>
+    public bool PreferSymbol(string? symbol)
+    {
+        if (string.IsNullOrWhiteSpace(symbol)) return false;
+        _preferredSymbol = symbol.Trim();
+        InstrumentSearchText = _preferredSymbol;
+        return TryApplyPreferredSymbol();
+    }
+
+    private bool TryApplyPreferredSymbol()
+    {
+        if (string.IsNullOrWhiteSpace(_preferredSymbol)) return false;
+        var match = _allInstruments.FirstOrDefault(i =>
+            string.Equals(i.Contract.Symbol, _preferredSymbol, StringComparison.OrdinalIgnoreCase));
+        if (match is null) return false;
+        if (!Instruments.Contains(match))
+            Instruments.Insert(0, match);
+        SelectedInstrument = match;
+        return true;
+    }
+
     /// <summary>Cell rendering modes shown in the toolbar combo (Bid×Ask / Delta / Volume).</summary>
     public IReadOnlyList<CellDisplayMode> DisplayModes { get; } =
         new[] { CellDisplayMode.BidAsk, CellDisplayMode.Delta, CellDisplayMode.Volume };
@@ -269,9 +292,12 @@ public sealed partial class VolumeFootprintViewModel : ViewModelBase, IDisposabl
                 .ToList();
             var keep = SelectedInstrument;
             ApplyFilter();
-            SelectedInstrument = keep is not null && Instruments.Contains(keep)
-                ? keep
-                : _allInstruments.FirstOrDefault(i => i.Contract.Symbol == "SPY") ?? _allInstruments.FirstOrDefault();
+            if (!TryApplyPreferredSymbol())
+            {
+                SelectedInstrument = keep is not null && Instruments.Contains(keep)
+                    ? keep
+                    : _allInstruments.FirstOrDefault(i => i.Contract.Symbol == "SPY") ?? _allInstruments.FirstOrDefault();
+            }
         }
         catch (Exception ex)
         {
