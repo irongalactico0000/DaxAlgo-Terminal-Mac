@@ -29,6 +29,12 @@ public sealed record AuthoringChatEntry(
 /// the MODEL reads (so a resumed conversation still remembers what it wrote), the files, the provider
 /// setup and what it has cost so far.
 /// </summary>
+/// <param name="StrategyDraftJson">Optional chart-authored strategy draft (stop/target). Unlocked drafts are not TradeIR.</param>
+/// <param name="ResearchConditionJson">Pending editable research condition (canon R08) — survives reopen without file re-upload.</param>
+/// <param name="ResearchConditionSearchResultJson">Last condition search result, including LiveMeetsCondition.</param>
+/// <param name="ResearchAnalysisReferencesJson">Named in-app research references A/B/… (canon R13).</param>
+/// <param name="ResearchChartSelectionJson">Pending chart brush (U03) — survives reopen without re-selecting on the chart.</param>
+/// <param name="ResearchIndicatorBindingsJson">Pending indicator bindings captured with the chart brush (U04).</param>
 public sealed record AuthoringSessionSnapshot(
     string StrategyId,
     string DisplayName,
@@ -72,8 +78,12 @@ public sealed record AuthoringSessionSnapshot(
     string? StrategyWorkspaceJson = null,
     string? ResearchDatasetJson = null,
     string? ResearchExperimentJson = null,
-    /// <summary>Optional chart-authored strategy draft (stop/target). Unlocked drafts are not TradeIR.</summary>
-    string? StrategyDraftJson = null)
+    string? StrategyDraftJson = null,
+    string? ResearchConditionJson = null,
+    string? ResearchConditionSearchResultJson = null,
+    string? ResearchAnalysisReferencesJson = null,
+    string? ResearchChartSelectionJson = null,
+    string? ResearchIndicatorBindingsJson = null)
 {
     public const int CurrentAuthoringUxVersion = 3;
 

@@ -197,6 +197,7 @@ public partial class MainWindow : Window
             var window = services.GetRequiredService<
                 TradingTerminal.App.Avalonia.Execution.ExecutionConsoleWindow>();
             window.DataContext = viewModel;
+            window.AttachSidecarConfirms(services);
             _liveExecutionConsoleWindow = window;
             window.Closed += (_, _) => _liveExecutionConsoleWindow = null;
             ShowDisposing(window, viewModel);
@@ -424,17 +425,15 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Opens Strategy Builder and auto-labels research samples from local Simulated history
+    /// Opens Research Studio and auto-labels research samples from local Simulated history
     /// (<c>--preview-research-auto</c> smoke / clickable suggestion chips).
     /// </summary>
     public async Task PreviewResearchAutoCollectAsync(string scanId = "next-day-plus-5")
     {
         if ((Application.Current as App)?.Services is not { } sp) return;
         var vm = sp.GetRequiredService<TradingTerminal.App.Authoring.StrategyAuthoringViewModel>();
-        var window = CreateAuthoringWindow(vm);
-        WireResearchChartRequest(vm, window);
-        ShowDisposing(window, vm);
-        Vm?.ActivityLog.Append("Tools", "INFO", $"Opened Strategy authoring for research auto-collect ({scanId}).");
+        var window = OpenResearchStudioWindow(vm);
+        Vm?.ActivityLog.Append("Tools", "INFO", $"Opened Research Studio for auto-collect ({scanId}).");
         await vm.AutoCollectLocalResearchSamplesCommand.ExecuteAsync(scanId);
         try
         {
@@ -450,6 +449,45 @@ public partial class MainWindow : Window
         catch
         {
             // Preview diagnostics must never break auto-collect.
+        }
+    }
+
+    /// <summary>
+    /// Opens Research Studio, ranks the local universe by traded value, and opens the top row on the chart
+    /// (<c>--preview-research-screen</c>).
+    /// </summary>
+    public async Task PreviewResearchMarketScreenAsync()
+    {
+        if ((Application.Current as App)?.Services is not { } sp) return;
+        var vm = sp.GetRequiredService<TradingTerminal.App.Authoring.StrategyAuthoringViewModel>();
+        OpenResearchStudioWindow(vm);
+        // Keep Hyperion collapsed so the chart + market screen own the width (Studio default).
+        vm.ResearchScreenUniverseId = "S&P 100";
+        vm.ResearchScreenMetricChoice = "Estimated traded value";
+        vm.ResearchScreenBarSizeChoice = "1h";
+        vm.ResearchScreenTopN = 10;
+        Vm?.ActivityLog.Append("Tools", "INFO", "Opened Research Studio for market screen preview.");
+        if (vm.RunResearchMarketScreenCommand.CanExecute(null))
+            await vm.RunResearchMarketScreenCommand.ExecuteAsync(null);
+        if (vm.ResearchScreenRows.Count > 0)
+            vm.OpenResearchScreenRowCommand.Execute(vm.ResearchScreenRows[0]);
+        try
+        {
+            var result = vm.ResearchMarketScreenResult;
+            File.AppendAllText(
+                "/tmp/daxalgo-preview-overlays.log",
+                $"{DateTime.UtcNow:O} PreviewResearchMarketScreen: " +
+                $"rows={result?.Rows.Count ?? -1} usable={result?.InstrumentsWithUsableHistory ?? -1} " +
+                $"top1={vm.SelectedResearchScreenRow?.CanonicalSymbol ?? "none"} " +
+                $"bound={vm.ResearchChartInstrumentText ?? "none"} " +
+                $"hyperion={vm.ActiveResearchContextText} " +
+                $"linked={vm.ResearchLinkedContextText} " +
+                $"status={vm.Status}\n" +
+                $"coverage={result?.CoverageSummary}\n");
+        }
+        catch
+        {
+            // Preview diagnostics must never break the screen path.
         }
     }
 
@@ -591,7 +629,10 @@ public partial class MainWindow : Window
         TradingTerminal.Core.Strategies.Generation.ResearchOutcomeGalleryMatchV1? galleryMatch = null,
         DateTime? historyFromUtc = null,
         DateTime? historyToUtc = null,
-        TradingTerminal.Core.Domain.BarSize? historyBarSize = null)
+        TradingTerminal.Core.Domain.BarSize? historyBarSize = null,
+        TradingTerminal.Core.Strategies.Generation.ResearchChartSelectionV1? researchSelection = null,
+        bool forceDetachedWindow = false,
+        Settings.ResearchStudioWindow? targetStudio = null)
     {
         static void PreviewLog(string message)
         {
@@ -615,21 +656,51 @@ public partial class MainWindow : Window
 
         var authoringViewModel = targetViewModel;
         var authoringWindow = targetWindow;
+        Settings.ResearchStudioWindow? studioWindow = targetStudio;
+        if (authoringViewModel is not null && authoringWindow is null && studioWindow is null)
+        {
+            foreach (var window in OwnedWindows.OfType<Settings.ResearchStudioWindow>())
+            {
+                if (ReferenceEquals(window.DataContext, authoringViewModel))
+                {
+                    studioWindow = window;
+                    break;
+                }
+            }
+
+            // Never fall back to Strategy Builder embed — Research charts belong in Studio or detached Charts.
+            if (studioWindow is null)
+            {
+                foreach (var window in OwnedWindows.OfType<Settings.StrategyAuthoringWindow>())
+                {
+                    if (ReferenceEquals(window.DataContext, authoringViewModel))
+                    {
+                        authoringWindow = window;
+                        break;
+                    }
+                }
+            }
+        }
 
         PreviewLog(
             hostOverlayIds is { Count: > 0 }
                 ? $"resolving Charts services for overlays [{string.Join(',', hostOverlayIds)}]"
                 : "resolving Charts services");
 
-        // Reuse one Charts window for gallery focus so Research boxes do not spawn a stack of windows.
-        var reuseExisting = _researchChartWindow is { IsVisible: true } && _researchChartViewModel is not null;
-        var chartViewModel = reuseExisting
-            ? _researchChartViewModel!
-            : services.GetRequiredService<TradingTerminal.Charts.ChartsViewModel>();
-        PreviewLog(reuseExisting ? "ChartsViewModel reused" : "ChartsViewModel resolved");
+        // One shared ChartsViewModel for Research: embedded in Studio/Builder by default, detachable on demand.
+        var chartViewModel = _researchChartViewModel
+            ?? studioWindow?.ResearchChartsViewModel
+            ?? authoringWindow?.ResearchChartsViewModel
+            ?? services.GetRequiredService<TradingTerminal.Charts.ChartsViewModel>();
+        _researchChartViewModel = chartViewModel;
+        PreviewLog(
+            studioWindow?.ResearchChartsViewModel is not null || authoringWindow?.ResearchChartsViewModel is not null
+                ? "ChartsViewModel reused from embed"
+                : "ChartsViewModel resolved");
+
         if (hostOverlayIds is { Count: > 0 })
         {
-            chartViewModel.ApplyHostOverlayIds(hostOverlayIds);
+            chartViewModel.ApplyHostOverlayIds(hostOverlayIds, replaceExisting: true);
             PreviewLog(
                 $"overlays applied SMA={chartViewModel.ShowSma} EMA={chartViewModel.ShowEma}/{chartViewModel.EmaPeriod} RSI={chartViewModel.ShowRsi} MACD={chartViewModel.ShowMacd} BB={chartViewModel.ShowBollinger}");
         }
@@ -644,6 +715,17 @@ public partial class MainWindow : Window
                 galleryMatch.OutcomeFromUtc,
                 galleryMatch.OutcomeToUtcExclusive);
             PreviewLog($"gallery capture applied: {galleryMatch.CanonicalSymbol} return={galleryMatch.OutcomeReturn:P1}");
+        }
+        else if (researchSelection is not null)
+        {
+            chartViewModel.ApplyHostResearchCapture(
+                researchSelection.CanonicalSymbol,
+                researchSelection.Timeframe,
+                researchSelection.ObservationFromUtc.UtcDateTime,
+                researchSelection.ObservationToUtc.UtcDateTime,
+                researchSelection.OutcomeFromUtc.UtcDateTime,
+                researchSelection.OutcomeToUtc.UtcDateTime);
+            PreviewLog($"research selection capture applied: {researchSelection.CanonicalSymbol}");
         }
         else if (historyFromUtc is { } fromUtc &&
                  historyToUtc is { } toUtc &&
@@ -662,51 +744,178 @@ public partial class MainWindow : Window
             PreviewLog($"preferred symbol applied: {preferredSymbol}");
         }
 
-        if (reuseExisting)
+        // Prefer host/research intent over a stale chart selection (e.g. BTCUSD default).
+        var hostIntentSymbol = preferredSymbol
+            ?? galleryMatch?.CanonicalSymbol
+            ?? researchSelection?.CanonicalSymbol;
+        if (!string.IsNullOrWhiteSpace(hostIntentSymbol) &&
+            !string.Equals(
+                chartViewModel.SelectedInstrument?.Contract.Symbol,
+                hostIntentSymbol,
+                StringComparison.OrdinalIgnoreCase))
         {
+            chartViewModel.ApplyHostPreferredSymbol(hostIntentSymbol);
+            PreviewLog(
+                $"re-applied preferred symbol after mismatch: want={hostIntentSymbol} have={chartViewModel.SelectedInstrument?.Contract.Symbol ?? "null"}");
+        }
+
+        var boundSymbol = hostIntentSymbol
+            ?? chartViewModel.SelectedInstrument?.Contract.Symbol;
+        authoringViewModel?.SetBoundResearchChartInstrument(boundSymbol);
+        authoringViewModel?.SyncResearchChartIndicators(
+            chartViewModel.CaptureActiveIndicatorBindings(),
+            chartViewModel.CaptureActiveOverlayIds());
+
+        var preferStudioEmbed = !forceDetachedWindow && studioWindow is not null;
+        // Strategy Builder must not embed Research chrome — chart embeds belong in Research Studio only.
+
+        if (preferStudioEmbed)
+        {
+            EnsureResearchChartHandlers(services, chartViewModel, authoringViewModel, authoringWindow);
+            studioWindow!.BindResearchChart(chartViewModel);
+            if (_researchChartWindow is { IsVisible: true })
+                _researchChartWindow.Hide();
             if (startResearchCapture)
                 ArmHostResearchCapture(chartViewModel, PreviewLog);
-            _researchChartWindow!.Activate();
-            PreviewLog("Activated existing Charts window for gallery focus");
+            studioWindow.Activate();
+            PreviewLog("Bound ChartsViewModel into Research Studio");
+            return;
+        }
+
+        if (_researchChartWindow is { IsVisible: true })
+        {
+            _researchChartWindow.DataContext = chartViewModel;
+            if (startResearchCapture)
+                ArmHostResearchCapture(chartViewModel, PreviewLog);
+            _researchChartWindow.Activate();
+            PreviewLog("Activated existing detached Charts window");
             return;
         }
 
         var chartWindow = services.GetRequiredService<TradingTerminal.Charts.ChartsWindow>();
         PreviewLog("ChartsWindow resolved");
         chartWindow.DataContext = chartViewModel;
-        // ChartsWindow.axaml used CenterOwner; without an owner Avalonia can leave the window
-        // off-screen / non-visible on macOS. Force CenterScreen and Show(owner).
         chartWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         _researchChartWindow = chartWindow;
         _researchChartViewModel = chartViewModel;
 
-        EventHandler<TradingTerminal.Charts.ResearchChartSelectionRequestedEventArgs>? selectionHandler = null;
-        selectionHandler = (_, args) =>
-        {
-            (authoringViewModel, authoringWindow) = EnsureAuthoringForResearchChart(services, authoringViewModel, authoringWindow);
-            authoringViewModel.SetResearchChartSelection(args.Selection);
-            authoringWindow.Activate();
-            // Keep the single Charts window open for further gallery box focus.
-        };
-        chartViewModel.ResearchSelectionRequested += selectionHandler;
+        EnsureResearchChartHandlers(services, chartViewModel, authoringViewModel, authoringWindow);
 
-        EventHandler<TradingTerminal.Charts.StrategyDraftRequestedEventArgs>? draftHandler = null;
-        draftHandler = (_, args) =>
+        chartWindow.Closed += (_, _) =>
         {
-            (authoringViewModel, authoringWindow) = EnsureAuthoringForResearchChart(services, authoringViewModel, authoringWindow);
-            authoringViewModel.SetStrategyDraft(args.Draft);
-            authoringWindow.Activate();
+            PreviewLog("Charts window closed");
+            if (ReferenceEquals(_researchChartWindow, chartWindow))
+                _researchChartWindow = null;
+            // Keep _researchChartViewModel when still embedded in Strategy Builder.
+            if (authoringWindow is not { HasEmbeddedResearchChart: true })
+                _researchChartViewModel = null;
         };
-        chartViewModel.StrategyDraftRequested += draftHandler;
+        authoringWindow?.ClearResearchChartEmbed(keepViewModel: true);
+        chartWindow.Show(this);
+        chartWindow.Activate();
+        if (startResearchCapture)
+            ArmHostResearchCapture(chartViewModel, PreviewLog);
+        PreviewLog(
+            $"Show(owner)+Activate detached Charts IsVisible={chartWindow.IsVisible} Width={chartWindow.Width} Height={chartWindow.Height} researchCapture={startResearchCapture}");
+    }
 
-        EventHandler? lockHandler = null;
-        lockHandler = (_, _) =>
+    private TradingTerminal.Charts.ChartsViewModel? _researchChartHandlersTarget;
+    private TradingTerminal.App.Authoring.StrategyAuthoringViewModel? _researchAuthoringViewModel;
+    private Settings.StrategyAuthoringWindow? _researchAuthoringWindow;
+    private Settings.ResearchStudioWindow? _researchStudioWindow;
+    private EventHandler<TradingTerminal.Charts.ResearchChartSelectionRequestedEventArgs>? _researchSelectionHandler;
+    private EventHandler? _researchFindSimilarHandler;
+    private EventHandler? _researchSpaceHandler;
+    private EventHandler<TradingTerminal.Charts.StrategyDraftRequestedEventArgs>? _strategyDraftHandler;
+    private EventHandler? _strategyDraftLockHandler;
+    private EventHandler? _historicalBacktestHandler;
+
+    private void EnsureResearchChartHandlers(
+        IServiceProvider services,
+        TradingTerminal.Charts.ChartsViewModel chartViewModel,
+        TradingTerminal.App.Authoring.StrategyAuthoringViewModel? authoringViewModel,
+        Settings.StrategyAuthoringWindow? authoringWindow)
+    {
+        _researchAuthoringViewModel = authoringViewModel ?? _researchAuthoringViewModel;
+        _researchAuthoringWindow = authoringWindow ?? _researchAuthoringWindow;
+        if (ReferenceEquals(_researchChartHandlersTarget, chartViewModel))
         {
-            (authoringViewModel, authoringWindow) = EnsureAuthoringForResearchChart(services, authoringViewModel, authoringWindow);
-            if (!authoringViewModel.TryLockPendingStrategyDraftToActiveTradeIr(out var message))
+            SyncResearchSpaceFromChart(chartViewModel);
+            return;
+        }
+
+        if (_researchChartHandlersTarget is not null)
+        {
+            if (_researchSelectionHandler is not null)
+                _researchChartHandlersTarget.ResearchSelectionRequested -= _researchSelectionHandler;
+            if (_researchFindSimilarHandler is not null)
+                _researchChartHandlersTarget.ResearchFindSimilarRequested -= _researchFindSimilarHandler;
+            if (_researchSpaceHandler is not null)
+                _researchChartHandlersTarget.ResearchSpaceChanged -= _researchSpaceHandler;
+            if (_strategyDraftHandler is not null)
+                _researchChartHandlersTarget.StrategyDraftRequested -= _strategyDraftHandler;
+            if (_strategyDraftLockHandler is not null)
+                _researchChartHandlersTarget.StrategyDraftLockRequested -= _strategyDraftLockHandler;
+            if (_historicalBacktestHandler is not null)
+                _researchChartHandlersTarget.HistoricalBacktestRequested -= _historicalBacktestHandler;
+        }
+
+        _researchSelectionHandler = (_, args) =>
+        {
+            var (authoring, studio) = EnsureResearchStudioForChart(services, _researchAuthoringViewModel);
+            _researchAuthoringViewModel = authoring;
+            authoring.SetResearchChartSelection(
+                args.Selection,
+                args.ActiveOverlayIds,
+                args.IndicatorBindings);
+            authoring.SetBoundResearchChartInstrument(args.Selection.CanonicalSymbol);
+            studio.Activate();
+        };
+
+        _researchFindSimilarHandler = (_, _) =>
+        {
+            var (authoring, studio) = EnsureResearchStudioForChart(services, _researchAuthoringViewModel);
+            _researchAuthoringViewModel = authoring;
+            if (authoring.SearchResearchConditionLocalCommand.CanExecute(null))
+            {
+                _ = authoring.SearchResearchConditionLocalCommand.ExecuteAsync(null);
+                chartViewModel.Status =
+                    "Searching local history for the same condition — open hits to compare.";
+            }
+            else if (authoring.AutoCollectLocalResearchSamplesCommand.CanExecute("next-day-plus-5"))
+            {
+                _ = authoring.AutoCollectLocalResearchSamplesCommand.ExecuteAsync("next-day-plus-5");
+                chartViewModel.Status =
+                    "Collecting similar move charts (+5% next-day) — open a hit to compare.";
+            }
+            else
+            {
+                authoring.Status =
+                    "Find similar needs a saved observation + condition (open Details), or use Similar charts hits already listed.";
+                chartViewModel.Status = authoring.Status;
+            }
+
+            studio.Activate();
+        };
+
+        _researchSpaceHandler = (_, _) => SyncResearchSpaceFromChart(chartViewModel);
+
+        _strategyDraftHandler = (_, args) =>
+        {
+            var (authoring, studio) = EnsureResearchStudioForChart(services, _researchAuthoringViewModel);
+            _researchAuthoringViewModel = authoring;
+            authoring.SetStrategyDraft(args.Draft);
+            studio.Activate();
+        };
+
+        _strategyDraftLockHandler = (_, _) =>
+        {
+            var (authoring, studio) = EnsureResearchStudioForChart(services, _researchAuthoringViewModel);
+            _researchAuthoringViewModel = authoring;
+            if (!authoring.TryLockPendingStrategyDraftToActiveTradeIr(out var message))
             {
                 chartViewModel.Status = message;
-                authoringWindow.Activate();
+                studio.Activate();
             }
             else
             {
@@ -714,63 +923,97 @@ public partial class MainWindow : Window
                     string.IsNullOrWhiteSpace(message)
                         ? "Draft locked to TradeIR. Next: Historical BT."
                         : $"{message} Next: Historical BT.");
-                _researchChartWindow?.Activate();
+                studio.Activate();
             }
         };
-        chartViewModel.StrategyDraftLockRequested += lockHandler;
 
-        EventHandler? historicalHandler = null;
-        historicalHandler = (_, _) =>
+        _historicalBacktestHandler = (_, _) =>
         {
-            (authoringViewModel, authoringWindow) = EnsureAuthoringForResearchChart(services, authoringViewModel, authoringWindow);
-            if (!authoringViewModel.TryCreateHistoricalValidationContext(out _, out var blocker) ||
-                !authoringViewModel.CanRunHistoricalValidation)
+            var authoring = _researchAuthoringViewModel
+                ?? services.GetRequiredService<TradingTerminal.App.Authoring.StrategyAuthoringViewModel>();
+
+            // Leave Research Studio visible with its shell flag intact when it still owns this VM;
+            // open Validate in Builder only after parking Studio so column bindings do not flip live.
+            if (_researchStudioWindow is { } studio &&
+                ReferenceEquals(studio.DataContext, authoring) &&
+                (studio.IsVisible || studio.IsLoaded))
             {
-                // Consent-preserving assist: open Build, auto-Compile when ready, stop before Register.
-                authoringViewModel.PrepareHistoricalValidationAssist();
-                var message = string.IsNullOrWhiteSpace(authoringViewModel.Status)
+                studio.Hide();
+            }
+
+            authoring.IsResearchStudioShell = false;
+            if (authoring.IsResearchStage && authoring.OpenDesignScreenCommand.CanExecute(null))
+                authoring.OpenDesignScreenCommand.Execute(null);
+
+            (_researchAuthoringViewModel, _researchAuthoringWindow) = EnsureAuthoringForResearchChart(
+                services, authoring, _researchAuthoringWindow);
+            if (!_researchAuthoringViewModel.TryCreateHistoricalValidationContext(out _, out var blocker) ||
+                !_researchAuthoringViewModel.CanRunHistoricalValidation)
+            {
+                _researchAuthoringViewModel.PrepareHistoricalValidationAssist();
+                var message = string.IsNullOrWhiteSpace(_researchAuthoringViewModel.Status)
                     ? (string.IsNullOrWhiteSpace(blocker)
-                        ? authoringViewModel.DescribeHistoricalValidationBlocker()
+                        ? _researchAuthoringViewModel.DescribeHistoricalValidationBlocker()
                         : blocker)
-                    : authoringViewModel.Status;
+                    : _researchAuthoringViewModel.Status;
                 if (string.IsNullOrWhiteSpace(message))
-                    message = "Compile and register a TradeIR hash before Historical BT (Validate/Studio).";
-                authoringViewModel.Status = message;
+                    message = "Compile and register a TradeIR hash before Historical BT (Validate).";
+                _researchAuthoringViewModel.Status = message;
                 chartViewModel.MarkHistoricalBacktestBlocked(message);
-                authoringWindow.Activate();
+                _researchAuthoringWindow.Activate();
                 return;
             }
 
-            OpenAuthoringHistoricalValidation(authoringViewModel);
+            OpenAuthoringHistoricalValidation(_researchAuthoringViewModel);
             var opened =
-                string.IsNullOrWhiteSpace(authoringViewModel.Status)
-                    ? "Historical validation opened from Charts research shell."
-                    : authoringViewModel.Status;
+                string.IsNullOrWhiteSpace(_researchAuthoringViewModel.Status)
+                    ? "Historical validation opened from Charts → Strategy Builder Validate."
+                    : _researchAuthoringViewModel.Status;
             chartViewModel.MarkHistoricalBacktestRoomOpened(opened);
         };
-        chartViewModel.HistoricalBacktestRequested += historicalHandler;
 
-        chartWindow.Closed += (_, _) =>
+        chartViewModel.ResearchSelectionRequested += _researchSelectionHandler;
+        chartViewModel.ResearchFindSimilarRequested += _researchFindSimilarHandler;
+        chartViewModel.ResearchSpaceChanged += _researchSpaceHandler;
+        chartViewModel.StrategyDraftRequested += _strategyDraftHandler;
+        chartViewModel.StrategyDraftLockRequested += _strategyDraftLockHandler;
+        chartViewModel.HistoricalBacktestRequested += _historicalBacktestHandler;
+        _researchChartHandlersTarget = chartViewModel;
+        SyncResearchSpaceFromChart(chartViewModel);
+    }
+
+    private void SyncResearchSpaceFromChart(TradingTerminal.Charts.ChartsViewModel chartViewModel)
+    {
+        if (_researchAuthoringViewModel is null) return;
+        _researchAuthoringViewModel.SetBoundResearchChartInstrument(
+            chartViewModel.SelectedInstrument?.Contract.Symbol);
+        _researchAuthoringViewModel.SyncResearchChartIndicators(
+            chartViewModel.CaptureActiveIndicatorBindings(),
+            chartViewModel.CaptureActiveOverlayIds());
+    }
+
+    private (
+        TradingTerminal.App.Authoring.StrategyAuthoringViewModel ViewModel,
+        Settings.ResearchStudioWindow Window)
+        EnsureResearchStudioForChart(
+            IServiceProvider services,
+            TradingTerminal.App.Authoring.StrategyAuthoringViewModel? targetViewModel)
+    {
+        if (_researchStudioWindow is { } existingStudio &&
+            existingStudio.DataContext is TradingTerminal.App.Authoring.StrategyAuthoringViewModel existingVm &&
+            (existingStudio.IsVisible || existingStudio.IsLoaded))
         {
-            PreviewLog("Charts window closed");
-            chartViewModel.ResearchSelectionRequested -= selectionHandler;
-            chartViewModel.StrategyDraftRequested -= draftHandler;
-            chartViewModel.StrategyDraftLockRequested -= lockHandler;
-            chartViewModel.HistoricalBacktestRequested -= historicalHandler;
-            if (ReferenceEquals(_researchChartWindow, chartWindow))
-            {
-                _researchChartWindow = null;
-                _researchChartViewModel = null;
-            }
-        };
-        if (chartViewModel is IDisposable disposable)
-            chartWindow.Closed += (_, _) => disposable.Dispose();
-        chartWindow.Show(this);
-        chartWindow.Activate();
-        if (startResearchCapture)
-            ArmHostResearchCapture(chartViewModel, PreviewLog);
-        PreviewLog(
-            $"Show(owner)+Activate Charts IsVisible={chartWindow.IsVisible} Width={chartWindow.Width} Height={chartWindow.Height} researchCapture={startResearchCapture}");
+            existingVm.IsResearchStudioShell = true;
+            if (!existingStudio.IsVisible)
+                existingStudio.Show(this);
+            _researchAuthoringViewModel = existingVm;
+            return (existingVm, existingStudio);
+        }
+
+        targetViewModel ??= services.GetRequiredService<TradingTerminal.App.Authoring.StrategyAuthoringViewModel>();
+        var studio = OpenResearchStudioWindow(targetViewModel);
+        _researchAuthoringViewModel = targetViewModel;
+        return (targetViewModel, studio);
     }
 
     private (
@@ -784,8 +1027,12 @@ public partial class MainWindow : Window
         if (targetViewModel is null || targetWindow is null || !targetWindow.IsVisible)
         {
             targetViewModel = services.GetRequiredService<TradingTerminal.App.Authoring.StrategyAuthoringViewModel>();
+            targetViewModel.IsResearchStudioShell = false;
+            if (targetViewModel.IsResearchStage && targetViewModel.OpenDesignScreenCommand.CanExecute(null))
+                targetViewModel.OpenDesignScreenCommand.Execute(null);
             targetWindow = CreateAuthoringWindow(targetViewModel);
             WireResearchChartRequest(targetViewModel, targetWindow);
+            WireResearchStudioRequest(targetViewModel, targetWindow);
             ShowDisposing(targetWindow, targetViewModel);
         }
 
@@ -833,38 +1080,49 @@ public partial class MainWindow : Window
         Settings.StrategyAuthoringWindow window)
     {
         EventHandler? requestHandler = null;
+        EventHandler? detachHandler = null;
         EventHandler? validationHandler = null;
         EventHandler? paperHandler = null;
         EventHandler<TradingTerminal.Core.Strategies.Generation.HostChartOverlayPreviewRequestedEventArgs>? overlayHandler = null;
-        requestHandler = (_, _) => OpenResearchChart(viewModel, window);
+        requestHandler = (_, _) =>
+        {
+            OpenResearchStudioWindow(viewModel);
+            window.Hide();
+        };
+        detachHandler = (_, _) => OpenResearchChart(viewModel, forceDetachedWindow: true);
         validationHandler = (_, _) => OpenAuthoringHistoricalValidation(viewModel);
         paperHandler = (_, _) => _ = OpenAuthoringPaperAsync(viewModel);
         overlayHandler = (_, args) =>
         {
+            var studio = OpenResearchStudioWindow(viewModel);
+            window.Hide();
             OpenResearchChart(
                 viewModel,
-                window,
-                args.OverlayIds,
-                startResearchCapture: args.StartResearchCapture && args.GalleryMatch is null,
+                hostOverlayIds: args.OverlayIds,
+                startResearchCapture: args.StartResearchCapture && args.GalleryMatch is null && args.ResearchSelection is null,
                 preferredSymbol: args.PreferredSymbol,
                 galleryMatch: args.GalleryMatch,
                 historyFromUtc: args.HistoryFromUtc,
                 historyToUtc: args.HistoryToUtc,
-                historyBarSize: args.HistoryBarSize);
+                historyBarSize: args.HistoryBarSize,
+                researchSelection: args.ResearchSelection,
+                targetStudio: studio);
             Vm?.ActivityLog.Append(
                 "Charts",
                 "INFO",
                 args.StartResearchCapture
-                    ? $"Previewing host research chart from chat (overlays: {(args.OverlayIds.Count == 0 ? "none" : string.Join(", ", args.OverlayIds))}; symbol: {args.PreferredSymbol ?? "default"})."
-                    : $"Previewing host chart overlays from chat: {string.Join(", ", args.OverlayIds)}.");
+                    ? $"Previewing research chart in Research Studio (overlays: {(args.OverlayIds.Count == 0 ? "none" : string.Join(", ", args.OverlayIds))}; symbol: {args.PreferredSymbol ?? "default"})."
+                    : $"Previewing research chart overlays in Research Studio: {string.Join(", ", args.OverlayIds)}.");
         };
         window.ResearchChartRequested += requestHandler;
+        window.DetachResearchChartRequested += detachHandler;
         window.HistoricalValidationRequested += validationHandler;
         window.PaperHandoffRequested += paperHandler;
         viewModel.HostChartOverlayPreviewRequested += overlayHandler;
         window.Closed += (_, _) =>
         {
             window.ResearchChartRequested -= requestHandler;
+            window.DetachResearchChartRequested -= detachHandler;
             window.HistoricalValidationRequested -= validationHandler;
             window.PaperHandoffRequested -= paperHandler;
             viewModel.HostChartOverlayPreviewRequested -= overlayHandler;
@@ -888,6 +1146,12 @@ public partial class MainWindow : Window
         if (registration is null)
         {
             authoring.Status = "The exact compiled strategy is no longer registered.";
+            return;
+        }
+
+        if (!authoring.TryGetAppliedExecutionFidelity(out var appliedFidelity, out var fidelityRejection))
+        {
+            authoring.Status = fidelityRejection;
             return;
         }
 
@@ -920,7 +1184,7 @@ public partial class MainWindow : Window
             backtest.HistoricalValidationCompleted -= completed;
             backtest.PaperLaunchRequested -= paper;
         };
-        if (!backtest.Initialize(registration, context))
+        if (!backtest.Initialize(registration, context, appliedFidelity.DataModeToken))
         {
             authoring.Status = backtest.Status;
             window.Close();
@@ -1223,10 +1487,195 @@ public partial class MainWindow : Window
     {
         if ((Application.Current as App)?.Services is not { } sp) return;
         var vm = sp.GetRequiredService<TradingTerminal.App.Authoring.StrategyAuthoringViewModel>();
+        // If this VM is still hosted by a visible Research Studio (handoff reuse), park Studio first.
+        if (_researchStudioWindow is { } studio &&
+            ReferenceEquals(studio.DataContext, vm) &&
+            (studio.IsVisible || studio.IsLoaded))
+        {
+            studio.Hide();
+        }
+
+        vm.IsResearchStudioShell = false;
+        if (vm.IsResearchStage)
+            vm.OpenDesignScreenCommand.Execute(null);
         var window = CreateAuthoringWindow(vm);
         WireResearchChartRequest(vm, window);
+        WireResearchStudioRequest(vm, window);
         ShowDisposing(window, vm);
-        Vm?.ActivityLog.Append("Tools", "INFO", "Opened Strategy authoring.");
+        Vm?.ActivityLog.Append("Tools", "INFO", "Opened Strategy Builder.");
+    }
+
+    private void OnResearchStudio(object? sender, RoutedEventArgs e)
+    {
+        if ((Application.Current as App)?.Services is not { } sp) return;
+        var vm = sp.GetRequiredService<TradingTerminal.App.Authoring.StrategyAuthoringViewModel>();
+        OpenResearchStudioWindow(vm);
+        Vm?.ActivityLog.Append("Tools", "INFO", "Opened Research Studio.");
+    }
+
+    private Settings.ResearchStudioWindow OpenResearchStudioWindow(
+        TradingTerminal.App.Authoring.StrategyAuthoringViewModel vm)
+    {
+        vm.IsResearchStudioShell = true;
+        // Never leave Strategy Builder visible with this shared VM while Studio is open.
+        foreach (var builder in OwnedWindows.OfType<Settings.StrategyAuthoringWindow>())
+        {
+            if (ReferenceEquals(builder.DataContext, vm) && builder.IsVisible)
+                builder.Hide();
+        }
+
+        if (_researchStudioWindow is { } existing &&
+            ReferenceEquals(existing.DataContext, vm))
+        {
+            if (!existing.IsVisible)
+                existing.Show(this);
+            existing.Activate();
+            OpenResearchChart(vm, targetStudio: existing);
+            return existing;
+        }
+
+        var window = new Settings.ResearchStudioWindow
+        {
+            DataContext = vm,
+            ShowSimulatedDataBanner = Vm?.IsSimulatedActive == true,
+        };
+        WireResearchStudioChartRequest(vm, window);
+        WireStrategyBuilderHandoff(vm, window);
+        _researchStudioWindow = window;
+        window.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_researchStudioWindow, window))
+                _researchStudioWindow = null;
+        };
+        ShowDisposing(window, vm);
+        OpenResearchChart(vm, targetStudio: window);
+        return window;
+    }
+
+    private void WireResearchStudioRequest(
+        TradingTerminal.App.Authoring.StrategyAuthoringViewModel viewModel,
+        Settings.StrategyAuthoringWindow builder)
+    {
+        EventHandler? openStudio = null;
+        openStudio = (_, _) =>
+        {
+            // Prefer reactivating the existing Studio for this session (including after handoff Hide).
+            if (_researchStudioWindow is { } existing)
+            {
+                if (existing.DataContext is TradingTerminal.App.Authoring.StrategyAuthoringViewModel studioVm)
+                    studioVm.IsResearchStudioShell = true;
+                else
+                    viewModel.IsResearchStudioShell = true;
+                if (!existing.IsVisible)
+                    existing.Show(this);
+                existing.Activate();
+                builder.Hide();
+                return;
+            }
+
+            // Carry the Builder session into Studio so research context is not a blank new VM.
+            viewModel.IsResearchStudioShell = true;
+            OpenResearchStudioWindow(viewModel);
+            builder.Hide();
+        };
+        viewModel.ResearchStudioRequested += openStudio;
+        builder.Closed += (_, _) => viewModel.ResearchStudioRequested -= openStudio;
+    }
+
+    private void WireResearchStudioChartRequest(
+        TradingTerminal.App.Authoring.StrategyAuthoringViewModel viewModel,
+        Settings.ResearchStudioWindow window)
+    {
+        EventHandler? requestHandler = null;
+        EventHandler? detachHandler = null;
+        EventHandler<TradingTerminal.Core.Strategies.Generation.HostChartOverlayPreviewRequestedEventArgs>? overlayHandler = null;
+        EventHandler<TradingTerminal.Core.Strategies.Generation.HostResearchMarketStructureRequestedEventArgs>? structureHandler = null;
+        requestHandler = (_, _) => OpenResearchChart(viewModel, targetStudio: window);
+        detachHandler = (_, _) => OpenResearchChart(viewModel, forceDetachedWindow: true, targetStudio: window);
+        overlayHandler = (_, args) =>
+        {
+            OpenResearchChart(
+                viewModel,
+                hostOverlayIds: args.OverlayIds,
+                startResearchCapture: args.StartResearchCapture && args.GalleryMatch is null && args.ResearchSelection is null,
+                preferredSymbol: args.PreferredSymbol,
+                galleryMatch: args.GalleryMatch,
+                historyFromUtc: args.HistoryFromUtc,
+                historyToUtc: args.HistoryToUtc,
+                historyBarSize: args.HistoryBarSize,
+                researchSelection: args.ResearchSelection,
+                targetStudio: window);
+        };
+        structureHandler = (_, args) => OpenResearchMarketStructure(args.ViewKind, args.CanonicalSymbol);
+        window.ResearchChartRequested += requestHandler;
+        window.DetachResearchChartRequested += detachHandler;
+        viewModel.HostChartOverlayPreviewRequested += overlayHandler;
+        viewModel.HostResearchMarketStructureRequested += structureHandler;
+        window.Closed += (_, _) =>
+        {
+            window.ResearchChartRequested -= requestHandler;
+            window.DetachResearchChartRequested -= detachHandler;
+            viewModel.HostChartOverlayPreviewRequested -= overlayHandler;
+            viewModel.HostResearchMarketStructureRequested -= structureHandler;
+        };
+    }
+
+    private void OpenResearchMarketStructure(
+        TradingTerminal.Core.Strategies.Generation.ResearchMarketStructureViewKind viewKind,
+        string canonicalSymbol)
+    {
+        if ((Application.Current as App)?.Services is not { } sp) return;
+        switch (viewKind)
+        {
+            case TradingTerminal.Core.Strategies.Generation.ResearchMarketStructureViewKind.OrderBook:
+            {
+                var vm = sp.GetRequiredService<TradingTerminal.OrderBook.OrderBookViewModel>();
+                vm.PreferSymbol(canonicalSymbol);
+                ShowDisposing(new TradingTerminal.OrderBook.AvaloniaUi.OrderBookAvaloniaWindow { DataContext = vm }, vm);
+                Vm?.ActivityLog.Append("Charts", "INFO", $"Opened Order Book for {canonicalSymbol} (from Research).");
+                break;
+            }
+            case TradingTerminal.Core.Strategies.Generation.ResearchMarketStructureViewKind.VolumeFootprint:
+            {
+                var vm = sp.GetRequiredService<TradingTerminal.VolumeFootprint.VolumeFootprintViewModel>();
+                vm.PreferSymbol(canonicalSymbol);
+                ShowDisposing(new TradingTerminal.VolumeFootprint.AvaloniaUi.VolumeFootprintAvaloniaWindow { DataContext = vm }, vm);
+                Vm?.ActivityLog.Append("Charts", "INFO", $"Opened Volume Footprint for {canonicalSymbol} (from Research).");
+                break;
+            }
+            case TradingTerminal.Core.Strategies.Generation.ResearchMarketStructureViewKind.Bookmap:
+            {
+                var vm = sp.GetRequiredService<TradingTerminal.Heatmap.BookmapHeatmapViewModel>();
+                vm.PreferSymbol(canonicalSymbol);
+                ShowDisposing(new TradingTerminal.Heatmap.AvaloniaUi.BookmapHeatmapAvaloniaWindow { DataContext = vm }, vm);
+                Vm?.ActivityLog.Append("Charts", "INFO", $"Opened Bookmap + VolBook for {canonicalSymbol} (from Research).");
+                break;
+            }
+        }
+    }
+
+    private void WireStrategyBuilderHandoff(
+        TradingTerminal.App.Authoring.StrategyAuthoringViewModel viewModel,
+        Settings.ResearchStudioWindow studio)
+    {
+        EventHandler? handoff = null;
+        handoff = (_, _) =>
+        {
+            viewModel.StrategyBuilderHandoffRequested -= handoff;
+            viewModel.IsResearchStudioShell = false;
+            if (viewModel.OpenDesignScreenCommand.CanExecute(null))
+                viewModel.OpenDesignScreenCommand.Execute(null);
+            // Keep Studio alive (hidden) so ShowDisposing does not dispose the shared VM.
+            studio.Hide();
+            var builder = CreateAuthoringWindow(viewModel);
+            WireResearchChartRequest(viewModel, builder);
+            WireResearchStudioRequest(viewModel, builder);
+            ShowDisposing(builder, viewModel);
+            builder.Activate();
+            Vm?.ActivityLog.Append("Tools", "INFO", "Opened Strategy Builder from Research Studio handoff.");
+        };
+        viewModel.StrategyBuilderHandoffRequested += handoff;
+        studio.Closed += (_, _) => viewModel.StrategyBuilderHandoffRequested -= handoff;
     }
 
     private void OnPluginManager(object? sender, RoutedEventArgs e)

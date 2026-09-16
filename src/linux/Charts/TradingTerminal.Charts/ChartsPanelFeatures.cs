@@ -22,6 +22,18 @@ public sealed record ChartsPanelFeatures
     /// <summary>The ⚙ options rail: chart type and the indicator checkboxes.</summary>
     public bool OptionsRail { get; init; } = true;
 
+    /// <summary>
+    /// Instrument→Range→Draft→Lock→Historical BT chrome. Off when the chart is embedded in Strategy
+    /// Builder Research — Hyperion owns that workflow; keep symbol/timeframe/indicators only.
+    /// </summary>
+    public bool ResearchShellWorkflow { get; init; } = true;
+
+    /// <summary>
+    /// Research-in-Builder chrome: selection bar on the chart (period summary, Save observation,
+    /// Find similar) instead of classic “Capture event / Send to Builder”.
+    /// </summary>
+    public bool ResearchCompareLabels { get; init; }
+
     /// <summary>SMA / EMA / RSI / MACD. <b>Off means they are never computed</b> — an embedded chart that
     /// only needs price does not pay to maintain four indicator series per bar.</summary>
     public bool Indicators { get; init; } = true;
@@ -32,6 +44,16 @@ public sealed record ChartsPanelFeatures
     /// <summary>Everything — what the standalone Charts window uses.</summary>
     public static ChartsPanelFeatures Full { get; } = new();
 
+    /// <summary>
+    /// Builder Research embed: symbol, timeframe, indicators, and selection-bar chrome —
+    /// without the competing Draft → Lock → Historical BT shell.
+    /// </summary>
+    public static ChartsPanelFeatures ResearchInBuilder { get; } = new()
+    {
+        ResearchShellWorkflow = false,
+        ResearchCompareLabels = true,
+    };
+
     /// <summary>Bare price chart: no chrome, no indicators. The cheapest way to show a strategy the bars
     /// it is trading.</summary>
     public static ChartsPanelFeatures ChartOnly { get; } = new()
@@ -40,6 +62,7 @@ public sealed record ChartsPanelFeatures
         OptionsRail = false,
         Indicators = false,
         Status = false,
+        ResearchShellWorkflow = false,
     };
 
     /// <summary>Price + indicators, no chrome — the default an authored bar-based strategy gets embedded
@@ -49,5 +72,6 @@ public sealed record ChartsPanelFeatures
         Toolbar = false,
         OptionsRail = false,
         Status = false,
+        ResearchShellWorkflow = false,
     };
 }

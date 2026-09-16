@@ -66,4 +66,10 @@ public sealed class SimulatedBrokerOptions
     /// <summary>Symbols surfaced by <c>ListInstrumentsAsync</c> in Synthetic mode. Replay mode
     /// instead lists whatever instruments the store already holds.</summary>
     public string[] Instruments { get; set; } = ["AAPL", "MSFT", "ES", "NQ", "BTCUSD"];
+
+    /// <summary>
+    /// When true, Synthetic mode also surfaces every S&amp;P 100 equity from
+    /// <c>Sp100Sp500Catalog</c> so Research ranking can resolve the requested universe locally.
+    /// </summary>
+    public bool IncludeSp100Equities { get; set; }
 }

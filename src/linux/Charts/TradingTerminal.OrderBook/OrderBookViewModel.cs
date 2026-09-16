@@ -126,6 +126,29 @@ public sealed partial class OrderBookViewModel : ViewModelBase, IDisposable
     public ObservableCollection<SignalInstrument> Instruments { get; }
     public ObservableCollection<int> SweepSizes { get; }
 
+    private string? _preferredSymbol;
+
+    /// <summary>Prefer this symbol when opened from Research Studio.</summary>
+    public bool PreferSymbol(string? symbol)
+    {
+        if (string.IsNullOrWhiteSpace(symbol)) return false;
+        _preferredSymbol = symbol.Trim();
+        InstrumentSearchText = _preferredSymbol;
+        return TryApplyPreferredSymbol();
+    }
+
+    private bool TryApplyPreferredSymbol()
+    {
+        if (string.IsNullOrWhiteSpace(_preferredSymbol)) return false;
+        var match = _allInstruments.FirstOrDefault(i =>
+            string.Equals(i.Contract.Symbol, _preferredSymbol, StringComparison.OrdinalIgnoreCase));
+        if (match is null) return false;
+        if (!Instruments.Contains(match))
+            Instruments.Insert(0, match);
+        SelectedInstrument = match;
+        return true;
+    }
+
     /// <summary>Heatmap ring buffer (oldest first, left → right). Read by the code-behind renderer.</summary>
     public IReadOnlyList<HeatColumn> HeatColumns => _heatColumns;
     private readonly List<HeatColumn> _heatColumns = new();
@@ -224,9 +247,12 @@ public sealed partial class OrderBookViewModel : ViewModelBase, IDisposable
 
             var keep = SelectedInstrument;
             ApplyFilter();
-            SelectedInstrument = keep is not null && Instruments.Contains(keep)
-                ? keep
-                : _allInstruments.FirstOrDefault(i => i.Contract.Symbol == "SPY") ?? _allInstruments.FirstOrDefault();
+            if (!TryApplyPreferredSymbol())
+            {
+                SelectedInstrument = keep is not null && Instruments.Contains(keep)
+                    ? keep
+                    : _allInstruments.FirstOrDefault(i => i.Contract.Symbol == "SPY") ?? _allInstruments.FirstOrDefault();
+            }
         }
         catch (Exception ex)
         {

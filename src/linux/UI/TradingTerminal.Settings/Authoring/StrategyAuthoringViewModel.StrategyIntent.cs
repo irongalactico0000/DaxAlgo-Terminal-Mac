@@ -954,6 +954,10 @@ public sealed partial class StrategyAuthoringViewModel
     private void NotifyStrategyIntentStateChanged()
     {
         OnPropertyChanged(nameof(HasStrategyIntentReview));
+        OnPropertyChanged(nameof(ShowDesignInspector));
+        OnPropertyChanged(nameof(ShowWorkbenchPanel));
+        OnPropertyChanged(nameof(DesignInspectorWidth));
+        OnPropertyChanged(nameof(ShowDesignRequestHeader));
         OnPropertyChanged(nameof(HasConfirmedStrategyIntent));
         OnPropertyChanged(nameof(CanConfirmStrategyIntentReview));
         OnPropertyChanged(nameof(CanEnterFourLaneConformance));

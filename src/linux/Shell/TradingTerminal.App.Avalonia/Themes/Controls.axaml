@@ -1,5 +1,14 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <!-- Replaces Fluent ScrollBar theme: track/thumb only, no ▲/▼ line buttons. -->
+        <ResourceInclude Source="avares://TradingTerminal.App.Avalonia/Themes/ScrollBar.TrackOnly.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Styles.Resources>
+
   <Style Selector="Window">
     <Setter Property="Background" Value="{DynamicResource Background.Primary}" />
     <Setter Property="FontFamily" Value="{DynamicResource Font.Base}" />
@@ -113,5 +122,10 @@
   </Style>
   <Style Selector="CheckBox">
     <Setter Property="Foreground" Value="{DynamicResource Text.Primary}" />
+  </Style>
+
+  <!-- Force track-only chrome (Fluent's default includes ▲/▼ line buttons). -->
+  <Style Selector="ScrollBar">
+    <Setter Property="Theme" Value="{StaticResource TrackOnlyScrollBar}" />
   </Style>
 </Styles>

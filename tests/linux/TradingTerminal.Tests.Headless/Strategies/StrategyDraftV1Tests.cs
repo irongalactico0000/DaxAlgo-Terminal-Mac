@@ -59,6 +59,30 @@ public sealed class StrategyDraftV1Tests
         Assert.Contains(StrategyDraftValidatorV1.Validate(draft), issue => issue.Code == "STRATEGY_DRAFT_ZONE_RANGE_INVALID");
     }
 
+    [Fact]
+    public void BindResearchCondition_carries_id_and_version_hash_not_prose()
+    {
+        var condition = ResearchConditionDefinitionV1.VolumeMultiple(2.5, 20);
+        var draft = StrategyDraftGestureApplierV1.BindResearchCondition(
+            StrategyDraftV1.Create(Scope()),
+            condition,
+            linkedEventSampleIds: ["sample-a", "sample-a", "sample-b"]);
+
+        Assert.Empty(StrategyDraftValidatorV1.Validate(draft));
+        Assert.Equal(condition.ConditionId, draft.LinkedConditionId);
+        Assert.Equal(condition.VersionHashSha256, draft.LinkedConditionVersionHashSha256);
+        Assert.Equal(new[] { "sample-a", "sample-b" }, draft.LinkedEventSampleIds);
+        Assert.Contains(draft.Objects, o =>
+            o.Kind == StrategyDraftObjectKindV1.IndicatorThreshold &&
+            o.IndicatorId == condition.ConditionId &&
+            o.Threshold == 2.5m &&
+            o.Note == ResearchConditionDefinitionV1.KindVolumeMultipleOfAverage);
+
+        var restored = StrategyDraftCanonicalJsonV1.Deserialize(StrategyDraftCanonicalJsonV1.Serialize(draft));
+        Assert.Equal(condition.ConditionId, restored.LinkedConditionId);
+        Assert.Equal(condition.VersionHashSha256, restored.LinkedConditionVersionHashSha256);
+    }
+
     private static StrategyDraftScopeV1 Scope() =>
         new(new InstrumentId(42), "AAPL", BarSize.OneHour);
 

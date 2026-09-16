@@ -62,6 +62,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     private readonly IChartReferenceInspectorV1? _chartReferenceInspector;
     private readonly IChartPatternSearchV1? _chartPatternSearch;
     private readonly IResearchOutcomeGalleryScanV1? _researchOutcomeGalleryScan;
+    private readonly IResearchMarketScreenerV1? _researchMarketScreener;
     private readonly IAuthoredUnitIntentClassifierV1? _authoredUnitIntentClassifier;
     private readonly IAuthoredUnitSpecificationGeneratorV1? _authoredUnitSpecificationGenerator;
     private readonly IAuthoredUnitSourceGeneratorV1? _authoredUnitSourceGenerator;
@@ -70,6 +71,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     private readonly IStrategyKernelRegistry? _strategyKernelRegistry;
     private readonly IInstrumentRegistry? _instrumentRegistry;
     private readonly IResearchExperimentRunnerV1? _researchExperimentRunner;
+    private readonly IResearchConditionSearchV1? _researchConditionSearch;
 
     private CancellationTokenSource? _generateCts;
     private StrategyBuildSession? _session;
@@ -121,7 +123,9 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         IAuthoredUnitCompilerV1? authoredUnitCompiler = null,
         IVisualizerRegistry? visualizerRegistry = null,
         IStrategyKernelRegistry? strategyKernelRegistry = null,
-        IResearchExperimentRunnerV1? researchExperimentRunner = null)
+        IResearchExperimentRunnerV1? researchExperimentRunner = null,
+        IResearchConditionSearchV1? researchConditionSearch = null,
+        IResearchMarketScreenerV1? researchMarketScreener = null)
     {
         _compiler = compiler;
         _registry = registry;
@@ -149,6 +153,8 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         _strategyKernelRegistry = strategyKernelRegistry;
         _instrumentRegistry = instrumentRegistry;
         _researchExperimentRunner = researchExperimentRunner;
+        _researchConditionSearch = researchConditionSearch;
+        _researchMarketScreener = researchMarketScreener;
 
         Diagnostics = [];
         Messages = [];
@@ -210,10 +216,11 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         _filesEditedByUser = false;
         _ready = true;
 
-        // A strategy is several sittings' work. Bring back the last one the user was on, and offer the
-        // rest in the picker — a chat that dies with the process is no use for anything serious.
+        // A strategy is several sittings' work. Offer saved chats in the rail, but start on Design
+        // so Strategy Builder is not confused with Research Studio.
         RefreshSavedSessions();
-        if (SavedSessions.FirstOrDefault() is { } latest) Restore(latest);
+        ActiveScreen = StrategyAuthoringScreen.Design;
+        Status = "New strategy project. Open Research Studio to investigate charts, or describe rules here.";
     }
 
     /// <summary>True when the AI builder is wired at all — drives the chat pane's visibility. When wired
@@ -225,8 +232,12 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     /// catalog instead of an empty transcript.</summary>
     public bool HasConversation => Messages.Count > 0;
 
-    private void OnMessagesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+    private void OnMessagesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
         OnPropertyChanged(nameof(HasConversation));
+        OnPropertyChanged(nameof(ShowConversationEmptyState));
+        OnPropertyChanged(nameof(ShowResearchComposerHint));
+    }
 
     private const string AllStarterFamilies = "All families";
     private const string AllStarterHorizons = "All horizons";
@@ -248,7 +259,10 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     [ObservableProperty] private string _selectedStarterData = AllStarterData;
 
     public string StarterResultText =>
-        $"{VisibleStarterBriefs.Count} of {AllStarterBriefs.Count} strategy ideas";
+        $"{VisibleStarterBriefs.Count} of {AllStarterBriefs.Count} templates (optional)";
+
+    public string StarterSearchWatermark =>
+        $"Search {AllStarterBriefs.Count} optional templates — or start from a blank research question…";
 
     partial void OnStarterSearchTextChanged(string value) => RefreshStarterBriefs();
     partial void OnSelectedStarterFamilyChanged(string value) => RefreshStarterBriefs();
@@ -263,7 +277,10 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             (SelectedStarterHorizon == AllStarterHorizons ||
                 string.Equals(brief.AxisLabels.Horizon, SelectedStarterHorizon, StringComparison.Ordinal)) &&
             (SelectedStarterData == AllStarterData || brief.AxisLabels.Data.Contains(SelectedStarterData)) &&
-            StrategyStarterCatalog.MatchesSearch(brief, search));
+            StrategyStarterCatalog.MatchesSearch(brief, search) &&
+            // QuoteL1 EMA smoke is a Build/conformance fixture — not a Design/Research starter.
+            !( !IsBuildStage &&
+              string.Equals(brief.Id, "starter.quote-l1-ema-smoke", StringComparison.Ordinal)));
 
         VisibleStarterBriefs.Clear();
         foreach (var brief in filtered) VisibleStarterBriefs.Add(brief);
@@ -285,10 +302,21 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     {
         if (brief is null) return;
 
-        SelectStrategyIntentProfile(brief);
-        Composer = brief.Prompt;
+        // Research-led creation: templates seed an investigation question. They do not confirm a
+        // strategy profile or freeze executable rules — that happens only after Use in Design.
+        EnterResearchWorkspace();
+        Composer = BuildResearchQuestionFromStarter(brief);
+        AiStatus =
+            $"Research starter “{brief.Title}” loaded. Inspect the chart and save an observation before specifying trading rules.";
+        Status =
+            "Research question ready. No strategy specification, compile, or register yet.";
+        NotifyWorkingFlowMapChanged();
     }
 
+    /// <summary>
+    /// Explicit smoke/build path: loads the known QuoteL1 EMA rule brief for generation tests.
+    /// Not the Research-led empty-state default.
+    /// </summary>
     [RelayCommand]
     private void UseQuoteL1EmaSmokeStarter()
     {
@@ -299,11 +327,38 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         AiStatus = "Loaded the known QuoteL1 EMA smoke starter. Review the brief, then generate a fresh candidate batch.";
     }
 
+    private static string BuildResearchQuestionFromStarter(StrategyStarterBrief brief)
+    {
+        var summary = brief.Summary.Trim();
+        var prompt = brief.Prompt.Trim();
+        return
+            $"Investigate before writing trading rules: {summary}\n\n" +
+            "Questions to answer on the chart:\n" +
+            "- Which instrument and session show this behavior?\n" +
+            "- What measurable condition appears before the move — and when does it fail?\n" +
+            "- Which indicators are for analysis only vs candidates for Design?\n\n" +
+            $"Template context (not yet a strategy specification):\n{prompt}";
+    }
+
     /// <summary>Collapses the session rail to an icon strip — the workspace's only chrome toggle.</summary>
     [ObservableProperty] private bool _railCollapsed;
 
+    /// <summary>
+    /// Research DETAILS (condition / labels / references) — collapsed by default so the chart stays the main surface.
+    /// </summary>
+    [ObservableProperty] private bool _researchDetailsOpen;
+
     [RelayCommand]
     private void ToggleRail() => RailCollapsed = !RailCollapsed;
+
+    [RelayCommand]
+    private void ToggleResearchDetails() => ResearchDetailsOpen = !ResearchDetailsOpen;
+
+    public string ResearchDetailsToggleText =>
+        ResearchDetailsOpen ? "Hide details" : "Condition & labels";
+
+    partial void OnResearchDetailsOpenChanged(bool value) =>
+        OnPropertyChanged(nameof(ResearchDetailsToggleText));
 
     /// <summary>Selected workbench tab: 0 Code · 1 Parameters · 2 Activity. A file chip in the chat
     /// sets it back to Code so the click always lands on the file it names.</summary>
@@ -371,6 +426,18 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     public bool HasChartPatternMatches => ChartPatternSearchResult?.Matches.Count > 0;
     public bool HasResearchOutcomeGalleryResult => ResearchOutcomeGalleryResult is not null;
     public bool HasResearchOutcomeGalleryMatches => ResearchOutcomeGalleryResult?.Matches.Count > 0;
+
+    public string ResearchGalleryCoverageText => ResearchOutcomeGalleryResult is { } gallery
+        ? (string.IsNullOrWhiteSpace(gallery.CoverageSummary)
+            ? gallery.Explanation
+            : gallery.CoverageSummary)
+        : "No gallery scan yet.";
+
+    public string ResearchGalleryDataProvenanceText => ResearchOutcomeGalleryResult is { } gallery
+        ? (string.IsNullOrWhiteSpace(gallery.DataProvenanceSummary)
+            ? "Data source for returned events is not summarized yet."
+            : gallery.DataProvenanceSummary)
+        : string.Empty;
     public bool HasSelectedChartPattern => ChartPatternSelections.Count > 0;
     public string SelectedChartPatternText => ChartPatternSelections.LastOrDefault() is { } selection
         ? $"Selected {selection.Match.CanonicalSymbol} · score {selection.Match.Score:0.0} · {selection.Match.Timeframe.ToDisplayString()}"
@@ -481,7 +548,10 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     {
         OnPropertyChanged(nameof(HasResearchOutcomeGalleryResult));
         OnPropertyChanged(nameof(HasResearchOutcomeGalleryMatches));
+        OnPropertyChanged(nameof(ResearchGalleryCoverageText));
+        OnPropertyChanged(nameof(ResearchGalleryDataProvenanceText));
         RebuildResearchGalleryCards(value);
+        NotifyWorkingFlowMapChanged();
     }
 
     private void RebuildResearchGalleryCards(ResearchOutcomeGalleryResultV1? result)
@@ -499,10 +569,26 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         foreach (var card in ResearchGalleryCards)
             card.IsSelected = match is not null && ReferenceEquals(card.Match, match);
         SelectedResearchGalleryCard = ResearchGalleryCards.FirstOrDefault(card => card.IsSelected);
+        OnPropertyChanged(nameof(ActiveArtifactKindText));
+        OnPropertyChanged(nameof(ResearchLinkedContextText));
+        OnPropertyChanged(nameof(CanUseObservationInDesign));
+        UseObservationInDesignCommand.NotifyCanExecuteChanged();
+        NotifyWorkingFlowMapChanged();
         PublishTurnFollowUps(lastUserText: null);
     }
 
-    partial void OnIsScanningResearchGalleryChanged(bool value) => SendCommand.NotifyCanExecuteChanged();
+    partial void OnSelectedResearchGalleryCardChanged(ResearchGalleryCardViewModel? value)
+    {
+        OnPropertyChanged(nameof(CanUseObservationInDesign));
+        UseObservationInDesignCommand.NotifyCanExecuteChanged();
+        NotifyWorkingFlowMapChanged();
+    }
+
+    partial void OnIsScanningResearchGalleryChanged(bool value)
+    {
+        SendCommand.NotifyCanExecuteChanged();
+        NotifyWorkingFlowMapChanged();
+    }
 
     private bool CanInspectChartReferences() =>
         HasUninspectedChartReferences &&
@@ -749,6 +835,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             ChartPatternSearchResult = null;
             RemoveChartPatternSelections(imported.Reference.ReferenceId);
             OnPropertyChanged(nameof(HasChartReferences));
+            NotifyDesignInspectorLayoutChanged();
             OnPropertyChanged(nameof(HasChartReferenceInspections));
             OnPropertyChanged(nameof(HasUninspectedChartReferences));
             OnPropertyChanged(nameof(HasSearchableChartReference));
@@ -784,6 +871,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         RemoveChartPatternSelections(reference.Reference.ReferenceId);
         AuthoredUnitSpecification = null;
         OnPropertyChanged(nameof(HasChartReferences));
+        NotifyDesignInspectorLayoutChanged();
         OnPropertyChanged(nameof(HasChartReferenceInspections));
         OnPropertyChanged(nameof(HasUninspectedChartReferences));
         OnPropertyChanged(nameof(HasSearchableChartReference));
@@ -860,7 +948,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         ? "Use Expert C#"
         : "Return to Strategy Builder";
     public string GenerationLaneText => GenerateCandidateFirst ? "Research, confirm, then implement" : "Expert code";
-    public string SendButtonText => GenerateCandidateFirst ? "Check strategy  ⌘↵" : "Generate code  ⌘↵";
+    public string SendButtonText => GenerateCandidateFirst ? "Send  ⌘↵" : "Generate code  ⌘↵";
     public string AuthoringBoundaryText => GenerateCandidateFirst
         ? "confirm meaning before implementation"
         : HasNonCSharpExpertArtifact
@@ -960,6 +1048,11 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         InvalidateStrategyIntentIfCandidateChanged(value);
         OnPropertyChanged(nameof(HasCandidate));
         OnPropertyChanged(nameof(HasCandidateContent));
+        OnPropertyChanged(nameof(ShowDesignInspector));
+        OnPropertyChanged(nameof(ShowWorkbenchPanel));
+        OnPropertyChanged(nameof(DesignInspectorWidth));
+        OnPropertyChanged(nameof(ShowDesignRequestHeader));
+        NotifyWorkingFlowMapChanged();
         OnPropertyChanged(nameof(CanConfirmCandidate));
         ConfirmCandidateCommand.NotifyCanExecuteChanged();
         NotifyStrategyIntentStateChanged();
@@ -1352,6 +1445,12 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     /// open the research chart with those same native toggles enabled.
     /// </summary>
     public event EventHandler<HostChartOverlayPreviewRequestedEventArgs>? HostChartOverlayPreviewRequested;
+
+    /// <summary>
+    /// Raised when Research Studio wants the shell to open an existing market-structure window
+    /// (order book, footprint, bookmap) for the selected research instrument.
+    /// </summary>
+    public event EventHandler<HostResearchMarketStructureRequestedEventArgs>? HostResearchMarketStructureRequested;
 
     /// <summary>What the builder is doing right now ("Asking Claude…", "Compiling 3 file(s)…") — the
     /// live feedback that a long generation is actually progressing.</summary>
@@ -2567,7 +2666,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         }
 
         if ((chartChoice.HasOverlays || chartChoice.HasResearchScans) &&
-            !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(effectiveRequest))
+            (IsResearchStage || !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(effectiveRequest)))
         {
             if (Messages.Count == 0) DeriveIdentityFrom(prompt);
             if (chartChoice.HasOverlays)
@@ -2655,10 +2754,11 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             return;
         }
 
-        // Famous-indicator / research-scan picks go host-first. Do not wait for model JSON that has
-        // historically failed ConfirmedStrategyIntent / drawing deserialization.
+        // Famous-indicator / research-scan picks go host-first while Research is active.
+        // Do not freeze a visualizer/strategy from chart tools — even if the composer still
+        // contains leftover trading wording from a restored session or template context.
         if ((chartChoice.HasOverlays || chartChoice.HasResearchScans) &&
-            !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(effectiveRequest))
+            (IsResearchStage || !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(effectiveRequest)))
         {
             if (chartChoice.HasOverlays)
                 await CompleteHostOverlayVisualizerAsync(prompt, effectiveRequest, chartChoice);
@@ -2710,8 +2810,31 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         {
             var detail = string.Join(Environment.NewLine, classification.Issues.Select(issue =>
                 $"{issue.Path}: {issue.Message}"));
-            AiStatus = "The visualizer/strategy classification failed closed. No source was generated.";
-            Append(AuthoringMessage.Tool("Fail", "Unit type not accepted", detail));
+            var looksLikeProvider =
+                detail.Contains("exit code", StringComparison.OrdinalIgnoreCase) ||
+                detail.Contains("Claude", StringComparison.OrdinalIgnoreCase) ||
+                detail.Contains("OAuth", StringComparison.OrdinalIgnoreCase) ||
+                detail.Contains("provider", StringComparison.OrdinalIgnoreCase) ||
+                detail.Contains("CLI", StringComparison.OrdinalIgnoreCase) ||
+                detail.Contains("authentication", StringComparison.OrdinalIgnoreCase);
+
+            if (looksLikeProvider)
+            {
+                AiStatus =
+                    "AI provider failed while classifying this request. Your message is preserved — charts and Research stay usable. Retry, or open Settings → AI providers.";
+                Append(AuthoringMessage.Tool(
+                    "Fail",
+                    "Provider failed (not an unsupported strategy)",
+                    detail + Environment.NewLine + Environment.NewLine +
+                    "Retry Send, or configure the provider under Settings → AI providers. " +
+                    "You can keep investigating on the chart without AI."));
+            }
+            else
+            {
+                AiStatus = "This request could not be classified as a supported unit type. No source was generated.";
+                Append(AuthoringMessage.Tool("Fail", "Request not accepted", detail));
+            }
+
             return;
         }
 
@@ -2787,7 +2910,10 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
                 return;
 
             AwaitingAnswer = false;
-            WorkbenchTab = 0;
+            if (IsResearchStage)
+                WorkbenchTab = 3;
+            else
+                WorkbenchTab = 0;
         }
         catch (OperationCanceledException)
         {
@@ -2815,10 +2941,16 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         Append(new AuthoringMessage(CodegenRole.User, prompt));
         Append(AuthoringMessage.Tool(
             "Ok",
-            "Host chart choices resolved",
+            "Research chart indicators applied",
             AuthoredChartChoiceCatalogV1.DescribeSelection(chartChoice)));
         foreach (var scan in chartChoice.ResearchScans)
             Append(new AuthoringMessage(CodegenRole.Assistant, scan.ClarificationHint));
+
+        // Research-led path: overlays change analysis only. They must not freeze a visualizer /
+        // strategy specification — that would mark Design READY and Build REVIEW before research
+        // has informed any trading rules.
+        EnterResearchWorkspace();
+        ApplyResearchOverlayAnalysis(chartChoice);
 
         HostChartOverlayPreviewRequested?.Invoke(
             this,
@@ -2826,47 +2958,39 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
                 chartChoice.Overlays.Select(static item => item.Id).ToArray(),
                 startResearchCapture: chartChoice.HasResearchScans));
 
-        InvalidateDerivedArtifactState(markUnregistered: true);
-        var instruments = BuildAuthoredUnitInstrumentCandidates(effectiveRequest);
-        var specification = AuthoredChartChoiceCatalogV1.TryCreateHostVisualizerSpecification(
-            StrategyId.Trim(),
-            effectiveRequest,
-            instruments,
-            chartChoice.Overlays);
-
-        if (specification is null)
-        {
-            AiStatus = "Host overlays were applied to the live chart, but no launch-valid visualizer contract could be frozen from the current instrument catalog.";
-            Append(AuthoringMessage.Tool("Warn", "Host visualizer contract incomplete", AiStatus));
-            AwaitingAnswer = false;
-            Save();
-            return Task.CompletedTask;
-        }
-
-        AuthoredUnitSpecification = specification;
-        var hash = AuthoredUnitSpecificationCanonicalJsonV1.Hash(specification);
+        AiStatus = chartChoice.HasResearchScans
+            ? "Research indicators are on the linked chart. Scanning for comparable outcome events…"
+            : "Research indicators are on the linked chart. They are analysis tools until you choose Use in Design.";
         Append(new AuthoringMessage(
             CodegenRole.Assistant,
-            $"Opened the live chart with {AuthoredChartChoiceCatalogV1.DescribeSelection(chartChoice)}. " +
-            $"Frozen a display-only host contract for {string.Join(", ", specification.Instruments.Select(static item => item.UserText))} " +
-            $"with {specification.Drawing.Layers.Count} drawing layer(s) — no model JSON required."));
-        Append(AuthoringMessage.Tool(
-            "Ok",
-            "Host visualizer contract frozen",
-            $"No order target · launch-valid · specification hash {hash[..12]}… · chart overlays previewed on the native Charts window."));
-        AiStatus = chartChoice.HasResearchScans
-            ? "Live chart overlays are on and research capture is armed. Scanning S&P 100 for matching outcome events…"
-            : "Live chart overlays are on. Review the chart, then continue Research labels or confirm a Paper strategy separately.";
+            $"Applied {AuthoredChartChoiceCatalogV1.DescribeSelection(chartChoice)} for investigation. " +
+            "No trading rule or executable version was created. Save an observation, then Use in Design when a condition is worth testing."));
         if (chartChoice.HasResearchScans)
-        {
-            ActiveScreen = StrategyAuthoringScreen.Research;
             _ = RunResearchOutcomeGalleryAsync(chartChoice.ResearchScans.Select(static scan => scan.Id).ToArray());
-        }
+
         AwaitingAnswer = false;
-        WorkbenchTab = 0;
+        WorkbenchTab = 3;
         Save();
         PublishTurnFollowUps(prompt);
+        NotifyWorkingFlowMapChanged();
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Record host overlay ids as pending Research analysis bindings without creating an
+    /// AuthoredUnitSpecification.
+    /// </summary>
+    private void ApplyResearchOverlayAnalysis(AuthoredChartChoiceResolutionV1 chartChoice)
+    {
+        if (!chartChoice.HasOverlays) return;
+        var overlayIds = chartChoice.Overlays.Select(static item => item.Id).ToArray();
+        PendingResearchOverlayIds = overlayIds;
+        // Keep existing exact indicator bindings when present; otherwise store overlay ids only.
+        if (PendingResearchIndicatorBindings.Count == 0)
+        {
+            Status =
+                $"Research analysis overlays [{string.Join(", ", overlayIds)}]. Not strategy rules until Use in Design.";
+        }
     }
 
     /// <summary>
@@ -2884,7 +3008,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         foreach (var scan in chartChoice.ResearchScans)
             Append(new AuthoringMessage(CodegenRole.Assistant, scan.ClarificationHint));
 
-        ActiveScreen = StrategyAuthoringScreen.Research;
+        EnterResearchWorkspace();
         HostChartOverlayPreviewRequested?.Invoke(
             this,
             new HostChartOverlayPreviewRequestedEventArgs(
@@ -2896,9 +3020,9 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             $"Opened the live research chart for {AuthoredChartChoiceCatalogV1.DescribeSelection(chartChoice)}. " +
             "Brush an observation window and a later outcome window, or pick a gallery hit below, then label B/C/N. " +
             "Gallery hits are research evidence only — not Paper."));
-        AiStatus = "Research chart is open. Scanning local history for matching outcome events…";
+        AiStatus = "Research chart is open in the Strategy Builder workspace. Scanning local history for matching outcome events…";
         AwaitingAnswer = false;
-        WorkbenchTab = 0;
+        WorkbenchTab = 3;
         Save();
         PublishTurnFollowUps(prompt);
         _ = RunResearchOutcomeGalleryAsync(chartChoice.ResearchScans.Select(static scan => scan.Id).ToArray());
@@ -2927,17 +3051,14 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             var count = ResearchOutcomeGalleryResult.Matches.Count;
             AiStatus = count == 0
                 ? $"Gallery scan finished with no hits. {ResearchOutcomeGalleryResult.Explanation} Change the Charts symbol and brush manually — capture only, no backtest."
-                : $"Gallery found {count} event(s). Opening the top hit for capture review (not a backtest).";
+                : $"Gallery found {count} comparable event(s). Select one in RESULTS to load it on the Research chart — nothing was auto-applied.";
             Append(AuthoringMessage.Tool(
                 count == 0 ? "Warn" : "Ok",
                 ResearchOutcomeGalleryResult.DisplayName,
                 ResearchOutcomeGalleryResult.Explanation));
             Status = AiStatus;
-            if (count > 0)
-            {
-                // Jump off the default AAPL chart onto a real gallery event for capture.
-                UseResearchOutcomeGalleryMatch(ResearchOutcomeGalleryResult.Matches[0]);
-            }
+            // Do not auto-focus Matches[0]: on limited stores that often jumps to an unrelated
+            // symbol (e.g. MSFT) while the research question / chart instrument stays unexplained.
             PublishTurnFollowUps(lastUserText: null);
             Save();
         }
@@ -2982,15 +3103,20 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             new DateTimeOffset(DateTime.SpecifyKind(match.OutcomeFromUtc, DateTimeKind.Utc)),
             new DateTimeOffset(DateTime.SpecifyKind(match.OutcomeToUtcExclusive, DateTimeKind.Utc)),
             StrategyDataRequirement.L1 | StrategyDataRequirement.Bars);
-        SetResearchChartSelection(selection);
+        SetResearchChartSelection(
+            selection,
+            PendingResearchOverlayIds.Count > 0 ? PendingResearchOverlayIds : null,
+            PendingResearchIndicatorBindings.Count > 0 ? PendingResearchIndicatorBindings : null);
         SelectResearchGalleryCard(match);
 
         if (openChart)
         {
+            // Carry the current Research-space indicators (catalog overlay ids, not BindingIds).
+            var overlays = OverlaysForResearchPreview().ToArray();
             HostChartOverlayPreviewRequested?.Invoke(
                 this,
                 new HostChartOverlayPreviewRequestedEventArgs(
-                    NativeChartOverlaySelectionV1.DefaultResearchCaptureOverlayIds,
+                    overlays,
                     startResearchCapture: false,
                     preferredSymbol: match.CanonicalSymbol,
                     galleryMatch: match));
@@ -3492,9 +3618,21 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             ChartPatternSelections.Clear();
             ResearchDatasetDefinition = null;
             PendingResearchChartSelection = null;
+            PendingResearchOverlayIds = Array.Empty<string>();
+            PendingResearchIndicatorBindings = Array.Empty<ResearchIndicatorBindingV1>();
+            PendingResearchCondition = null;
+            ResearchConditionSearchResult = null;
+            ResearchExperimentEvidence = null;
+            ResearchOutcomeGalleryResult = null;
+            _researchAnalysisReferences.Clear();
+            NotifyResearchReferencesChanged();
             PendingStrategyDraft = null;
             AuthoredUnitSpecification = null;
+            ConfirmedStrategyIntent = null;
+            ConfirmedStrategyIntentHash = null;
+            HasResearchDesignHandoff = false;
             OnPropertyChanged(nameof(HasChartReferences));
+            NotifyDesignInspectorLayoutChanged();
             OnPropertyChanged(nameof(HasChartReferenceInspections));
             OnPropertyChanged(nameof(HasUninspectedChartReferences));
             OnPropertyChanged(nameof(HasSelectedChartPattern));
@@ -3519,7 +3657,9 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             AwaitingAnswer = false;
             IsRegistered = false;
             WorkbenchTab = 3;
-            ActiveScreen = StrategyAuthoringScreen.Brief;
+            ActiveScreen = IsResearchStudioShell
+                ? StrategyAuthoringScreen.Research
+                : StrategyAuthoringScreen.Design;
             ResetStrategyWorkspace();
             SelectedSavedSession = null;
             CloseReview();
@@ -3530,7 +3670,9 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             HasDetachedImplementationSource = false;
             _filesEditedByUser = false;
             AiStatus = null;
-            Status = "New strategy. Choose a starter or describe your own idea; its id is derived from the first brief.";
+            Status = IsResearchStudioShell
+                ? "New research. Open the chart, inspect events, and save findings — no strategy required."
+                : "New strategy project. Open Research Studio to investigate charts, or describe rules here.";
         }
         finally
         {
@@ -3547,7 +3689,9 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
 
     partial void OnSelectedSavedSessionChanged(AuthoringSessionSnapshot? value)
     {
-        if (_restoring || value is null || value.StrategyId == StrategyId) return;
+        if (_restoring || value is null) return;
+        // Always restore on an explicit picker selection. Blank Research starts share the default
+        // strategy id with unsaved research sessions, so StrategyId equality alone is not enough.
         Restore(value);
     }
 
@@ -3566,13 +3710,18 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     private void RefreshSavedSessions()
     {
         var saved = _sessionRepository.List();
+        var previousId = SelectedSavedSession?.StrategyId;
 
         _restoring = true;   // repopulating the list re-fires the selection binding
         try
         {
             SavedSessions.Clear();
             foreach (var session in saved) SavedSessions.Add(session);
-            SelectedSavedSession = SavedSessions.FirstOrDefault(s => s.StrategyId == StrategyId);
+            // Keep the picker highlight only for an already-selected session. Never auto-select a
+            // saved chat that shares the default strategy id with a blank Research launch.
+            SelectedSavedSession = previousId is null
+                ? null
+                : SavedSessions.FirstOrDefault(session => session.StrategyId == previousId);
         }
         finally
         {
@@ -3654,6 +3803,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
                 }
             }
             OnPropertyChanged(nameof(HasChartReferences));
+            NotifyDesignInspectorLayoutChanged();
             OnPropertyChanged(nameof(ChartReferenceSummary));
             ChartReferenceInspections.Clear();
             foreach (var inspection in session.ChartReferenceInspections ?? [])
@@ -3830,10 +3980,12 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             ActiveScreen = GenerateCandidateFirst &&
                            session.ActiveScreen == StrategyAuthoringScreen.Build && CanEnterFourLaneConformance
                 ? StrategyAuthoringScreen.Build
-                : session.ActiveScreen is StrategyAuthoringScreen.Brief or
-                    StrategyAuthoringScreen.Research or StrategyAuthoringScreen.Design
+                : session.ActiveScreen is StrategyAuthoringScreen.Brief or StrategyAuthoringScreen.Design
                     ? session.ActiveScreen
-                    : StrategyAuthoringScreen.Brief;
+                    : session.ActiveScreen == StrategyAuthoringScreen.Research && IsResearchStudioShell
+                        ? StrategyAuthoringScreen.Research
+                        : StrategyAuthoringScreen.Design;
+            CoerceLegacyExecutionFidelitySettings();
             RestoreStrategyWorkspace(session, ref restoreWarning);
             WorkbenchTab = GenerateCandidateFirst ? 3 : 0;
             CloseReview();
@@ -3994,7 +4146,8 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         if (_restoring || !_ready || string.IsNullOrWhiteSpace(StrategyId)) return;
         if (Messages.Count == 0 && !_filesEditedByUser && StrategyIntentDraft is null &&
             ChartReferences.Count == 0 && AuthoredUnitSpecification is null && ResearchDatasetDefinition is null &&
-            PendingStrategyDraft is null)
+            PendingStrategyDraft is null && PendingResearchCondition is null &&
+            PendingResearchChartSelection is null && _researchAnalysisReferences.Count == 0)
             return;   // nothing worth a file yet
 
         SynchronizeStrategyWorkspace();
@@ -4056,7 +4209,23 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
                 : ResearchExperimentCanonicalJsonV1.Serialize(ResearchExperimentEvidence),
             StrategyDraftJson: PendingStrategyDraft is null
                 ? null
-                : StrategyDraftCanonicalJsonV1.Serialize(PendingStrategyDraft));
+                : StrategyDraftCanonicalJsonV1.Serialize(PendingStrategyDraft),
+            ResearchConditionJson: PendingResearchCondition is null
+                ? null
+                : ResearchConditionCanonicalJsonV1.Serialize(PendingResearchCondition),
+            ResearchConditionSearchResultJson: ResearchConditionSearchResult is null
+                ? null
+                : ExecutableStrategyDefinitionCanonicalJson.Serialize(ResearchConditionSearchResult),
+            ResearchAnalysisReferencesJson: _researchAnalysisReferences.Count == 0
+                ? null
+                : ResearchAnalysisReferenceCanonicalJsonV1.SerializeMany(
+                    _researchAnalysisReferences.Values.OrderBy(static r => r.ReferenceId).ToArray()),
+            ResearchChartSelectionJson: PendingResearchChartSelection is null
+                ? null
+                : ExecutableStrategyDefinitionCanonicalJson.Serialize(PendingResearchChartSelection),
+            ResearchIndicatorBindingsJson: PendingResearchIndicatorBindings.Count == 0
+                ? null
+                : ExecutableStrategyDefinitionCanonicalJson.Serialize(PendingResearchIndicatorBindings));
 
         if (!_sessionRepository.Save(snapshot))
         {

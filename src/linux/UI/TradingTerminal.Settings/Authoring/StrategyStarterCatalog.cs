@@ -396,10 +396,10 @@ public static class StrategyStarterCatalog
     [
         Create(
             "starter.quote-l1-ema-smoke",
-            "QuoteL1 EMA crossover · smoke compatible",
-            "Known-supported starter for the installed in-process synthetic TradeIR smoke target.",
+            "EMA crossover (equity quotes)",
+            "Simple quote-driven EMA crossover for equities. Use when you need a minimal verified starter.",
             QuoteL1EmaSmokePrompt,
-            ["synthetic smoke", "QuoteL1", "EMA crossover", "ALPHA XNAS"],
+            ["equity quotes", "EMA crossover", "ALPHA XNAS"],
             assetClasses: [AssetClass.Equity],
             information: [StrategyInformationKind.Quote],
             hypotheses: [ReturnHypothesisKind.Momentum],

@@ -1,3 +1,4 @@
+using System.Linq;
 using TradingTerminal.Core.Domain;
 using TradingTerminal.Core.Strategies;
 using TradingTerminal.Core.Strategies.Definition;
@@ -17,6 +18,47 @@ public enum ResearchEventLabelSourceV1
     Manual = 0,
     RuleSuggestedHumanReviewed = 1,
     Imported = 2,
+}
+
+/// <summary>
+/// Exact indicator settings captured from the host chart for research continuity (R05/R12).
+/// Prefer this over host overlay catalog ids when computing or restoring.
+/// </summary>
+public sealed record ResearchIndicatorBindingV1(
+    string BindingId,
+    string Kind,
+    int Period)
+{
+    public string DisplayLabel => Period > 0 ? $"{Kind}({Period})" : Kind;
+
+    /// <summary>Human-readable formula for Research Studio inspect panel.</summary>
+    public string FormulaDescription
+    {
+        get
+        {
+            var kind = Kind.Trim();
+            if (Period > 0 &&
+                (kind.Contains("SMA", StringComparison.OrdinalIgnoreCase) ||
+                 kind.Equals("Sma", StringComparison.OrdinalIgnoreCase)))
+                return $"SMA({Period}) = mean of last {Period} completed closes";
+            if (Period > 0 &&
+                (kind.Contains("EMA", StringComparison.OrdinalIgnoreCase) ||
+                 kind.Equals("Ema", StringComparison.OrdinalIgnoreCase)))
+                return $"EMA({Period}) = exponential moving average of closes, span {Period}";
+            if (Period > 0 && kind.Contains("RSI", StringComparison.OrdinalIgnoreCase))
+                return $"RSI({Period}) = relative strength over {Period} bars";
+            if (kind.Contains("MACD", StringComparison.OrdinalIgnoreCase))
+                return "MACD = EMA(fast) − EMA(slow) with signal line (chart defaults)";
+            if (kind.Contains("BB", StringComparison.OrdinalIgnoreCase) ||
+                kind.Contains("Bollinger", StringComparison.OrdinalIgnoreCase))
+                return Period > 0
+                    ? $"Bollinger({Period}) = SMA({Period}) ± k·σ"
+                    : "Bollinger bands = SMA ± k·σ (chart defaults)";
+            return Period > 0
+                ? $"{DisplayLabel} — chart series with period {Period}"
+                : $"{DisplayLabel} — chart overlay";
+        }
+    }
 }
 
 /// <summary>
@@ -40,9 +82,24 @@ public sealed record ResearchEventSampleV1(
     ResearchEventLabelKindV1 Label,
     string? CustomLabel,
     ResearchEventLabelSourceV1 LabelSource,
-    string? Note = null)
+    string? Note = null,
+    IReadOnlyList<ResearchIndicatorBindingV1>? IndicatorBindings = null,
+    ResearchConditionDefinitionV1? Condition = null)
 {
     public const string CurrentSchemaVersion = "research-event-sample/v1";
+
+    public IReadOnlyList<ResearchIndicatorBindingV1> ResolvedIndicatorBindings =>
+        IndicatorBindings ?? Array.Empty<ResearchIndicatorBindingV1>();
+
+    public string IndicatorBindingsSummary =>
+        ResolvedIndicatorBindings.Count == 0
+            ? "indicators: (none captured)"
+            : "indicators: " + string.Join(", ", ResolvedIndicatorBindings.Select(static b => b.DisplayLabel));
+
+    public string ConditionSummary =>
+        Condition is null
+            ? "condition: (none)"
+            : $"condition: {Condition.SummaryText} · ver {Condition.VersionShort}";
 }
 
 /// <summary>Fail-closed policies required before a labeled dataset can drive feature research.</summary>

@@ -51,6 +51,7 @@ public sealed class StrategyDraftAuthoringTests
         }
 
         using var restored = Create(repository);
+        restored.SelectedSavedSession = repository.Saved;
         restored.HasStrategyDraft.Should().BeTrue();
         restored.StrategyDraftSummaryText.Should().Contain("stop 100.25");
         restored.StrategyDraftSummaryText.Should().Contain("target 112.5");

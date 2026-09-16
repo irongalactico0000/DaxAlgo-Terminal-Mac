@@ -32,6 +32,7 @@ using TradingTerminal.Infrastructure.Plugins.Feed;
 using TradingTerminal.Infrastructure.Research;
 using TradingTerminal.Infrastructure.Regime;
 using TradingTerminal.Infrastructure.Sidecar;
+using TradingTerminal.Infrastructure.TsdBridge;
 using TradingTerminal.Infrastructure.StrategyAgent;
 using TradingTerminal.Infrastructure.Strategies.Authoring;
 using TradingTerminal.BacktestStudio;
@@ -161,6 +162,7 @@ public static class ServiceConfiguration
         // Paper Lab research/repro seams (IPaperIngestClient/IReproOrchestrator Null defaults).
         services.AddPaperResearch(configuration);
         services.AddSidecar(configuration);
+        services.AddTsdBridge(configuration);
         // Dedicated QueryEngine -> VibeQuant/AKQuant + CSP backend. It remains disabled by default;
         // the Strategy Builder can inspect/start an already confirmed retained run when configured.
         services.AddStrategyAgent(configuration);
@@ -210,6 +212,16 @@ public static class ServiceConfiguration
             TradeIrSimulatedBacktestRunnerV1>();
         services.AddSingleton<TradingTerminal.Core.Strategies.Generation.IResearchExperimentRunnerV1,
             StrategyResearchExperimentRunnerV1>();
+        services.AddHttpClient(nameof(ResearchConditionSearchV1), (sp, http) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<TradingTerminal.Core.Configuration.TsdBridgeOptions>>()
+                .CurrentValue;
+            var baseUrl = string.IsNullOrWhiteSpace(opts.BaseUrl) ? "http://127.0.0.1:8000" : opts.BaseUrl.TrimEnd('/');
+            http.BaseAddress = new Uri(baseUrl + "/");
+            http.Timeout = TimeSpan.FromSeconds(60);
+        });
+        services.AddSingleton<TradingTerminal.Core.Strategies.Generation.IResearchConditionSearchV1,
+            ResearchConditionSearchV1>();
 
         var pluginsRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

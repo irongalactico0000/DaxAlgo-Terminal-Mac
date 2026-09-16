@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using TradingTerminal.Core.Brokers;
 using TradingTerminal.Core.Domain;
 using TradingTerminal.Core.MarketData;
+using TradingTerminal.Core.Strategies.Generation;
 using TradingTerminal.UI;
 using TradingTerminal.UI.Presets;
 using static TradingTerminal.Core.MarketData.Indicators;
@@ -105,7 +106,10 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
             toggle.PropertyChanged += (_, args) =>
             {
                 if (args.PropertyName == nameof(UserChartIndicatorToggle.IsEnabled))
+                {
                     QueueReload();
+                    NotifyResearchSpaceChanged();
+                }
             };
             UserIndicators.Add(toggle);
         }
@@ -141,10 +145,12 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
     /// Applies host chat-catalog overlay ids (see <c>AuthoredChartChoiceCatalogV1</c>) onto the
     /// native chart toggles so famous indicators render immediately without waiting for authored
     /// visualizer codegen. Unknown ids are ignored; candles-only clears indicator overlays.
-    /// Existing toggles stay on (additive OR); <see cref="EmaPeriod"/> is only written when EMA
-    /// was previously off so capture does not retune an operator's period.
+    /// By default existing toggles stay on (additive OR). Pass <paramref name="replaceExisting"/>
+    /// when Research space handoff must match the kept indicator set exactly.
+    /// <see cref="EmaPeriod"/> is only written when EMA was previously off (or replace mode) so
+    /// casual previews do not retune an operator's period.
     /// </summary>
-    public void ApplyHostOverlayIds(IEnumerable<string> overlayIds)
+    public void ApplyHostOverlayIds(IEnumerable<string> overlayIds, bool replaceExisting = false)
     {
         var idList = overlayIds as IList<string> ?? overlayIds.ToList();
         var idSet = idList
@@ -165,32 +171,144 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
             ShowAdx = false;
             foreach (var user in UserIndicators)
                 user.IsEnabled = false;
+            NotifyResearchSpaceChanged();
             return;
         }
 
         var state = TradingTerminal.Core.Strategies.Generation.NativeChartOverlaySelectionV1
             .FromHostOverlayIds(idList);
         var emaWasOff = !ShowEma;
-        ShowSma = ShowSma || state.ShowSma;
-        ShowEma = ShowEma || state.ShowEma;
-        ShowRsi = ShowRsi || state.ShowRsi;
-        ShowMacd = ShowMacd || state.ShowMacd;
-        ShowBollinger = ShowBollinger || state.ShowBollinger;
-        ShowStochastic = ShowStochastic || state.ShowStochastic;
-        ShowAtr = ShowAtr || state.ShowAtr;
-        ShowVwap = ShowVwap || state.ShowVwap;
-        ShowAdx = ShowAdx || state.ShowAdx;
-        if (emaWasOff && state.ShowEma && state.EmaPeriod > 0)
-            EmaPeriod = state.EmaPeriod;
-
-        foreach (var user in UserIndicators)
+        if (replaceExisting)
         {
-            if (idSet.Contains(user.Definition.Id) ||
-                (user.Definition.Alias is { } alias && idSet.Contains(alias)))
+            ShowSma = state.ShowSma;
+            ShowEma = state.ShowEma;
+            ShowRsi = state.ShowRsi;
+            ShowMacd = state.ShowMacd;
+            ShowBollinger = state.ShowBollinger;
+            ShowStochastic = state.ShowStochastic;
+            ShowAtr = state.ShowAtr;
+            ShowVwap = state.ShowVwap;
+            ShowAdx = state.ShowAdx;
+            if (state.ShowEma && state.EmaPeriod > 0)
+                EmaPeriod = state.EmaPeriod;
+            foreach (var user in UserIndicators)
             {
-                user.IsEnabled = true;
+                user.IsEnabled = idSet.Contains(user.Definition.Id) ||
+                                 (user.Definition.Alias is { } alias && idSet.Contains(alias));
             }
         }
+        else
+        {
+            ShowSma = ShowSma || state.ShowSma;
+            ShowEma = ShowEma || state.ShowEma;
+            ShowRsi = ShowRsi || state.ShowRsi;
+            ShowMacd = ShowMacd || state.ShowMacd;
+            ShowBollinger = ShowBollinger || state.ShowBollinger;
+            ShowStochastic = ShowStochastic || state.ShowStochastic;
+            ShowAtr = ShowAtr || state.ShowAtr;
+            ShowVwap = ShowVwap || state.ShowVwap;
+            ShowAdx = ShowAdx || state.ShowAdx;
+            if (emaWasOff && state.ShowEma && state.EmaPeriod > 0)
+                EmaPeriod = state.EmaPeriod;
+
+            foreach (var user in UserIndicators)
+            {
+                if (idSet.Contains(user.Definition.Id) ||
+                    (user.Definition.Alias is { } alias && idSet.Contains(alias)))
+                {
+                    user.IsEnabled = true;
+                }
+            }
+        }
+
+        NotifyResearchSpaceChanged();
+    }
+
+    /// <summary>
+    /// Raised when instrument or indicator toggles change so Strategy Builder Research can mirror
+    /// the live chart as one shared space (without waiting for Keep).
+    /// </summary>
+    public event EventHandler? ResearchSpaceChanged;
+
+    private void NotifyResearchSpaceChanged()
+    {
+        NotifyResearchIndicatorSummaryChanged();
+        ResearchSpaceChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Exact indicator settings currently enabled on this chart (research handoff R05).
+    /// Periods are the values the chart actually computes with — not catalog bucket ids.
+    /// </summary>
+    public IReadOnlyList<ResearchIndicatorBindingV1> CaptureActiveIndicatorBindings()
+    {
+        var list = new List<ResearchIndicatorBindingV1>();
+        if (ShowSma)
+            list.Add(new("host.sma", "sma", 20));
+        if (ShowEma)
+            list.Add(new("host.ema", "ema", EmaPeriod <= 0 ? 50 : EmaPeriod));
+        if (ShowRsi)
+            list.Add(new("host.rsi", "rsi", 14));
+        if (ShowMacd)
+            list.Add(new("host.macd", "macd", 0));
+        if (ShowBollinger)
+            list.Add(new("host.bollinger", "bollinger", 20));
+        if (ShowStochastic)
+            list.Add(new("host.stochastic", "stochastic", 14));
+        if (ShowAtr)
+            list.Add(new("host.atr", "atr", 14));
+        if (ShowVwap)
+            list.Add(new("host.vwap", "vwap", 0));
+        if (ShowAdx)
+            list.Add(new("host.adx", "adx", 14));
+        foreach (var user in UserIndicators.Where(static item => item.IsEnabled))
+        {
+            var def = user.Definition;
+            list.Add(new(
+                $"user.{def.Id}",
+                def.Kind.ToString().ToLowerInvariant(),
+                def.Period));
+        }
+
+        return list.Count == 0 ? Array.Empty<ResearchIndicatorBindingV1>() : list.AsReadOnly();
+    }
+
+    /// <summary>
+    /// Snapshot of host overlay ids currently enabled on this chart (research handoff).
+    /// Includes enabled user-indicator catalog ids. Prefer
+    /// <see cref="CaptureActiveIndicatorBindings"/> for exact periods.
+    /// </summary>
+    public IReadOnlyList<string> CaptureActiveOverlayIds()
+    {
+        var bindings = CaptureActiveIndicatorBindings();
+        if (bindings.Count == 0)
+            return Array.AsReadOnly(new[] { "candles" });
+
+        var ids = new List<string>();
+        foreach (var b in bindings)
+        {
+            if (b.BindingId.StartsWith("user.", StringComparison.Ordinal))
+            {
+                ids.Add(b.BindingId["user.".Length..]);
+                continue;
+            }
+
+            ids.Add(b.Kind switch
+            {
+                "sma" => "sma-20",
+                "ema" => b.Period <= 20 ? "ema-20" : b.Period == 50 ? "ema-50" : $"ema-{b.Period}",
+                "rsi" => "rsi-14",
+                "macd" => "macd-12-26-9",
+                "bollinger" => "bollinger-20",
+                "stochastic" => "stochastic-14-3-3",
+                "atr" => "atr-14",
+                "vwap" => "vwap",
+                "adx" => "adx-14",
+                _ => b.BindingId,
+            });
+        }
+
+        return ids.AsReadOnly();
     }
 
     private string? _pendingHostPreferredSymbol;
@@ -263,12 +381,28 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
             string.Equals(item.Contract.Symbol, symbol, StringComparison.OrdinalIgnoreCase) ||
             item.DisplayName.Contains(symbol, StringComparison.OrdinalIgnoreCase));
         if (match is null)
+        {
+            // Keep pending until catalogue refresh — do not fall through to BTCUSD/default.
+            Status = $"Waiting for instrument '{symbol}' in the chart catalogue…";
             return;
+        }
 
+        // Clear only after a successful match so LoadInstrumentsAsync cannot overwrite
+        // Research Studio's ranked-row selection with a remembered default.
         _pendingHostPreferredSymbol = null;
-        SelectedInstrument = match;
+        if (!string.Equals(
+                SelectedInstrument?.Contract.Symbol,
+                match.Contract.Symbol,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            SelectedInstrument = match;
+        }
+
         InstrumentSearchText = match.DisplayName;
     }
+
+    /// <summary>Host/research preferred symbol still awaiting catalogue match, if any.</summary>
+    public string? PendingHostPreferredSymbol => _pendingHostPreferredSymbol;
 
     private void TryApplyPendingHostTimeframe()
     {
@@ -321,6 +455,12 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
     partial void OnInstrumentSearchTextChanged(string value) => ApplyFilter();
     partial void OnSelectedInstrumentChanged(TradableInstrument? value)
     {
+        if (value is not null &&
+            !string.Equals(InstrumentSearchText, value.DisplayName, StringComparison.Ordinal))
+        {
+            InstrumentSearchText = value.DisplayName;
+        }
+
         ResetResearchSelection();
         ClearExplicitHistoryWindow();
         DraftSentToBuilder = false;
@@ -329,6 +469,7 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
         NotifyStrategyDraftStateChanged();
         NotifyResearchShellStateChanged();
         QueueReload();
+        NotifyResearchSpaceChanged();
     }
 
     partial void OnSelectedTimeframeChanged(ChartTimeframe? value)
@@ -343,16 +484,56 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
         QueueReload();
     }
     partial void OnSelectedChartTypeChanged(string value) => QueueReload();
-    partial void OnShowSmaChanged(bool value) => QueueReload();
-    partial void OnShowEmaChanged(bool value) => QueueReload();
-    partial void OnShowRsiChanged(bool value) => QueueReload();
-    partial void OnShowMacdChanged(bool value) => QueueReload();
-    partial void OnShowBollingerChanged(bool value) => QueueReload();
-    partial void OnShowStochasticChanged(bool value) => QueueReload();
-    partial void OnShowAtrChanged(bool value) => QueueReload();
-    partial void OnShowVwapChanged(bool value) => QueueReload();
-    partial void OnShowAdxChanged(bool value) => QueueReload();
-    partial void OnEmaPeriodChanged(int value) => QueueReload();
+    partial void OnShowSmaChanged(bool value)
+    {
+        QueueReload();
+        NotifyResearchSpaceChanged();
+    }
+    partial void OnShowEmaChanged(bool value)
+    {
+        QueueReload();
+        NotifyResearchSpaceChanged();
+    }
+    partial void OnShowRsiChanged(bool value)
+    {
+        QueueReload();
+        NotifyResearchSpaceChanged();
+    }
+    partial void OnShowMacdChanged(bool value)
+    {
+        QueueReload();
+        NotifyResearchSpaceChanged();
+    }
+    partial void OnShowBollingerChanged(bool value)
+    {
+        QueueReload();
+        NotifyResearchSpaceChanged();
+    }
+    partial void OnShowStochasticChanged(bool value)
+    {
+        QueueReload();
+        NotifyResearchSpaceChanged();
+    }
+    partial void OnShowAtrChanged(bool value)
+    {
+        QueueReload();
+        NotifyResearchSpaceChanged();
+    }
+    partial void OnShowVwapChanged(bool value)
+    {
+        QueueReload();
+        NotifyResearchSpaceChanged();
+    }
+    partial void OnShowAdxChanged(bool value)
+    {
+        QueueReload();
+        NotifyResearchSpaceChanged();
+    }
+    partial void OnEmaPeriodChanged(int value)
+    {
+        QueueReload();
+        NotifyResearchSpaceChanged();
+    }
 
     partial void OnIsPausedChanged(bool value)
     {

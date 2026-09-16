@@ -60,6 +60,9 @@
     <None Include="..\..\..\src\linux\Shell\TradingTerminal.App.Avalonia\Settings\StrategyAuthoringWindow.axaml"
           Link="Fixtures\StrategyAuthoringWindow.axaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\src\linux\Shell\TradingTerminal.App.Avalonia\Settings\ResearchStudioWindow.axaml"
+          Link="Fixtures\ResearchStudioWindow.axaml"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\..\src\linux\Shell\TradingTerminal.Accounts\AccountGateWindow.axaml"
           Link="Fixtures\AccountGateWindow.axaml"
           CopyToOutputDirectory="PreserveNewest" />

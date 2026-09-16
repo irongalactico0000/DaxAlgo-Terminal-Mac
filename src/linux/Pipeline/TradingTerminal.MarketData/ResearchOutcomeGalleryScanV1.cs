@@ -62,6 +62,7 @@ public sealed class ResearchOutcomeGalleryScanV1 : IResearchOutcomeGalleryScanV1
         var universe = Sp100Sp500Catalog.Sp100
             .Select(static item => item.Symbol)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var requestedUniverseSize = universe.Count;
         var names = Sp100Sp500Catalog.Sp100
             .ToDictionary(static item => item.Symbol, static item => item.Name, StringComparer.OrdinalIgnoreCase);
 
@@ -75,13 +76,16 @@ public sealed class ResearchOutcomeGalleryScanV1 : IResearchOutcomeGalleryScanV1
             .ToArray();
         // Scan S&P 100 first; if none have usable local bars, widen to the rest of the registry
         // (Simulated Mac installs often only keep AAPL/MSFT hourly history).
-        var eligible = sp100Eligible.Length > 0 ? sp100Eligible : all;
+        var preferredPass = sp100Eligible.Length > 0;
+        var eligible = preferredPass ? sp100Eligible : all;
+        var widenedBeyondPreferred = !preferredPass;
         var matches = new List<ResearchOutcomeGalleryMatchV1>();
         var withHistory = 0;
         var hydrationAttempts = 0;
         var hydrationSuccesses = 0;
         var hydrationFailures = 0;
         var timeframeCounts = new Dictionary<BarSize, int>();
+        var sourceCounts = new Dictionary<BrokerKind, int>();
 
         async Task ScanBatchAsync(IReadOnlyList<Instrument> batch)
         {
@@ -104,12 +108,15 @@ public sealed class ResearchOutcomeGalleryScanV1 : IResearchOutcomeGalleryScanV1
                 var symbol = instrument.CanonicalSymbol;
                 names.TryGetValue(symbol, out var companyName);
                 companyName ??= symbol;
-                matches.AddRange(ResearchOutcomeEventFinderV1.FindEvents(
+                var batchMatches = ResearchOutcomeEventFinderV1.FindEvents(
                     request.ScanId,
                     instrument.Id,
                     symbol,
                     companyName,
-                    usable));
+                    usable);
+                foreach (var match in batchMatches)
+                    sourceCounts[match.Source] = sourceCounts.GetValueOrDefault(match.Source) + 1;
+                matches.AddRange(batchMatches);
             }
         }
 
@@ -117,6 +124,7 @@ public sealed class ResearchOutcomeGalleryScanV1 : IResearchOutcomeGalleryScanV1
         if (withHistory == 0 && sp100Eligible.Length > 0 && !ReferenceEquals(eligible, all))
         {
             eligible = all;
+            widenedBeyondPreferred = true;
             await ScanBatchAsync(all.Where(instrument => !universe.Contains(instrument.CanonicalSymbol)).ToArray())
                 .ConfigureAwait(false);
         }
@@ -130,6 +138,7 @@ public sealed class ResearchOutcomeGalleryScanV1 : IResearchOutcomeGalleryScanV1
             matches.Clear();
             withHistory = 0;
             timeframeCounts.Clear();
+            sourceCounts.Clear();
             await ScanBatchAsync(eligible).ConfigureAwait(false);
         }
 
@@ -144,6 +153,7 @@ public sealed class ResearchOutcomeGalleryScanV1 : IResearchOutcomeGalleryScanV1
             matches.Clear();
             withHistory = 0;
             timeframeCounts.Clear();
+            sourceCounts.Clear();
             var refreshBatch = eligible.Take(Math.Max(1, request.MaxRemoteHydrations)).ToArray();
             foreach (var instrument in refreshBatch)
             {
@@ -164,12 +174,15 @@ public sealed class ResearchOutcomeGalleryScanV1 : IResearchOutcomeGalleryScanV1
                 var symbol = instrument.CanonicalSymbol;
                 names.TryGetValue(symbol, out var companyName);
                 companyName ??= symbol;
-                matches.AddRange(ResearchOutcomeEventFinderV1.FindEvents(
+                var refreshMatches = ResearchOutcomeEventFinderV1.FindEvents(
                     request.ScanId,
                     instrument.Id,
                     symbol,
                     companyName,
-                    usable));
+                    usable);
+                foreach (var match in refreshMatches)
+                    sourceCounts[match.Source] = sourceCounts.GetValueOrDefault(match.Source) + 1;
+                matches.AddRange(refreshMatches);
             }
         }
 
@@ -189,10 +202,25 @@ public sealed class ResearchOutcomeGalleryScanV1 : IResearchOutcomeGalleryScanV1
             : string.Join(", ", timeframeCounts
                 .OrderBy(static pair => Array.IndexOf(PreferredBarSizes, pair.Key))
                 .Select(static pair => $"{pair.Value}×{pair.Key.ToDisplayString()}"));
+        var sources = sourceCounts.Count == 0
+            ? "none"
+            : string.Join(", ", sourceCounts
+                .OrderByDescending(static pair => pair.Value)
+                .Select(static pair => $"{pair.Value}×{DescribeBrokerSource(pair.Key)}"));
+        var coverageSummary =
+            $"Requested universe: S&P 100 ({requestedUniverseSize} symbols). " +
+            $"Registry had {sp100Eligible.Length} of those instruments available. " +
+            (widenedBeyondPreferred
+                ? $"Coverage widened beyond S&P 100 — scanned {eligible.Length} registry symbols; {withHistory} had usable history."
+                : $"Scanned {eligible.Length} S&P 100-eligible instruments; {withHistory} had usable history.") +
+            $" Returned {ranked.Length} event(s).";
+        var dataProvenanceSummary =
+            $"Event bar sources: {sources}. History used: {timeframes}." +
+            (hydrationAttempts == 0
+                ? " No connected-broker hydration was required for the returned events."
+                : hydration);
         var explanation =
-            $"{prefix} across registry symbols (S&P 100 preferred; daily bars preferred, then 1H / 15m local history). " +
-            $"Found {ranked.Length} event(s) from {withHistory} of {eligible.Length} eligible symbols " +
-            $"(lookback {request.LookbackBars} bars; history used: {timeframes}).{hydration} " +
+            $"{prefix}. {coverageSummary} {dataProvenanceSummary} " +
             "Gallery hits are research evidence for B/C/N labeling — not a trading signal and not Paper approval.";
 
         return new ResearchOutcomeGalleryResultV1(
@@ -204,8 +232,20 @@ public sealed class ResearchOutcomeGalleryScanV1 : IResearchOutcomeGalleryScanV1
             explanation,
             hydrationAttempts,
             hydrationSuccesses,
-            hydrationFailures);
+            hydrationFailures,
+            RequestedUniverseLabel: "S&P 100",
+            RequestedUniverseSize: requestedUniverseSize,
+            PreferredUniverseEligibleInRegistry: sp100Eligible.Length,
+            WidenedBeyondPreferredUniverse: widenedBeyondPreferred,
+            CoverageSummary: coverageSummary,
+            DataProvenanceSummary: dataProvenanceSummary);
     }
+
+    private static string DescribeBrokerSource(BrokerKind source) => source switch
+    {
+        BrokerKind.Simulated => "Simulated local history",
+        _ => $"{source} bars",
+    };
 
     private async Task<(IReadOnlyList<OhlcvBar> Bars, BarSize? Size, int HydAttempts, int HydOk, int HydFail)>
         LoadUsableBarsAsync(
