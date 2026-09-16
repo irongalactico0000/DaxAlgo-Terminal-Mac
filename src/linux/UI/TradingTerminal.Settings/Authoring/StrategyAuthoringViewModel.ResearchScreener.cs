@@ -35,7 +35,7 @@ public sealed partial class StrategyAuthoringViewModel
         || SelectedResearchScreenRow is not null;
     public bool CanOpenResearchMarketStructure =>
         !string.IsNullOrWhiteSpace(
-            SelectedResearchScreenRow?.CanonicalSymbol ?? ResearchChartInstrumentText);
+            ResearchChartInstrumentText ?? SelectedResearchScreenRow?.CanonicalSymbol);
 
     public string ResearchScreenResultHeaderText => ResearchMarketScreenResult?.ResultHeader
         ?? "No screen yet — Rank uses one bar size and one shared completed-bar window.";
@@ -309,7 +309,18 @@ public sealed partial class StrategyAuthoringViewModel
     private void SetResearchScreenViewMode(string? mode)
     {
         if (string.IsNullOrWhiteSpace(mode)) return;
-        ResearchScreenViewMode = mode.Trim();
+        var normalized = mode.Trim();
+        if (string.Equals(normalized, "Grid", StringComparison.OrdinalIgnoreCase))
+        {
+            // Chart grid is not implemented yet — keep Table so we do not pretend cards are charts.
+            ResearchScreenViewMode = "Table";
+            Status =
+                "Chart grid is not available yet. Open several ranked rows one-by-one, or use Table/Detail. " +
+                "Multi-chart comparison tiles will land in a later pass.";
+            return;
+        }
+
+        ResearchScreenViewMode = normalized;
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenResearchMarketStructure))]
@@ -326,7 +337,7 @@ public sealed partial class StrategyAuthoringViewModel
 
     private void RequestResearchMarketStructure(ResearchMarketStructureViewKind kind)
     {
-        var symbol = SelectedResearchScreenRow?.CanonicalSymbol ?? ResearchChartInstrumentText;
+        var symbol = ResearchChartInstrumentText ?? SelectedResearchScreenRow?.CanonicalSymbol;
         if (string.IsNullOrWhiteSpace(symbol)) return;
         HostResearchMarketStructureRequested?.Invoke(
             this,

@@ -359,6 +359,32 @@ public sealed class StrategyAuthoringFreshSessionTests
     }
 
     [Fact]
+    public void Open_chart_instrument_enables_market_structure_without_ranking()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.IsResearchStudioShell = true;
+        viewModel.SelectedResearchScreenRow.Should().BeNull();
+        viewModel.CanOpenResearchMarketStructure.Should().BeFalse();
+
+        viewModel.SetBoundResearchChartInstrument("BTCUSD");
+
+        viewModel.CanOpenResearchMarketStructure.Should().BeTrue(
+            "an open chart is enough — Rank is not required to inspect Order book / Footprint / Bookmap");
+        viewModel.OpenResearchOrderBookCommand.CanExecute(null).Should().BeTrue();
+
+        string? opened = null;
+        viewModel.HostResearchMarketStructureRequested += (_, args) =>
+            opened = $"{args.ViewKind}:{args.CanonicalSymbol}";
+        viewModel.OpenResearchOrderBookCommand.Execute(null);
+        opened.Should().Be("OrderBook:BTCUSD");
+    }
+
+    [Fact]
     public void Research_led_path_saves_observation_before_any_strategy_artifact()
     {
         using var viewModel = new StrategyAuthoringViewModel(

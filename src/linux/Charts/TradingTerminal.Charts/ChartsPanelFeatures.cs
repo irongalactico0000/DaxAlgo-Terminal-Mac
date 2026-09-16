@@ -23,6 +23,11 @@ public sealed record ChartsPanelFeatures
     public bool OptionsRail { get; init; } = true;
 
     /// <summary>
+    /// Order book / Footprint / Bookmap for this chart's instrument. Off on bare embedded price panes.
+    /// </summary>
+    public bool MarketViews { get; init; } = true;
+
+    /// <summary>
     /// Instrument→Range→Draft→Lock→Historical BT chrome. Off when the chart is embedded in Strategy
     /// Builder Research — Hyperion owns that workflow; keep symbol/timeframe/indicators only.
     /// </summary>
@@ -63,6 +68,7 @@ public sealed record ChartsPanelFeatures
         Indicators = false,
         Status = false,
         ResearchShellWorkflow = false,
+        MarketViews = false,
     };
 
     /// <summary>Price + indicators, no chrome — the default an authored bar-based strategy gets embedded
@@ -73,5 +79,6 @@ public sealed record ChartsPanelFeatures
         OptionsRail = false,
         Status = false,
         ResearchShellWorkflow = false,
+        MarketViews = false,
     };
 }

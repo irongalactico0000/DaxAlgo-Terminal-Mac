@@ -25,11 +25,11 @@
                      ToolTip.Tip="Research shell next step (draft only — no broker orders)." />
           <Border Width="1" Height="24" Background="#2A2E39" />
           <TextBlock Text="From" FontSize="10" Foreground="#787B86" VerticalAlignment="Center" />
-          <TextBox Width="100" Text="{Binding HistoryFromText}" Watermark="UTC date"
-                   ToolTip.Tip="Explicit history start (e.g. 2026-01-02)" />
+          <TextBox Width="140" Text="{Binding HistoryFromText}" Watermark="UTC from"
+                   ToolTip.Tip="UTC start (yyyy-MM-dd or yyyy-MM-dd HH:mm:ss). Full timestamps preserve intraday ranked windows." />
           <TextBlock Text="To" FontSize="10" Foreground="#787B86" VerticalAlignment="Center" />
-          <TextBox Width="100" Text="{Binding HistoryToText}" Watermark="UTC date"
-                   ToolTip.Tip="Explicit history end (exclusive-ish window end)" />
+          <TextBox Width="140" Text="{Binding HistoryToText}" Watermark="UTC to"
+                   ToolTip.Tip="UTC end exclusive. Prefer full timestamps for same-day windows." />
           <Button Content="Load history"
                   Command="{Binding LoadExplicitHistoryCommand}"
                   IsEnabled="{Binding CanLoadExplicitHistory}"
@@ -96,6 +96,23 @@
               <DataTemplate><TextBlock Text="{Binding Label}" /></DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
+
+          <StackPanel x:Name="ChartMarketViews" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <Border Width="1" Height="24" Margin="6,0,0,0" Background="#2A2E39" />
+            <TextBlock Text="Views" FontSize="10" Foreground="#787B86" VerticalAlignment="Center" />
+            <Button Content="Order book"
+                    Command="{Binding OpenChartOrderBookCommand}"
+                    IsEnabled="{Binding CanOpenChartMarketView}"
+                    ToolTip.Tip="Open the Order book for this chart's instrument. Live L2 — not a historical replay of the selected bars." />
+            <Button Content="Footprint"
+                    Command="{Binding OpenChartVolumeFootprintCommand}"
+                    IsEnabled="{Binding CanOpenChartMarketView}"
+                    ToolTip.Tip="Open Volume footprint for this chart's instrument." />
+            <Button Content="Bookmap"
+                    Command="{Binding OpenChartBookmapCommand}"
+                    IsEnabled="{Binding CanOpenChartMarketView}"
+                    ToolTip.Tip="Open Bookmap + VolBook for this chart's instrument." />
+          </StackPanel>
 
           <Border Width="1" Height="24" Margin="6,0" Background="#2A2E39" />
           <TextBlock Text="PRESET" FontSize="10" FontWeight="SemiBold"

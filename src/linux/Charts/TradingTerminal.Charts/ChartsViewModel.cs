@@ -230,6 +230,40 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
     /// </summary>
     public event EventHandler? ResearchSpaceChanged;
 
+    /// <summary>
+    /// Open an existing market-structure window for <see cref="SelectedInstrument"/> (not Rank).
+    /// Live L2/tape views are not a historical replay of the selected bars.
+    /// </summary>
+    public event EventHandler<HostResearchMarketStructureRequestedEventArgs>? MarketViewRequested;
+
+    public bool CanOpenChartMarketView => SelectedInstrument is not null;
+
+    [RelayCommand(CanExecute = nameof(CanOpenChartMarketView))]
+    private void OpenChartOrderBook() =>
+        RequestChartMarketView(ResearchMarketStructureViewKind.OrderBook);
+
+    [RelayCommand(CanExecute = nameof(CanOpenChartMarketView))]
+    private void OpenChartVolumeFootprint() =>
+        RequestChartMarketView(ResearchMarketStructureViewKind.VolumeFootprint);
+
+    [RelayCommand(CanExecute = nameof(CanOpenChartMarketView))]
+    private void OpenChartBookmap() =>
+        RequestChartMarketView(ResearchMarketStructureViewKind.Bookmap);
+
+    private void RequestChartMarketView(ResearchMarketStructureViewKind kind)
+    {
+        var symbol = SelectedInstrument?.Contract.Symbol;
+        if (string.IsNullOrWhiteSpace(symbol))
+        {
+            Status = "Select an instrument on this chart before opening Order book, Footprint, or Bookmap.";
+            return;
+        }
+
+        MarketViewRequested?.Invoke(this, new HostResearchMarketStructureRequestedEventArgs(kind, symbol));
+        Status =
+            $"Opening {kind} for {symbol} (this chart). Live depth/tape is not a historical replay of the selected bars.";
+    }
+
     private void NotifyResearchSpaceChanged()
     {
         NotifyResearchIndicatorSummaryChanged();
@@ -337,8 +371,11 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
     {
         _pendingHostPreferredSymbol = string.IsNullOrWhiteSpace(symbol) ? _pendingHostPreferredSymbol : symbol.Trim();
         _pendingHostBarSize = timeframe;
-        HistoryFromText = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        HistoryToText = DateTime.SpecifyKind(toUtc, DateTimeKind.Utc).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        // Keep full UTC instants — date-only collapses same-day ranked windows to equal From/To.
+        HistoryFromText = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc)
+            .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        HistoryToText = DateTime.SpecifyKind(toUtc, DateTimeKind.Utc)
+            .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         TryApplyPendingHostInstrument();
         TryApplyPendingHostTimeframe();
         if (CanLoadExplicitHistory)
@@ -468,6 +505,10 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
         DraftPlacementMode = ChartInteractionMode.Pan;
         NotifyStrategyDraftStateChanged();
         NotifyResearchShellStateChanged();
+        OnPropertyChanged(nameof(CanOpenChartMarketView));
+        OpenChartOrderBookCommand.NotifyCanExecuteChanged();
+        OpenChartVolumeFootprintCommand.NotifyCanExecuteChanged();
+        OpenChartBookmapCommand.NotifyCanExecuteChanged();
         QueueReload();
         NotifyResearchSpaceChanged();
     }

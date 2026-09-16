@@ -2666,7 +2666,9 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         }
 
         if ((chartChoice.HasOverlays || chartChoice.HasResearchScans) &&
-            (IsResearchStage || !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(effectiveRequest)))
+            (IsResearchStage || !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(effectiveRequest)) &&
+            !AuthoredChartChoiceCatalogV1.LooksLikeAnalyticalResearchQuestion(prompt) &&
+            !AuthoredChartChoiceCatalogV1.LooksLikeAnalyticalResearchQuestion(effectiveRequest))
         {
             if (Messages.Count == 0) DeriveIdentityFrom(prompt);
             if (chartChoice.HasOverlays)
@@ -2674,6 +2676,18 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             else
                 _ = CompleteHostResearchScanAsync(prompt, chartChoice);
             return true;
+        }
+
+        // Analytical questions about indicators: apply overlays for context, then continue to AI.
+        if (chartChoice.HasOverlays &&
+            AuthoredChartChoiceCatalogV1.LooksLikeAnalyticalResearchQuestion(prompt))
+        {
+            ApplyResearchOverlayAnalysis(chartChoice);
+            HostChartOverlayPreviewRequested?.Invoke(
+                this,
+                new HostChartOverlayPreviewRequestedEventArgs(
+                    chartChoice.Overlays.Select(static item => item.Id).ToArray(),
+                    startResearchCapture: false));
         }
 
         return false;
@@ -2754,17 +2768,30 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             return;
         }
 
-        // Famous-indicator / research-scan picks go host-first while Research is active.
-        // Do not freeze a visualizer/strategy from chart tools — even if the composer still
-        // contains leftover trading wording from a restored session or template context.
+        // Famous-indicator / research-scan picks go host-first while Research is active —
+        // unless the user asked an analytical question (why/how/compare/fail…), which must reach AI.
         if ((chartChoice.HasOverlays || chartChoice.HasResearchScans) &&
-            (IsResearchStage || !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(effectiveRequest)))
+            (IsResearchStage || !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(effectiveRequest)) &&
+            !AuthoredChartChoiceCatalogV1.LooksLikeAnalyticalResearchQuestion(prompt) &&
+            !AuthoredChartChoiceCatalogV1.LooksLikeAnalyticalResearchQuestion(effectiveRequest))
         {
             if (chartChoice.HasOverlays)
                 await CompleteHostOverlayVisualizerAsync(prompt, effectiveRequest, chartChoice);
             else
                 await CompleteHostResearchScanAsync(prompt, chartChoice);
             return;
+        }
+
+        // Apply mentioned overlays as context, then continue to classifier/AI for the explanation.
+        if (chartChoice.HasOverlays &&
+            AuthoredChartChoiceCatalogV1.LooksLikeAnalyticalResearchQuestion(prompt))
+        {
+            ApplyResearchOverlayAnalysis(chartChoice);
+            HostChartOverlayPreviewRequested?.Invoke(
+                this,
+                new HostChartOverlayPreviewRequestedEventArgs(
+                    chartChoice.Overlays.Select(static item => item.Id).ToArray(),
+                    startResearchCapture: false));
         }
 
         IsGenerating = true;

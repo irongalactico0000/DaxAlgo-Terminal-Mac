@@ -316,23 +316,15 @@
                   <Button Classes="ghost" Content="Table" Margin="0,0,4,4"
                           Command="{Binding SetResearchScreenViewModeCommand}" CommandParameter="Table" />
                   <Button Classes="ghost" Content="Chart grid" Margin="0,0,4,4"
-                          Command="{Binding SetResearchScreenViewModeCommand}" CommandParameter="Grid" />
+                          Command="{Binding SetResearchScreenViewModeCommand}" CommandParameter="Grid"
+                          ToolTip.Tip="Not available yet — multi-chart comparison tiles come later. Use Open chart on ranked rows." />
                   <Button Classes="ghost" Content="Detail" Margin="0,0,4,4"
                           Command="{Binding SetResearchScreenViewModeCommand}" CommandParameter="Detail" />
                   <Button Classes="aiAction" Content="Open chart"
                           Command="{Binding OpenSelectedScreenChartsCommand}"
                           IsEnabled="{Binding CanOpenSelectedScreenCharts}"
-                          Margin="0,0,4,4" />
-                  <Button Classes="ghost" Content="Order book" Margin="0,0,4,4"
-                          Command="{Binding OpenResearchOrderBookCommand}"
-                          IsEnabled="{Binding CanOpenResearchMarketStructure}"
-                          ToolTip.Tip="Open the existing Order book window for the selected research instrument." />
-                  <Button Classes="ghost" Content="Footprint" Margin="0,0,4,4"
-                          Command="{Binding OpenResearchVolumeFootprintCommand}"
-                          IsEnabled="{Binding CanOpenResearchMarketStructure}" />
-                  <Button Classes="ghost" Content="Bookmap" Margin="0,0,0,4"
-                          Command="{Binding OpenResearchBookmapCommand}"
-                          IsEnabled="{Binding CanOpenResearchMarketStructure}" />
+                          Margin="0,0,4,4"
+                          ToolTip.Tip="Open the selected ranked instrument on the Research chart. Chart tools (indicators, Order book, Footprint, Bookmap) live on that chart." />
                 </WrapPanel>
                 <TextBlock Text="{Binding ResearchScreenCoverageText}" Classes="caption" TextWrapping="Wrap"
                            ToolTip.Tip="{Binding ResearchScreenMetricDefinitionText}" />
@@ -473,17 +465,71 @@
                          FontFamily="{StaticResource Font.Data}"
                          AutomationProperties.Name="Research indicator compare summary" />
               <TextBlock Text="{Binding ResearchChartSelectionText}" Classes="caption" TextWrapping="Wrap" />
+              <TextBlock Text="CONDITION" Classes="eyebrow" Margin="0,4,0,0" />
               <TextBlock Text="{Binding PendingResearchConditionText}" Classes="caption" TextWrapping="Wrap"
                          FontFamily="{StaticResource Font.Data}" />
+              <StackPanel Orientation="Horizontal" Spacing="4">
+                <TextBlock Text="k" Classes="caption" VerticalAlignment="Center" />
+                <TextBox Text="{Binding PendingConditionMultipleText}" Watermark="2" Width="40"
+                         AutomationProperties.Name="Condition volume multiple" />
+                <TextBlock Text="N" Classes="caption" VerticalAlignment="Center" />
+                <TextBox Text="{Binding PendingConditionLookbackText}" Watermark="20" Width="40"
+                         AutomationProperties.Name="Condition lookback bars" />
+                <Button Classes="aiAction" Content="Apply"
+                        Command="{Binding ApplyPendingResearchConditionCommand}" />
+              </StackPanel>
+              <WrapPanel>
+                <Button Classes="ghost" Content="k=2" Command="{Binding SetConditionMultipleTwoCommand}" Margin="0,0,4,4" />
+                <Button Classes="ghost" Content="k=3" Command="{Binding SetConditionMultipleThreeCommand}" Margin="0,0,4,4" />
+                <Button Classes="ghost" Content="Clear" Command="{Binding ClearPendingResearchConditionCommand}" Margin="0,0,4,4" />
+              </WrapPanel>
               <Button Classes="aiAction" Content="Find similar charts"
                       Command="{Binding SearchResearchConditionLocalCommand}"
                       IsEnabled="{Binding CanSearchResearchCondition}"
                       HorizontalAlignment="Stretch"
-                      ToolTip.Tip="Search with the current condition and indicators." />
+                      ToolTip.Tip="Search with the current applied condition — not a silent next-day +5% scan." />
               <Button Classes="ghost" Content="Search TSD"
                       Command="{Binding SearchResearchConditionTsdCommand}"
                       IsEnabled="{Binding CanSearchResearchCondition}"
-                      HorizontalAlignment="Stretch" />
+                      HorizontalAlignment="Stretch"
+                      ToolTip.Tip="Uses the open chart's symbol and bar size." />
+              <TextBlock Text="{Binding ResearchConditionValidityBadgeText}" Classes="caption" TextWrapping="Wrap"
+                         FontFamily="{StaticResource Font.Data}" />
+              <TextBlock Text="REFERENCES" Classes="eyebrow" Margin="0,4,0,0" />
+              <TextBlock Text="{Binding ResearchReferenceAText}" Classes="caption" TextWrapping="Wrap" FontFamily="{StaticResource Font.Data}" />
+              <TextBlock Text="{Binding ResearchReferenceBText}" Classes="caption" TextWrapping="Wrap" FontFamily="{StaticResource Font.Data}" />
+              <WrapPanel>
+                <Button Classes="ghost" Content="Bookmark A" Command="{Binding SaveResearchReferenceACommand}"
+                        IsEnabled="{Binding CanSaveResearchReference}" Margin="0,0,4,4" />
+                <Button Classes="ghost" Content="Restore A" Command="{Binding RestoreResearchReferenceACommand}"
+                        IsEnabled="{Binding HasResearchReferenceA}" Margin="0,0,4,4" />
+                <Button Classes="ghost" Content="Bookmark B" Command="{Binding SaveResearchReferenceBCommand}"
+                        IsEnabled="{Binding CanSaveResearchReference}" Margin="0,0,4,4" />
+                <Button Classes="ghost" Content="Restore B" Command="{Binding RestoreResearchReferenceBCommand}"
+                        IsEnabled="{Binding HasResearchReferenceB}" Margin="0,0,4,4" />
+              </WrapPanel>
+              <StackPanel Spacing="4" IsVisible="{Binding HasResearchConditionSearchResult}">
+                <TextBlock Text="HITS" Classes="eyebrow" />
+                <TextBlock Text="{Binding ResearchConditionSearchSummaryText}" Classes="caption" TextWrapping="Wrap"
+                           FontFamily="{StaticResource Font.Data}" />
+                <ItemsControl ItemsSource="{Binding ResearchConditionSearchResult.Hits}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Classes="ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                              Margin="0,1" Padding="4,2"
+                              Command="{Binding DataContext.OpenResearchConditionHitCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="Open this hit on the Research chart with the current indicators.">
+                        <TextBlock Classes="caption" FontFamily="{StaticResource Font.Data}" TextWrapping="Wrap">
+                          <Run Text="{Binding BarTimeUtc, StringFormat={}{0:u}}" />
+                          <Run Text=" · fwd " />
+                          <Run Text="{Binding ForwardReturn, StringFormat={}{0:P1}}" />
+                        </TextBlock>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
               <TextBlock Text="Event labels (optional experiment tool)" Classes="eyebrow" Margin="0,8,0,0" />
               <WrapPanel>
                 <Button Classes="ghost" Content="B" Command="{Binding MarkPreBreakoutCommand}"

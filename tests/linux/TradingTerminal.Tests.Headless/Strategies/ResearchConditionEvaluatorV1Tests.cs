@@ -54,13 +54,16 @@ public sealed class ResearchConditionEvaluatorV1Tests
     }
 
     [Fact]
-    public void MapSymbolForTsd_defaults_equity_to_btc_for_wire_proof()
+    public void MapSymbolForTsd_maps_crypto_aliases_without_remapping_equities()
     {
         Assert.Equal(
             "BTCUSDT",
-            TradingTerminal.Infrastructure.Research.ResearchConditionSearchV1.MapSymbolForTsd("AAPL"));
+            TradingTerminal.Infrastructure.Research.ResearchConditionSearchV1.MapSymbolForTsd("BTCUSD"));
         Assert.Equal(
             "ETHUSDT",
             TradingTerminal.Infrastructure.Research.ResearchConditionSearchV1.MapSymbolForTsd("ETH-USD"));
+        Assert.Equal(
+            "AAPL",
+            TradingTerminal.Infrastructure.Research.ResearchConditionSearchV1.MapSymbolForTsd("AAPL"));
     }
 }

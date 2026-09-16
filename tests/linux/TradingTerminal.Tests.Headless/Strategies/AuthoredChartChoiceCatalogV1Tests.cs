@@ -166,4 +166,13 @@ public sealed class AuthoredChartChoiceCatalogV1Tests
         Assert.Contains(merged, static item => item.Id == "sma-200");
         Assert.Contains(merged, static item => item.Id == "rsi-14");
     }
+
+    [Theory]
+    [InlineData("Why did EMA 20 fail here?", true)]
+    [InlineData("Compare VWAP across these charts", true)]
+    [InlineData("Add EMA 20", false)]
+    [InlineData("Show RSI which I use for divergence", false)]
+    [InlineData("Find similar pre-breakout charts", false)]
+    public void Analytical_research_questions_are_detected(string text, bool expected) =>
+        Assert.Equal(expected, AuthoredChartChoiceCatalogV1.LooksLikeAnalyticalResearchQuestion(text));
 }

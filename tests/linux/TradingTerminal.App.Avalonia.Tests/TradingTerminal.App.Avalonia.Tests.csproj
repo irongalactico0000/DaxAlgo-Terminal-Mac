@@ -63,6 +63,9 @@
     <None Include="..\..\..\src\linux\Shell\TradingTerminal.App.Avalonia\Settings\ResearchStudioWindow.axaml"
           Link="Fixtures\ResearchStudioWindow.axaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\src\linux\Charts\TradingTerminal.Charts\ChartsPanel.axaml"
+          Link="Fixtures\ChartsPanel.axaml"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\..\src\linux\Shell\TradingTerminal.Accounts\AccountGateWindow.axaml"
           Link="Fixtures\AccountGateWindow.axaml"
           CopyToOutputDirectory="PreserveNewest" />

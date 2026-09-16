@@ -38,6 +38,7 @@ public partial class ChartsPanel : UserControl
     private readonly Control _researchShellDraftWorkflow;
     private readonly Control _researchCaptureClassic;
     private readonly Control _researchCompareSteps;
+    private readonly Control _chartMarketViews;
     private readonly ToggleButton _optionsToggle;
     private ChartsViewModel? _viewModel;
     private ChartsViewModel? _readyViewModel;
@@ -55,6 +56,7 @@ public partial class ChartsPanel : UserControl
         _researchShellDraftWorkflow = this.FindControl<Control>("ResearchShellDraftWorkflow")!;
         _researchCaptureClassic = this.FindControl<Control>("ResearchCaptureClassic")!;
         _researchCompareSteps = this.FindControl<Control>("ResearchCompareSteps")!;
+        _chartMarketViews = this.FindControl<Control>("ChartMarketViews")!;
         _optionsToggle = this.FindControl<ToggleButton>("OptionsToggle")!;
 
         Loaded += OnLoaded;
@@ -116,6 +118,7 @@ public partial class ChartsPanel : UserControl
         _researchShellDraftWorkflow.IsVisible = features.ResearchShellWorkflow;
         _researchCaptureClassic.IsVisible = !features.ResearchCompareLabels;
         _researchCompareSteps.IsVisible = features.ResearchCompareLabels;
+        _chartMarketViews.IsVisible = features.MarketViews;
         // Research embed: keep indicators available via ⚙, but start with a full-width chart.
         if (features.ResearchCompareLabels)
             _optionsToggle.IsChecked = false;

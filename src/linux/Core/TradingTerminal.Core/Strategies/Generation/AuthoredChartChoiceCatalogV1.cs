@@ -468,6 +468,27 @@ public static class AuthoredChartChoiceCatalogV1
                 (ContainsToken(normalized, "order") || ContainsToken(normalized, "position")));
     }
 
+    /// <summary>
+    /// True when the user is asking for analysis/explanation of indicators, not merely to apply them.
+    /// </summary>
+    public static bool LooksLikeAnalyticalResearchQuestion(string requestText)
+    {
+        var normalized = Normalize(requestText);
+        if (normalized.Length == 0) return false;
+        return ContainsToken(normalized, "why") ||
+               ContainsToken(normalized, "how") ||
+               ContainsToken(normalized, "explain") ||
+               ContainsToken(normalized, "compare") ||
+               ContainsToken(normalized, "difference") ||
+               ContainsToken(normalized, "differ") ||
+               ContainsToken(normalized, "fail") ||
+               ContainsToken(normalized, "failed") ||
+               ContainsToken(normalized, "analyse") ||
+               ContainsToken(normalized, "analyze") ||
+               ContainsToken(normalized, "what happened") ||
+               ContainsToken(normalized, "where did");
+    }
+
     public static string BuildOverlayClarificationQuestion(
         IReadOnlyList<AuthoredChartOverlayChoiceV1>? overlayCatalog = null)
     {

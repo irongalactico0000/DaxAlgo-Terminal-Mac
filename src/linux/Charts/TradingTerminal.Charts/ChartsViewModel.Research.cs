@@ -150,15 +150,20 @@ public sealed partial class ChartsViewModel
             ResearchObservationRange is not { } observation)
             return;
 
-        EnsureResearchOutcomeAfterSetup(observation);
-
         if (ResearchOutcomeRange is not { } outcome)
+        {
+            Status =
+                "Select an outcome interval on the chart before saving (observation alone is not enough). " +
+                "Outcome is not invented automatically.";
             return;
+        }
 
         BrokerKind broker;
         try { broker = ResolveBroker(instrument); }
         catch (InvalidOperationException exception) { Status = exception.Message; return; }
 
+        // Declare only what this chart observation actually used — not Depth/Tape by default.
+        var requiredData = StrategyDataRequirement.L1 | StrategyDataRequirement.Bars;
         var selection = new ResearchChartSelectionV1(
             _ingest.Resolve(instrument.Contract, broker),
             instrument.Contract.Symbol,
@@ -167,8 +172,7 @@ public sealed partial class ChartsViewModel
             observation.EndUtcExclusive,
             outcome.StartUtc,
             outcome.EndUtcExclusive,
-            StrategyDataRequirement.L1 | StrategyDataRequirement.Bars |
-            StrategyDataRequirement.Depth | StrategyDataRequirement.TradeTape);
+            requiredData);
         ResearchDatasetValidatorV1.RequireValidSelection(selection);
         var bindings = CaptureActiveIndicatorBindings();
         var overlays = CaptureActiveOverlayIds();
@@ -181,39 +185,13 @@ public sealed partial class ChartsViewModel
     }
 
     /// <summary>
-    /// Outcome is optional for pattern search. When missing, use the next bar after setup
-    /// so the selection contract stays valid without implying a studied outcome.
+    /// Outcome is optional for pattern search. Prefer an explicit user-selected outcome.
+    /// Do not invent one from nearby bars — that falsely implies a studied return window.
     /// </summary>
     private void EnsureResearchOutcomeAfterSetup(ChartTimeRange observation)
     {
-        if (ResearchOutcomeRange is not null)
-            return;
-        if (_lastBars.Count < 2)
-            return;
-
-        var afterSetup = _lastBars
-            .SkipWhile(bar => new DateTimeOffset(DateTime.SpecifyKind(bar.TimestampUtc, DateTimeKind.Utc)) < observation.EndUtcExclusive)
-            .Take(2)
-            .ToList();
-        if (afterSetup.Count < 2)
-        {
-            var last = _lastBars[^1];
-            var prev = _lastBars[^2];
-            ResearchOutcomeRange = new ChartTimeRange(
-                new DateTimeOffset(DateTime.SpecifyKind(prev.TimestampUtc, DateTimeKind.Utc)),
-                new DateTimeOffset(DateTime.SpecifyKind(last.TimestampUtc, DateTimeKind.Utc)));
-            if (ResearchOutcomeRange.StartUtc < observation.EndUtcExclusive)
-            {
-                ResearchOutcomeRange = new ChartTimeRange(
-                    observation.EndUtcExclusive,
-                    observation.EndUtcExclusive.Add(observation.EndUtcExclusive - observation.StartUtc));
-            }
-            return;
-        }
-
-        ResearchOutcomeRange = new ChartTimeRange(
-            new DateTimeOffset(DateTime.SpecifyKind(afterSetup[0].TimestampUtc, DateTimeKind.Utc)),
-            new DateTimeOffset(DateTime.SpecifyKind(afterSetup[1].TimestampUtc, DateTimeKind.Utc)));
+        // Intentionally empty: callers must require HasResearchOutcomeRange.
+        _ = observation;
     }
 
     [RelayCommand]
@@ -225,12 +203,18 @@ public sealed partial class ChartsViewModel
             return;
         }
 
-        // Include exact indicator settings automatically with the observation.
-        if (CanKeepResearchSetup)
+        // Include exact indicator settings automatically with the observation when both ranges exist.
+        if (CanSendResearchSelection)
             SendResearchSelection();
+        else if (CanKeepResearchSetup && !HasResearchOutcomeRange)
+        {
+            Status = "Select an outcome interval before Find similar can save this observation.";
+            ResearchFindSimilarRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
 
         ResearchFindSimilarRequested?.Invoke(this, EventArgs.Empty);
-        Status = "Finding similar charts — open a match to compare.";
+        Status = "Finding similar charts — requires an applied condition in Research Inspector.";
     }
 
     private bool CanSendResearchSelectionAction() => CanSendResearchSelection;

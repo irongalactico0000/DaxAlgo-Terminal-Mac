@@ -682,13 +682,13 @@ public sealed class CandidateAuthoringUxContractTests
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("Content") == "Open chart" &&
             (string?)element.Attribute("Command") == "{Binding OpenSelectedScreenChartsCommand}");
-        root.Descendants(Avalonia + "Button").Should().Contain(element =>
-            (string?)element.Attribute("Content") == "Order book" &&
-            (string?)element.Attribute("Command") == "{Binding OpenResearchOrderBookCommand}");
-        root.Descendants(Avalonia + "Button").Should().Contain(element =>
-            (string?)element.Attribute("Content") == "Footprint");
-        root.Descendants(Avalonia + "Button").Should().Contain(element =>
-            (string?)element.Attribute("Content") == "Bookmap");
+        root.Descendants(Avalonia + "Button").Should().NotContain(element =>
+            (string?)element.Attribute("Command") == "{Binding OpenResearchOrderBookCommand}",
+            "Order book / Footprint / Bookmap belong on the open chart, not Rank.");
+        root.ToString().Should().Contain("PendingConditionMultipleText");
+        root.ToString().Should().Contain("ApplyPendingResearchConditionCommand");
+        root.ToString().Should().Contain("SaveResearchReferenceACommand");
+        root.ToString().Should().Contain("OpenResearchConditionHitCommand");
         root.Descendants(Avalonia + "ComboBox").Should().Contain(element =>
             (string?)element.Attribute("ItemsSource") == "{Binding ResearchScreenBarSizeOptions}");
         root.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
@@ -708,6 +708,24 @@ public sealed class CandidateAuthoringUxContractTests
             ((string?)element.Attribute("ColumnDefinitions"))!.Contains("52"));
         root.ToString().Should().Contain("HyperionCollapsed");
         root.ToString().Should().Contain("ClipToBounds");
+    }
+
+    [Fact]
+    public void Chart_workspace_exposes_market_views_for_the_open_instrument()
+    {
+        var root = XDocument.Load(Fixture("ChartsPanel.axaml")).Root
+            ?? throw new InvalidOperationException("The Charts panel fixture has no root element.");
+
+        root.ToString().Should().Contain("ChartMarketViews");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Order book" &&
+            (string?)element.Attribute("Command") == "{Binding OpenChartOrderBookCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Footprint" &&
+            (string?)element.Attribute("Command") == "{Binding OpenChartVolumeFootprintCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Bookmap" &&
+            (string?)element.Attribute("Command") == "{Binding OpenChartBookmapCommand}");
     }
 
     private static XElement LoadAuthoringWindow() =>

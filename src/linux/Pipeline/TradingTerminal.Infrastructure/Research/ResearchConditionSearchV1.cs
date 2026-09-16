@@ -227,7 +227,7 @@ public sealed class ResearchConditionSearchV1 : IResearchConditionSearchV1
             Hits: Array.Empty<ResearchConditionHitV1>(),
             Note: note);
 
-    /// <summary>Map equity-style symbols to Binance public pair when needed.</summary>
+    /// <summary>Map known crypto aliases to Binance public pairs. Do not silently remap equities.</summary>
     public static string MapSymbolForTsd(string symbol)
     {
         var s = (symbol ?? "").Trim().ToUpperInvariant()
@@ -237,12 +237,12 @@ public sealed class ResearchConditionSearchV1 : IResearchConditionSearchV1
             return "BTCUSDT";
         if (s is "ETHUSD" or "ETHUSDT")
             return "ETHUSDT";
-        if (s.EndsWith("USDT", StringComparison.Ordinal) || s.EndsWith("USD", StringComparison.Ordinal))
-            return s.EndsWith("USD", StringComparison.Ordinal) && !s.EndsWith("USDT", StringComparison.Ordinal)
-                ? s + "T"
-                : s;
-        // Default research smoke path when US equity is selected — still proves TSD wire (V09).
-        return "BTCUSDT";
+        if (s.EndsWith("USDT", StringComparison.Ordinal))
+            return s;
+        if (s.EndsWith("USD", StringComparison.Ordinal) && s.Length > 3)
+            return s + "T";
+        // Pass through (e.g. equities). TSD may reject; callers must not invent BTCUSDT.
+        return s;
     }
 
     private sealed class TsdHistoryBarDto

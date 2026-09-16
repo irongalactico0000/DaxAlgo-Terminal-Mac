@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
@@ -829,6 +830,7 @@ public partial class MainWindow : Window
     private EventHandler<TradingTerminal.Charts.StrategyDraftRequestedEventArgs>? _strategyDraftHandler;
     private EventHandler? _strategyDraftLockHandler;
     private EventHandler? _historicalBacktestHandler;
+    private EventHandler<TradingTerminal.Core.Strategies.Generation.HostResearchMarketStructureRequestedEventArgs>? _marketViewHandler;
 
     private void EnsureResearchChartHandlers(
         IServiceProvider services,
@@ -858,6 +860,8 @@ public partial class MainWindow : Window
                 _researchChartHandlersTarget.StrategyDraftLockRequested -= _strategyDraftLockHandler;
             if (_historicalBacktestHandler is not null)
                 _researchChartHandlersTarget.HistoricalBacktestRequested -= _historicalBacktestHandler;
+            if (_marketViewHandler is not null)
+                _researchChartHandlersTarget.MarketViewRequested -= _marketViewHandler;
         }
 
         _researchSelectionHandler = (_, args) =>
@@ -882,16 +886,12 @@ public partial class MainWindow : Window
                 chartViewModel.Status =
                     "Searching local history for the same condition — open hits to compare.";
             }
-            else if (authoring.AutoCollectLocalResearchSamplesCommand.CanExecute("next-day-plus-5"))
-            {
-                _ = authoring.AutoCollectLocalResearchSamplesCommand.ExecuteAsync("next-day-plus-5");
-                chartViewModel.Status =
-                    "Collecting similar move charts (+5% next-day) — open a hit to compare.";
-            }
             else
             {
+                // Do not silently fall back to next-day +5% — that searches a different pattern.
                 authoring.Status =
-                    "Find similar needs a saved observation + condition (open Details), or use Similar charts hits already listed.";
+                    "Find similar needs a saved observation and an applied condition (Inspector → Apply). " +
+                    "Next-day +5% is a separate gallery scan, not this chart's pattern.";
                 chartViewModel.Status = authoring.Status;
             }
 
@@ -972,12 +972,16 @@ public partial class MainWindow : Window
             chartViewModel.MarkHistoricalBacktestRoomOpened(opened);
         };
 
+        _marketViewHandler = (_, args) =>
+            OpenResearchMarketStructure(args.ViewKind, args.CanonicalSymbol);
+
         chartViewModel.ResearchSelectionRequested += _researchSelectionHandler;
         chartViewModel.ResearchFindSimilarRequested += _researchFindSimilarHandler;
         chartViewModel.ResearchSpaceChanged += _researchSpaceHandler;
         chartViewModel.StrategyDraftRequested += _strategyDraftHandler;
         chartViewModel.StrategyDraftLockRequested += _strategyDraftLockHandler;
         chartViewModel.HistoricalBacktestRequested += _historicalBacktestHandler;
+        chartViewModel.MarketViewRequested += _marketViewHandler;
         _researchChartHandlersTarget = chartViewModel;
         SyncResearchSpaceFromChart(chartViewModel);
     }
@@ -1252,7 +1256,15 @@ public partial class MainWindow : Window
 
     private void OnVolumeFootprint(object? sender, RoutedEventArgs e)
     {
-        // Real ported window — the portable VolumeFootprintViewModel streams the trade tape off the hub.
+        var symbol = _researchChartViewModel?.SelectedInstrument?.Contract.Symbol;
+        if (!string.IsNullOrWhiteSpace(symbol))
+        {
+            OpenResearchMarketStructure(
+                TradingTerminal.Core.Strategies.Generation.ResearchMarketStructureViewKind.VolumeFootprint,
+                symbol);
+            return;
+        }
+
         if ((Application.Current as App)?.Services is not { } sp) return;
         var vm = sp.GetRequiredService<TradingTerminal.VolumeFootprint.VolumeFootprintViewModel>();
         ShowDisposing(new TradingTerminal.VolumeFootprint.AvaloniaUi.VolumeFootprintAvaloniaWindow { DataContext = vm }, vm);
@@ -1261,7 +1273,15 @@ public partial class MainWindow : Window
 
     private void OnOrderBook(object? sender, RoutedEventArgs e)
     {
-        // Real ported window — the portable OrderBookViewModel streams live L2 depth off the hub.
+        var symbol = _researchChartViewModel?.SelectedInstrument?.Contract.Symbol;
+        if (!string.IsNullOrWhiteSpace(symbol))
+        {
+            OpenResearchMarketStructure(
+                TradingTerminal.Core.Strategies.Generation.ResearchMarketStructureViewKind.OrderBook,
+                symbol);
+            return;
+        }
+
         if ((Application.Current as App)?.Services is not { } sp) return;
         var vm = sp.GetRequiredService<TradingTerminal.OrderBook.OrderBookViewModel>();
         ShowDisposing(new TradingTerminal.OrderBook.AvaloniaUi.OrderBookAvaloniaWindow { DataContext = vm }, vm);
@@ -1270,7 +1290,15 @@ public partial class MainWindow : Window
 
     private void OnHeatmap(object? sender, RoutedEventArgs e)
     {
-        // Real ported window — the portable BookmapHeatmapViewModel streams depth + trades off the hub.
+        var symbol = _researchChartViewModel?.SelectedInstrument?.Contract.Symbol;
+        if (!string.IsNullOrWhiteSpace(symbol))
+        {
+            OpenResearchMarketStructure(
+                TradingTerminal.Core.Strategies.Generation.ResearchMarketStructureViewKind.Bookmap,
+                symbol);
+            return;
+        }
+
         if ((Application.Current as App)?.Services is not { } sp) return;
         var vm = sp.GetRequiredService<TradingTerminal.Heatmap.BookmapHeatmapViewModel>();
         ShowDisposing(new TradingTerminal.Heatmap.AvaloniaUi.BookmapHeatmapAvaloniaWindow { DataContext = vm }, vm);
@@ -1559,13 +1587,11 @@ public partial class MainWindow : Window
         EventHandler? openStudio = null;
         openStudio = (_, _) =>
         {
-            // Prefer reactivating the existing Studio for this session (including after handoff Hide).
-            if (_researchStudioWindow is { } existing)
+            // Only reuse Studio when it hosts this Builder session — never another project's research.
+            if (_researchStudioWindow is { } existing &&
+                ReferenceEquals(existing.DataContext, viewModel))
             {
-                if (existing.DataContext is TradingTerminal.App.Authoring.StrategyAuthoringViewModel studioVm)
-                    studioVm.IsResearchStudioShell = true;
-                else
-                    viewModel.IsResearchStudioShell = true;
+                viewModel.IsResearchStudioShell = true;
                 if (!existing.IsVisible)
                     existing.Show(this);
                 existing.Activate();
@@ -1661,16 +1687,28 @@ public partial class MainWindow : Window
         EventHandler? handoff = null;
         handoff = (_, _) =>
         {
-            viewModel.StrategyBuilderHandoffRequested -= handoff;
+            // Keep the handler for Studio lifetime so Research → Builder → Research → Builder repeats.
             viewModel.IsResearchStudioShell = false;
             if (viewModel.OpenDesignScreenCommand.CanExecute(null))
                 viewModel.OpenDesignScreenCommand.Execute(null);
             // Keep Studio alive (hidden) so ShowDisposing does not dispose the shared VM.
             studio.Hide();
-            var builder = CreateAuthoringWindow(viewModel);
-            WireResearchChartRequest(viewModel, builder);
-            WireResearchStudioRequest(viewModel, builder);
-            ShowDisposing(builder, viewModel);
+
+            var builder = OwnedWindows
+                .OfType<Settings.StrategyAuthoringWindow>()
+                .FirstOrDefault(w => ReferenceEquals(w.DataContext, viewModel));
+            if (builder is null)
+            {
+                builder = CreateAuthoringWindow(viewModel);
+                WireResearchChartRequest(viewModel, builder);
+                WireResearchStudioRequest(viewModel, builder);
+                ShowDisposing(builder, viewModel);
+            }
+            else if (!builder.IsVisible)
+            {
+                builder.Show(this);
+            }
+
             builder.Activate();
             Vm?.ActivityLog.Append("Tools", "INFO", "Opened Strategy Builder from Research Studio handoff.");
         };

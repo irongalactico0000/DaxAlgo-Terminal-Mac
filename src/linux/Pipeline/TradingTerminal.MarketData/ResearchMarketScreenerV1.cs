@@ -175,17 +175,23 @@ public sealed class ResearchMarketScreenerV1 : IResearchMarketScreenerV1
             }
 
             var window = completed
-                .Where(b => b.OpenTimeUtc.Add(barSpan) <= windowToExclusive)
-                .TakeLast(request.LookbackBars)
+                .Where(b =>
+                    b.OpenTimeUtc >= windowFrom - barSpan &&
+                    b.OpenTimeUtc.Add(barSpan) <= windowToExclusive)
                 .ToArray();
 
             if (window.Length < request.LookbackBars)
             {
                 exclusions.Add(new ResearchMarketScreenExclusionV1(
                     instrument.CanonicalSymbol,
-                    $"Could not align {request.LookbackBars} completed {barSizeLabel} bars to shared window ending {windowToExclusive:u} (aligned {window.Length})."));
+                    $"Could not align {request.LookbackBars} completed {barSizeLabel} bars inside shared window " +
+                    $"{windowFrom:u} → {windowToExclusive:u} (had {window.Length}; older bars outside the window are not used)."));
                 continue;
             }
+
+            // Exact shared lookback: take the last LookbackBars that fall inside the window.
+            if (window.Length > request.LookbackBars)
+                window = window.TakeLast(request.LookbackBars).ToArray();
 
             // Require the window to cover the shared lookback start (allow one-bar slack).
             if (window[0].OpenTimeUtc > windowFrom + barSpan)

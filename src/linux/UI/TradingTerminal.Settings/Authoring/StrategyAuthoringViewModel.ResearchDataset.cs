@@ -73,6 +73,10 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(ResearchLinkedContextText));
         OnPropertyChanged(nameof(ActiveArtifactKindText));
         OnPropertyChanged(nameof(ActiveResearchContextText));
+        OnPropertyChanged(nameof(CanOpenResearchMarketStructure));
+        OpenResearchOrderBookCommand.NotifyCanExecuteChanged();
+        OpenResearchVolumeFootprintCommand.NotifyCanExecuteChanged();
+        OpenResearchBookmapCommand.NotifyCanExecuteChanged();
     }
     public bool HasPendingResearchIndicatorBindings => PendingResearchIndicatorBindings.Count > 0;
     public bool HasPendingResearchCondition => PendingResearchCondition is not null;
@@ -397,18 +401,28 @@ public sealed partial class StrategyAuthoringViewModel
             return;
 
         var symbol = PendingResearchChartSelection?.CanonicalSymbol
-            ?? ResearchDatasetDefinition?.Samples.LastOrDefault()?.Selection.CanonicalSymbol
-            ?? "BTCUSDT";
+            ?? ResearchChartInstrumentText
+            ?? ResearchDatasetDefinition?.Samples.LastOrDefault()?.Selection.CanonicalSymbol;
+        if (string.IsNullOrWhiteSpace(symbol))
+        {
+            Status = "TSD search needs a chart instrument (open a chart or save an observation first).";
+            return;
+        }
+
+        var timeframe = PendingResearchChartSelection?.Timeframe
+            ?? BarSizeExtensions.ParseOrDefault(ResearchScreenBarSizeChoice, BarSize.OneHour);
+        var interval = timeframe.ToDisplayString();
 
         IsResearchConditionSearching = true;
         try
         {
             ResearchConditionSearchResult = await _researchConditionSearch.SearchTsdAsync(
                     condition,
-                    symbol)
+                    symbol,
+                    interval)
                 .ConfigureAwait(true);
             Status =
-                $"TSD search ({ResearchConditionSearchResult.DataSource}): {ResearchConditionSearchResult.HitCount} hits · " +
+                $"TSD search ({ResearchConditionSearchResult.DataSource}, {interval}): {ResearchConditionSearchResult.HitCount} hits · " +
                 ResearchConditionSearchResult.Note;
         }
         catch (Exception ex)
@@ -495,13 +509,34 @@ public sealed partial class StrategyAuthoringViewModel
     {
         if (!CanUseObservationInDesign) return;
 
-        // Persist a reference when we have a condition so Design can reopen the exact evidence.
-        if (PendingResearchCondition is not null && !HasResearchReferenceA)
-            SaveResearchReference("A");
+        // Handoff unit is a versioned reference (U07/R11), not chat prose alone.
+        if (PendingResearchCondition is not null)
+        {
+            if (!HasResearchReferenceA)
+                SaveResearchReference("A");
+        }
+        else if (!HasResearchReferenceA && !HasResearchReferenceB)
+        {
+            Status =
+                "Bookmark Reference A (or B) from an applied condition before Use in Strategy Builder. " +
+                "Research and Builder stay linked through references, not duplicated toolbars.";
+            return;
+        }
 
         var eventSymbol = SelectedResearchGalleryCard?.Symbol
             ?? PendingResearchChartSelection?.CanonicalSymbol
+            ?? (_researchAnalysisReferences.TryGetValue("A", out var refA)
+                ? refA.Selection?.CanonicalSymbol
+                : null)
+            ?? (_researchAnalysisReferences.TryGetValue("B", out var refB)
+                ? refB.Selection?.CanonicalSymbol
+                : null)
             ?? "the selected instrument";
+        var activeReference = HasResearchReferenceA
+            ? ResearchReferenceAText
+            : HasResearchReferenceB
+                ? ResearchReferenceBText
+                : "(none)";
         var indicators = HasPendingResearchIndicatorBindings
             ? string.Join(", ", PendingResearchIndicatorBindings.Select(static b => b.DisplayLabel))
             : PendingResearchOverlayIds.Count > 0
@@ -510,7 +545,8 @@ public sealed partial class StrategyAuthoringViewModel
         var condition = PendingResearchConditionText;
         var selection = ResearchChartSelectionText;
         var evidence =
-            $"Use this Research observation in Design for {eventSymbol}.\n\n" +
+            $"Use this Research reference in Design for {eventSymbol}.\n\n" +
+            $"Active reference: {activeReference}\n" +
             $"Selection: {selection}\n" +
             $"Analysis indicators (candidates — include only what Design confirms): {indicators}\n" +
             $"Candidate condition: {condition}\n" +
@@ -525,14 +561,14 @@ public sealed partial class StrategyAuthoringViewModel
             Composer = evidence + "\n\n---\n\n" + Composer.Trim();
 
         HasResearchDesignHandoff = true;
-        AiStatus = "Design opened from Research evidence. Confirm which conditions become strategy rules.";
+        AiStatus = "Design opened from Research reference. Confirm which conditions become strategy rules.";
         Status = IsResearchStudioShell
-            ? "Opening Strategy Builder with this research attached."
-            : "Research observation attached to Design. No compile or register yet.";
+            ? "Opening Strategy Builder with the saved research reference."
+            : "Research reference attached to Design. No compile or register yet.";
         Append(AuthoringMessage.Tool(
             "Ok",
             IsResearchStudioShell ? "Use in Strategy Builder" : "Use observation in Design",
-            $"Event {eventSymbol} · indicators [{indicators}] · samples {ResearchEventSampleCount}."));
+            $"Reference · {eventSymbol} · indicators [{indicators}] · samples {ResearchEventSampleCount}."));
         Save();
 
         if (IsResearchStudioShell)
@@ -1050,13 +1086,17 @@ public sealed partial class StrategyAuthoringViewModel
             return;
         }
 
-        if (chartChoice.HasResearchScans && !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(prompt))
+        if (chartChoice.HasResearchScans &&
+            !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(prompt) &&
+            !AuthoredChartChoiceCatalogV1.LooksLikeAnalyticalResearchQuestion(prompt))
         {
             await CompleteHostResearchScanAsync(prompt, chartChoice);
             return;
         }
 
-        if (chartChoice.HasOverlays && !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(prompt))
+        if (chartChoice.HasOverlays &&
+            !AuthoredChartChoiceCatalogV1.LooksLikeTradingRequest(prompt) &&
+            !AuthoredChartChoiceCatalogV1.LooksLikeAnalyticalResearchQuestion(prompt))
         {
             Composer = string.Empty;
             Append(new AuthoringMessage(CodegenRole.User, prompt));
@@ -1074,6 +1114,17 @@ public sealed partial class StrategyAuthoringViewModel
             PublishTurnFollowUps(prompt);
             Save();
             return;
+        }
+
+        if (chartChoice.HasOverlays &&
+            AuthoredChartChoiceCatalogV1.LooksLikeAnalyticalResearchQuestion(prompt))
+        {
+            ApplyResearchOverlayAnalysis(chartChoice);
+            HostChartOverlayPreviewRequested?.Invoke(
+                this,
+                new HostChartOverlayPreviewRequestedEventArgs(
+                    chartChoice.Overlays.Select(static item => item.Id).ToArray(),
+                    startResearchCapture: false));
         }
 
         Composer = prompt;

@@ -22,6 +22,7 @@ mirror, or coordinate with a Windows repository unless the user explicitly place
 - MVVM remains strict; streaming UI is bounded and deterministically disposable.
 - Sidecars bind to `127.0.0.1`. Live order execution is allowed only for **Alpaca / Interactive Brokers / cTrader** when composed with Keychain-backed `ILiveExecutionConfirmationStore`, per-broker `AllowLiveExecution`, and typed **LIVE** confirmation. **Binance stays market-data only** (no order adapter). Strategy → OMS only via `SandboxExecutionReplicator` (never kernel `PlaceOrder`).
 - **Product lanes** (keep separate — see `docs/product-lanes-and-regulated-fences.md`): (1) Research → Paper, (2) Operator API-key Console, (3) Marketplace strategy-as-software on the user’s own keys. Do **not** ship follow / pool / ETF-share UX until counsel clears a regulated entity model.
+- **TSD × Dolpago research:** Canon `.omx/plans/TSD_DaxAlgo_Dolpago_Requirements_v1.md` (G/U/S/C/Q/V; **S06** agent posture: TargetIntent + gated OrderIntent, U11–U13, triple sandbox). Progress: `TSD_DaxAlgo_Dolpago_Implementation_Checklist.md`. **Research↔Strategy spine:** `.omx/plans/research-strategy-reference-spine.md` (handoff = Reference A/B, not shared chrome). Plans index: `.omx/plans/README.md`. Report `Spec ID → user action → code → verification → remaining`. Never invent alternate R-number schemes.
 
 ## Verification
 
