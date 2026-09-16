@@ -74,4 +74,9 @@ Restore A or B must reopen that package without re-uploading files.
 
 ## Execution (separate lane)
 
-Nautilus-style behaviour (order-book replay, queue, liquidity, latency, quantity-limited partials) belongs in the **execution engine** and Builder Validate — not in Research reference UI. See `Phase5_Execution_Contracts_2026-09-15.md`.
+Nautilus-style behaviour (order-book replay, queue, liquidity, latency, quantity-limited partials) belongs in the **execution engine** and Builder Validate — not in Research reference UI.
+
+Full map of Research · Strategy · Backtest references (in-app types, docs, Nautilus, TSD, brokers):  
+[`research-strategy-backtest-reference-map.md`](research-strategy-backtest-reference-map.md).
+
+Phase 5 ownership/Paper: [`Phase5_Execution_Contracts_2026-09-15.md`](Phase5_Execution_Contracts_2026-09-15.md).
