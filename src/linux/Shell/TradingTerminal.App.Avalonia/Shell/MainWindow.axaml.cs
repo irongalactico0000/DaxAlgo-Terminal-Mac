@@ -633,6 +633,7 @@ public partial class MainWindow : Window
         TradingTerminal.Core.Domain.BarSize? historyBarSize = null,
         TradingTerminal.Core.Strategies.Generation.ResearchChartSelectionV1? researchSelection = null,
         IReadOnlyList<TradingTerminal.Core.Strategies.Generation.ResearchConditionHitV1>? conditionHits = null,
+        IReadOnlyList<TradingTerminal.Core.Strategies.Generation.ValidationChartFillV1>? fillHits = null,
         bool forceDetachedWindow = false,
         Settings.ResearchStudioWindow? targetStudio = null)
     {
@@ -750,6 +751,12 @@ public partial class MainWindow : Window
         {
             chartViewModel.ApplyConditionHitMarkers(conditionHits);
             PreviewLog($"condition hit markers applied: {conditionHits.Count}");
+        }
+
+        if (fillHits is not null)
+        {
+            chartViewModel.ApplyFillHitMarkers(fillHits);
+            PreviewLog($"fill hit markers applied: {fillHits.Count}");
         }
 
         // Prefer host/research intent over a stale chart selection (e.g. BTCUSD default).
@@ -1118,6 +1125,7 @@ public partial class MainWindow : Window
                 historyBarSize: args.HistoryBarSize,
                 researchSelection: args.ResearchSelection,
                 conditionHits: args.ConditionHits.Count > 0 ? args.ConditionHits : null,
+                fillHits: args.FillHits.Count > 0 ? args.FillHits : null,
                 targetStudio: studio);
             Vm?.ActivityLog.Append(
                 "Charts",
@@ -1176,9 +1184,18 @@ public partial class MainWindow : Window
         Action<TradingTerminal.Backtest.QuickBacktestPaperLaunchRequest>? paper = null;
         completed = request =>
         {
-            if (request.ValidationEvidence is { } evidence &&
-                !authoring.AcceptHistoricalValidationEvidence(evidence, request.TestedParameters, out var rejection))
-                authoring.Status = rejection;
+            if (request.ValidationEvidence is { } evidence)
+            {
+                var trades = backtest.Trades.Count == 0
+                    ? Array.Empty<TradingTerminal.Core.Backtest.Trade>()
+                    : backtest.Trades.ToArray();
+                if (!authoring.AcceptHistoricalValidationEvidence(
+                        evidence,
+                        request.TestedParameters,
+                        trades,
+                        out var rejection))
+                    authoring.Status = rejection;
+            }
         };
         paper = request =>
         {
@@ -1647,6 +1664,7 @@ public partial class MainWindow : Window
                 historyBarSize: args.HistoryBarSize,
                 researchSelection: args.ResearchSelection,
                 conditionHits: args.ConditionHits.Count > 0 ? args.ConditionHits : null,
+                fillHits: args.FillHits.Count > 0 ? args.FillHits : null,
                 targetStudio: window);
         };
         structureHandler = (_, args) => OpenResearchMarketStructure(args.ViewKind, args.CanonicalSymbol);

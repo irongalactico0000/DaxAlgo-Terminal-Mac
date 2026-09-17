@@ -1754,6 +1754,7 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(HasResearchConditionSearchResult));
         OnPropertyChanged(nameof(ResearchConditionSearchSummaryText));
         OnPropertyChanged(nameof(ResearchConditionValidityBadgeText));
+        NotifyValidationChartLayersChanged();
     }
 
     partial void OnIsResearchConditionSearchingChanged(bool value)

@@ -102,6 +102,26 @@ public sealed class AuthoredChartChoiceCatalogV1Tests
     }
 
     [Fact]
+    public void Host_preview_event_carries_fill_hit_markers_separately()
+    {
+        var fill = new ValidationChartFillV1(
+            DateTimeOffset.UtcNow,
+            Price: 100.5,
+            IsEntry: true,
+            IsBuy: true);
+        var args = new HostChartOverlayPreviewRequestedEventArgs(
+            ["ema-20"],
+            preferredSymbol: "BTCUSDT",
+            fillHits: [fill]);
+
+        Assert.Equal("BTCUSDT", args.PreferredSymbol);
+        Assert.Empty(args.ConditionHits);
+        Assert.Single(args.FillHits);
+        Assert.Equal(fill.Price, args.FillHits[0].Price);
+        Assert.True(args.FillHits[0].IsEntry);
+    }
+
+    [Fact]
     public void Famous_indicators_without_names_ask_for_a_host_catalog_choice()
     {
         var resolution = AuthoredChartChoiceCatalogV1.Resolve("Show me famous indicators on the chart");

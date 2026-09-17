@@ -67,6 +67,7 @@ public sealed class NativeChartSurface : Control
     private ChartTimeRange? _observationRange;
     private ChartTimeRange? _outcomeRange;
     private IReadOnlyList<ChartConditionHitMarker> _conditionHitMarkers = Array.Empty<ChartConditionHitMarker>();
+    private IReadOnlyList<ChartFillHitMarker> _fillHitMarkers = Array.Empty<ChartFillHitMarker>();
     private Rect _lastPricePane;
     private double _lastPriceMin;
     private double _lastPriceMax = 1;
@@ -77,6 +78,10 @@ public sealed class NativeChartSurface : Control
     private static readonly IBrush ConditionHitNegativeBrush = Brush("#80EF5350");
     private static readonly IPen ConditionHitPositivePen = Pen("#26A69A", 1.2);
     private static readonly IPen ConditionHitNegativePen = Pen("#EF5350", 1.2);
+    private static readonly IBrush FillEntryBrush = Brush("#E042A5F5");
+    private static readonly IBrush FillExitBrush = Brush("#E0AB47BC");
+    private static readonly IPen FillEntryPen = Pen("#42A5F5", 1.4);
+    private static readonly IPen FillExitPen = Pen("#AB47BC", 1.4);
     private static readonly IPen DraftStopPen = new Pen(new SolidColorBrush(Color.Parse("#EF5350")), 1.2);
     private static readonly IPen DraftTargetPen = new Pen(new SolidColorBrush(Color.Parse("#26A69A")), 1.2);
 
@@ -118,6 +123,16 @@ public sealed class NativeChartSurface : Control
         set
         {
             _conditionHitMarkers = value ?? Array.Empty<ChartConditionHitMarker>();
+            InvalidateVisual();
+        }
+    }
+
+    public IReadOnlyList<ChartFillHitMarker> FillHitMarkers
+    {
+        get => _fillHitMarkers;
+        set
+        {
+            _fillHitMarkers = value ?? Array.Empty<ChartFillHitMarker>();
             InvalidateVisual();
         }
     }
@@ -293,6 +308,7 @@ public sealed class NativeChartSurface : Control
 
         DrawResearchRanges(context, snapshot, start, end, lastPaneBottom);
         DrawConditionHitMarkers(context, snapshot, start, end, pricePane);
+        DrawFillHitMarkers(context, snapshot, start, end, pricePane, priceMin, priceMax);
         DrawDraftLevels(context, pricePane, priceMin, priceMax);
 
         DrawCrosshairAndLegend(context, snapshot, candles, pricePane, rsiPane, macdPane,
@@ -543,6 +559,39 @@ public sealed class NativeChartSurface : Control
             }
 
             context.DrawGeometry(brush, pen, geo);
+        }
+    }
+
+    private void DrawFillHitMarkers(
+        DrawingContext context,
+        ChartSnapshot snapshot,
+        int visibleStart,
+        int visibleEndExclusive,
+        Rect pricePane,
+        double priceMin,
+        double priceMax)
+    {
+        if (_fillHitMarkers.Count == 0 || pricePane.Height <= 0 || priceMax <= priceMin)
+            return;
+
+        var width = Math.Max(1, Bounds.Width - AxisWidth);
+        var count = visibleEndExclusive - visibleStart;
+        if (count <= 0)
+            return;
+
+        foreach (var fill in _fillHitMarkers)
+        {
+            var unix = fill.TimeUtc.ToUnixTimeSeconds();
+            var index = FindNearestCandle(snapshot.Candles, unix, visibleStart, visibleEndExclusive);
+            if (index < 0)
+                continue;
+
+            var x = (index - visibleStart + 0.5) / count * width;
+            var y = Y(fill.Price, pricePane, priceMin, priceMax);
+            var pen = fill.IsEntry ? FillEntryPen : FillExitPen;
+            var brush = fill.IsEntry ? FillEntryBrush : FillExitBrush;
+            var radius = fill.IsEntry ? 5.0 : 4.0;
+            context.DrawEllipse(brush, pen, new Point(x, y), radius, radius);
         }
     }
 

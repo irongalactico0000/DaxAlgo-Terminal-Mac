@@ -57,7 +57,8 @@ public sealed class HostChartOverlayPreviewRequestedEventArgs : EventArgs
         DateTime? historyToUtc = null,
         BarSize? historyBarSize = null,
         ResearchChartSelectionV1? researchSelection = null,
-        IReadOnlyList<ResearchConditionHitV1>? conditionHits = null)
+        IReadOnlyList<ResearchConditionHitV1>? conditionHits = null,
+        IReadOnlyList<ValidationChartFillV1>? fillHits = null)
     {
         OverlayIds = overlayIds ?? Array.Empty<string>();
         StartResearchCapture = startResearchCapture;
@@ -70,6 +71,7 @@ public sealed class HostChartOverlayPreviewRequestedEventArgs : EventArgs
         HistoryBarSize = historyBarSize;
         ResearchSelection = researchSelection;
         ConditionHits = conditionHits ?? Array.Empty<ResearchConditionHitV1>();
+        FillHits = fillHits ?? Array.Empty<ValidationChartFillV1>();
     }
 
     public IReadOnlyList<string> OverlayIds { get; }
@@ -103,6 +105,12 @@ public sealed class HostChartOverlayPreviewRequestedEventArgs : EventArgs
     /// Empty when the preview is overlays/selection only.
     /// </summary>
     public IReadOnlyList<ResearchConditionHitV1> ConditionHits { get; }
+
+    /// <summary>
+    /// Simulated Validate fills — drawn as a separate layer from <see cref="ConditionHits"/>.
+    /// Empty when no last-run trades were stashed.
+    /// </summary>
+    public IReadOnlyList<ValidationChartFillV1> FillHits { get; }
 }
 
 public enum ResearchMarketStructureViewKind

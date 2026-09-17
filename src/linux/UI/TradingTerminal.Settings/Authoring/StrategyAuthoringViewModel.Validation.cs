@@ -14,6 +14,13 @@ public sealed partial class StrategyAuthoringViewModel
     private HistoricalValidationEvidenceV1? _historicalValidationEvidence;
 
     /// <summary>
+    /// Simulated fills from the last accepted QuickBacktest run — in-memory only.
+    /// Not part of evidence aggregates; not Nautilus fill ledger.
+    /// </summary>
+    [ObservableProperty]
+    private IReadOnlyList<ValidationChartFillV1> _lastValidationFills = Array.Empty<ValidationChartFillV1>();
+
+    /// <summary>
     /// Validate/Replay execution fidelity. L1 touch ± slippage is always applied.
     /// Optional: quantity-capped partials per touch and execution latency ms.
     /// Queue position and liquidity consumption remain unavailable.
@@ -90,6 +97,35 @@ public sealed partial class StrategyAuthoringViewModel
         : $"Validated {HistoricalValidationEvidence!.FromUtc:u} → {HistoricalValidationEvidence.ToUtc:u} · " +
           $"{HistoricalValidationEvidence.TradeCount} trades · {HistoricalValidationEvidence.DataMode}. " +
           "Next: Paper → Bind selected book → Harness.";
+
+    /// <summary>
+    /// Honest chart-layer note: condition triangles ≠ Validate ENTRY eval; fill circles = last-run trades.
+    /// </summary>
+    public string ValidationChartLayersStatusText
+    {
+        get
+        {
+            var conditionCount = ResearchConditionSearchResult?.HitCount ?? 0;
+            var fillCount = LastValidationFills.Count;
+            var conditionPart = conditionCount > 0
+                ? $"{conditionCount} research/Design condition hit(s) available (triangles — not Validate ENTRY)"
+                : "no research/Design condition hits yet (Validate does not evaluate Design ENTRY on bars)";
+            var fillPart = fillCount > 0
+                ? $"{fillCount} simulated fill(s) from last accepted historical run (circles at price)"
+                : "no simulated fills stashed — run historical validation and Accept to capture trades";
+            return $"Chart layers · {conditionPart} · {fillPart}.";
+        }
+    }
+
+    public bool CanShowValidationConditionMarkersOnChart =>
+        !IsGenerating &&
+        ResearchConditionSearchResult is { Hits.Count: > 0 };
+
+    public bool CanShowValidationFillMarkersOnChart =>
+        !IsGenerating && LastValidationFills.Count > 0;
+
+    public bool CanShowValidationChartLayersOnChart =>
+        CanShowValidationConditionMarkersOnChart || CanShowValidationFillMarkersOnChart;
 
     /// <summary>
     /// Honest checklist: applied engine settings only — not requested-but-ignored intent.
@@ -374,6 +410,13 @@ public sealed partial class StrategyAuthoringViewModel
     public bool AcceptHistoricalValidationEvidence(
         HistoricalValidationEvidenceV1 evidence,
         IReadOnlyDictionary<string, object?> testedParameters,
+        out string reason) =>
+        AcceptHistoricalValidationEvidence(evidence, testedParameters, trades: null, out reason);
+
+    public bool AcceptHistoricalValidationEvidence(
+        HistoricalValidationEvidenceV1 evidence,
+        IReadOnlyDictionary<string, object?> testedParameters,
+        IEnumerable<TradingTerminal.Core.Backtest.Trade>? trades,
         out string reason)
     {
         try
@@ -399,6 +442,8 @@ public sealed partial class StrategyAuthoringViewModel
             item => item.Key,
             item => item.Value,
             StringComparer.Ordinal);
+        LastValidationFills = ValidationChartFillMapperV1.FromTrades(trades);
+        NotifyValidationChartLayersChanged();
         var evidenceHash = HistoricalValidationEvidenceCanonicalJsonV1.Hash(evidence);
         StrategyWorkspace = StrategyWorkspaceRevisionPolicyV1.Revise(
             StrategyWorkspace,
@@ -409,10 +454,86 @@ public sealed partial class StrategyAuthoringViewModel
         UpsertHistoricalValidationResult(evidence);
         Status =
             "Historical validation is bound to this exact compiled revision. " +
-            "The report is in this strategy’s saved results — reopen it from the list without typing paths.";
+            "The report is in this strategy’s saved results — reopen it from the list without typing paths." +
+            (LastValidationFills.Count > 0
+                ? $" · {LastValidationFills.Count} fill marker(s) ready for chart (separate from condition layer)."
+                : string.Empty);
         Save();
         reason = string.Empty;
         return true;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanShowValidationConditionMarkersOnChart))]
+    private void ShowValidationConditionMarkersOnChart()
+    {
+        if (ResearchConditionSearchResult is not { Hits.Count: > 0 } result)
+            return;
+
+        HostChartOverlayPreviewRequested?.Invoke(
+            this,
+            new HostChartOverlayPreviewRequestedEventArgs(
+                OverlaysForResearchPreview().ToArray(),
+                preferredSymbol: result.Symbol,
+                conditionHits: result.Hits));
+        Status =
+            $"Condition layer: {result.HitCount} triangle marker(s) on chart. " +
+            "These are research/Design condition hits — not Validate ENTRY evaluation.";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanShowValidationFillMarkersOnChart))]
+    private void ShowValidationFillMarkersOnChart()
+    {
+        if (LastValidationFills.Count == 0)
+            return;
+
+        var symbol = ResearchConditionSearchResult?.Symbol
+            ?? PendingResearchChartSelection?.CanonicalSymbol
+            ?? ResearchChartInstrumentText;
+        HostChartOverlayPreviewRequested?.Invoke(
+            this,
+            new HostChartOverlayPreviewRequestedEventArgs(
+                OverlaysForResearchPreview().ToArray(),
+                preferredSymbol: symbol,
+                fillHits: LastValidationFills));
+        Status =
+            $"Fill layer: {LastValidationFills.Count} circle marker(s) at simulated prices. " +
+            "Separate from condition triangles; sourced from last accepted QuickBacktest trades.";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanShowValidationChartLayersOnChart))]
+    private void ShowValidationChartLayersOnChart()
+    {
+        var conditionHits = ResearchConditionSearchResult is { Hits.Count: > 0 } result
+            ? result.Hits
+            : null;
+        var fillHits = LastValidationFills.Count > 0 ? LastValidationFills : null;
+        if (conditionHits is null && fillHits is null)
+            return;
+
+        var symbol = ResearchConditionSearchResult?.Symbol
+            ?? PendingResearchChartSelection?.CanonicalSymbol
+            ?? ResearchChartInstrumentText;
+        HostChartOverlayPreviewRequested?.Invoke(
+            this,
+            new HostChartOverlayPreviewRequestedEventArgs(
+                OverlaysForResearchPreview().ToArray(),
+                preferredSymbol: symbol,
+                conditionHits: conditionHits,
+                fillHits: fillHits));
+        Status =
+            $"Both layers: {(conditionHits?.Count ?? 0)} condition triangle(s) + " +
+            $"{(fillHits?.Count ?? 0)} fill circle(s). Condition ≠ Validate ENTRY; fills = last-run trades.";
+    }
+
+    private void NotifyValidationChartLayersChanged()
+    {
+        OnPropertyChanged(nameof(ValidationChartLayersStatusText));
+        OnPropertyChanged(nameof(CanShowValidationConditionMarkersOnChart));
+        OnPropertyChanged(nameof(CanShowValidationFillMarkersOnChart));
+        OnPropertyChanged(nameof(CanShowValidationChartLayersOnChart));
+        ShowValidationConditionMarkersOnChartCommand.NotifyCanExecuteChanged();
+        ShowValidationFillMarkersOnChartCommand.NotifyCanExecuteChanged();
+        ShowValidationChartLayersOnChartCommand.NotifyCanExecuteChanged();
     }
 
     public IReadOnlyDictionary<string, object?>? ValidatedPaperParameters =>
@@ -497,12 +618,18 @@ public sealed partial class StrategyAuthoringViewModel
 
     partial void OnHistoricalValidationEvidenceChanged(HistoricalValidationEvidenceV1? value)
     {
+        if (value is null)
+            LastValidationFills = Array.Empty<ValidationChartFillV1>();
         OnPropertyChanged(nameof(HasHistoricalValidationEvidence));
         OnPropertyChanged(nameof(HistoricalValidationStatusText));
         OnPropertyChanged(nameof(CanRunHistoricalValidation));
+        NotifyValidationChartLayersChanged();
         NotifyAuthoringScreenStateChanged();
         NotifyWorkingFlowMapChanged();
     }
+
+    partial void OnLastValidationFillsChanged(IReadOnlyList<ValidationChartFillV1> value) =>
+        NotifyValidationChartLayersChanged();
 
     partial void OnIsRegisteredChanged(bool value)
     {

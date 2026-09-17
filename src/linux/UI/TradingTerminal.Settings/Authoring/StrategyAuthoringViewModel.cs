@@ -1812,6 +1812,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         OnPropertyChanged(nameof(CanReturnToStrategyBuilder));
         InvestigateInResearchStudioCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanInvestigateInResearchStudio));
+        NotifyValidationChartLayersChanged();
     }
 
     partial void OnComposerChanged(string value)

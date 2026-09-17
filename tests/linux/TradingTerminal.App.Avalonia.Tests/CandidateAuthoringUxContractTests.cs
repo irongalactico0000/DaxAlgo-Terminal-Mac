@@ -247,6 +247,18 @@ public sealed class CandidateAuthoringUxContractTests
             (string?)element.Attribute("AutomationProperties.Name") == "Run exact historical validation");
         historicalValidation.Attribute("Click")!.Value.Should().Be("OnHistoricalValidationRequested");
         historicalValidation.Attribute("IsEnabled")!.Value.Should().Be("{Binding CanRunHistoricalValidation}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Show validation condition markers on chart" &&
+            (string?)element.Attribute("Command") == "{Binding ShowValidationConditionMarkersOnChartCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Show validation fill markers on chart" &&
+            (string?)element.Attribute("Command") == "{Binding ShowValidationFillMarkersOnChartCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Show validation chart layers on chart" &&
+            (string?)element.Attribute("Command") == "{Binding ShowValidationChartLayersOnChartCommand}");
+        root.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Validation chart layers status" &&
+            (string?)element.Attribute("Text") == "{Binding ValidationChartLayersStatusText}");
         root.Descendants(Avalonia + "Button").Should().ContainSingle(element =>
             (string?)element.Attribute("AutomationProperties.Name") ==
                 "Bind validated strategy to selected Paper book" &&

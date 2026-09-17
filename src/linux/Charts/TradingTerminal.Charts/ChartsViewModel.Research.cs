@@ -23,7 +23,12 @@ public sealed partial class ChartsViewModel
     [ObservableProperty] private IReadOnlyList<ChartConditionHitMarker> _conditionHitMarkers =
         Array.Empty<ChartConditionHitMarker>();
 
+    /// <summary>Validate simulated fills — separate layer from condition triangles.</summary>
+    [ObservableProperty] private IReadOnlyList<ChartFillHitMarker> _fillHitMarkers =
+        Array.Empty<ChartFillHitMarker>();
+
     public bool HasConditionHitMarkers => ConditionHitMarkers.Count > 0;
+    public bool HasFillHitMarkers => FillHitMarkers.Count > 0;
 
     public bool IsResearchRangeSelectionEnabled => ResearchSelectionStep != ChartResearchSelectionStep.None;
     public bool HasResearchObservationRange => ResearchObservationRange is not null;
@@ -258,6 +263,7 @@ public sealed partial class ChartsViewModel
         ResearchObservationRange = null;
         ResearchOutcomeRange = null;
         ConditionHitMarkers = Array.Empty<ChartConditionHitMarker>();
+        FillHitMarkers = Array.Empty<ChartFillHitMarker>();
     }
 
     private int CountBarsInRange(ChartTimeRange range)
@@ -288,9 +294,12 @@ public sealed partial class ChartsViewModel
     partial void OnConditionHitMarkersChanged(IReadOnlyList<ChartConditionHitMarker> value) =>
         OnPropertyChanged(nameof(HasConditionHitMarkers));
 
+    partial void OnFillHitMarkersChanged(IReadOnlyList<ChartFillHitMarker> value) =>
+        OnPropertyChanged(nameof(HasFillHitMarkers));
+
     /// <summary>
     /// Replace condition-hit markers from Research search or Design preview.
-    /// Pass empty to clear. Does not mutate observation/outcome ranges.
+    /// Pass empty to clear. Does not mutate observation/outcome ranges or fill markers.
     /// </summary>
     public void ApplyConditionHitMarkers(IReadOnlyList<ResearchConditionHitV1>? hits)
     {
@@ -304,6 +313,24 @@ public sealed partial class ChartsViewModel
             .Select(static hit => new ChartConditionHitMarker(hit.BarTimeUtc, hit.ForwardPositive))
             .ToArray();
         Status = $"Condition markers: {ConditionHitMarkers.Count} hit(s) on chart.";
+    }
+
+    /// <summary>
+    /// Replace fill markers from Validate last-run trades.
+    /// Pass empty to clear. Does not clear condition markers.
+    /// </summary>
+    public void ApplyFillHitMarkers(IReadOnlyList<ValidationChartFillV1>? fills)
+    {
+        if (fills is null || fills.Count == 0)
+        {
+            FillHitMarkers = Array.Empty<ChartFillHitMarker>();
+            return;
+        }
+
+        FillHitMarkers = fills
+            .Select(static f => new ChartFillHitMarker(f.TimeUtc, f.Price, f.IsEntry, f.IsBuy))
+            .ToArray();
+        Status = $"Fill markers: {FillHitMarkers.Count} fill(s) on chart (separate from condition layer).";
     }
 
     private void NotifyResearchSelectionStateChanged()
