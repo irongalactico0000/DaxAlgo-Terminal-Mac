@@ -3886,6 +3886,14 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             DesignRiskRuleText = "";
             DesignOrderRuleText = "";
             DesignIndicators.Clear();
+            foreach (var row in DesignRiskLimits.ToArray())
+                DesignRiskLimits.Remove(row);
+            ShowDesignReviewPanel = false;
+            DesignReviewItems.Clear();
+            DesignReviewWarningsAccepted = false;
+            AcceptedDesignReviewHashSha256 = null;
+            DesignReviewDraftHashSha256 = "";
+            DesignFocusedSection = "";
             DesignEntryCondition.Clear();
             DesignExitCondition.Clear();
             DesignSizing.Clear();
@@ -4278,6 +4286,10 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         DesignOrderRuleText = session.DesignOrderRuleText ?? "";
         LastAppliedStarterId = session.LastAppliedStarterId;
         RestoreDesignIndicatorsFromSession(session.DesignIndicatorsJson);
+        RestoreDesignRiskLimitsFromSession(session.DesignRiskLimitsJson);
+        AcceptedDesignReviewHashSha256 = session.AcceptedDesignReviewHashSha256;
+        DesignReviewDraftHashSha256 = DesignDraftReviewEvaluatorV1.HashDraft(CaptureDesignDraftCanonical());
+        OnPropertyChanged(nameof(IsDesignReviewCurrent));
         OnPropertyChanged(nameof(CanInvestigateInResearchStudio));
         InvestigateInResearchStudioCommand.NotifyCanExecuteChanged();
         NotifyDesignDraftChanged();
@@ -4551,6 +4563,8 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
                 ? null
                 : ExecutableStrategyDefinitionCanonicalJson.Serialize(
                     DesignIndicators.Select(static i => i.ToSession()).ToArray()),
+            DesignRiskLimitsJson: SerializeDesignRiskLimitsForSession(),
+            AcceptedDesignReviewHashSha256: NullIfWhiteSpace(AcceptedDesignReviewHashSha256),
             DesignInstrumentText: NullIfWhiteSpace(DesignInstrumentText),
             DesignTimeframeText: NullIfWhiteSpace(DesignTimeframeText),
             DesignEvaluationTimingText: NullIfWhiteSpace(DesignEvaluationTimingText),

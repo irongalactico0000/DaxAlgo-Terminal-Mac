@@ -139,7 +139,8 @@ public sealed partial class StrategyAuthoringViewModel
         !string.IsNullOrWhiteSpace(DesignRiskRuleText) ||
         !string.IsNullOrWhiteSpace(DesignOrderRuleText) ||
         HasDesignIndicators ||
-        DesignEntryCondition.IsComplete;
+        DesignEntryCondition.IsComplete ||
+        DesignRiskLimits.Any(static r => r.IsComplete);
 
     public string DesignInstrumentProvenanceLabel =>
         DesignValueProvenanceLabels.Label(DesignInstrumentProvenance);
@@ -253,13 +254,15 @@ public sealed partial class StrategyAuthoringViewModel
                 missing.Add("exit");
             if (IsDesignFieldUnresolved(DesignSizingRuleText) && !DesignSizing.IsComplete)
                 missing.Add("sizing");
-            if (IsDesignFieldUnresolved(DesignRiskRuleText) && !DesignRisk.IsComplete)
+            if (!DesignRiskLimits.Any(static r => r.IsComplete) &&
+                IsDesignFieldUnresolved(DesignRiskRuleText) &&
+                !DesignRisk.IsComplete)
                 missing.Add("risk");
             if (IsDesignFieldUnresolved(DesignOrderRuleText) && !DesignOrders.IsComplete)
                 missing.Add("orders");
 
             if (missing.Count == 0)
-                return "All Design fields have text. Review before Build, then Continue to Build when ready.";
+                return "All Design fields have text. Use Review & continue, then Continue to Build when ready.";
 
             return "Unresolved before Build: " + string.Join(", ", missing) +
                    ". Choose an instrument and resolve the entry condition before review is complete.";
@@ -278,7 +281,7 @@ public sealed partial class StrategyAuthoringViewModel
         get
         {
             if (!HasDesignRuleDraft)
-                return "Add instrument, timeframe, evaluation timing, and rules — then Review before Build.";
+                return "Add instrument, timeframe, evaluation timing, and rules — then Review & continue.";
 
             static string Line(string key, string value) =>
                 string.IsNullOrWhiteSpace(value) ? $"{key}: (unresolved)" : $"{key}: {value.Trim()}";
@@ -295,9 +298,11 @@ public sealed partial class StrategyAuthoringViewModel
             var sizing = DesignSizing.IsComplete
                 ? $"SIZING: {DesignSizing.SummaryText}"
                 : Line("SIZING", DesignSizingRuleText);
-            var risk = DesignRisk.IsComplete
-                ? $"RISK: {DesignRisk.SummaryText}"
-                : Line("RISK", DesignRiskRuleText);
+            var risk = DesignRiskLimits.Any(static r => r.IsComplete)
+                ? "RISK: " + string.Join("; ", DesignRiskLimits.Where(static r => r.IsComplete).Select(static r => r.SummaryText))
+                : DesignRisk.IsComplete
+                    ? $"RISK: {DesignRisk.SummaryText}"
+                    : Line("RISK", DesignRiskRuleText);
             var orders = DesignOrders.IsComplete
                 ? $"ORDERS: {DesignOrders.SummaryText}"
                 : Line("ORDERS", DesignOrderRuleText);
@@ -506,6 +511,7 @@ public sealed partial class StrategyAuthoringViewModel
         NotifyBuildDesignBlockerStateChanged();
         NotifyWorkingFlowMapChanged();
         QueueLiveDesignConditionPreview();
+        InvalidateDesignReviewAcceptance();
     }
 
     /// <summary>Shown under Include draft — name/version of the attached Design draft for composer.</summary>
@@ -792,21 +798,6 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(PendingHyperionDesignChangeSummaryText));
         AcceptHyperionDesignProposalCommand.NotifyCanExecuteChanged();
         DiscardHyperionDesignProposalCommand.NotifyCanExecuteChanged();
-    }
-
-    /// <summary>
-    /// Confirms Design fields as the visible working draft before Build.
-    /// Does not invent TradeIR and does not re-interpret via the LLM.
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanReviewDesignRules))]
-    private void ReviewDesignRules()
-    {
-        if (!HasDesignRuleDraft) return;
-        Status =
-            "Working draft rules reviewed. These fields are the strategy definition for the next Build. " +
-            "Ask Hyperion only if you want proposed edits — Accept is required before they replace these fields.";
-        OnPropertyChanged(nameof(DesignRulesReviewText));
-        NotifyWorkingFlowMapChanged();
     }
 
     /// <summary>

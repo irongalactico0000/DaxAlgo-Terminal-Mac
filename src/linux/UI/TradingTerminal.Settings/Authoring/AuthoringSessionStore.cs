@@ -86,6 +86,8 @@ public sealed record AuthoringSessionSnapshot(
     string? ResearchChartSelectionJson = null,
     string? ResearchIndicatorBindingsJson = null,
     string? DesignIndicatorsJson = null,
+    string? DesignRiskLimitsJson = null,
+    string? AcceptedDesignReviewHashSha256 = null,
     string? DesignInstrumentText = null,
     string? DesignTimeframeText = null,
     string? DesignEvaluationTimingText = null,

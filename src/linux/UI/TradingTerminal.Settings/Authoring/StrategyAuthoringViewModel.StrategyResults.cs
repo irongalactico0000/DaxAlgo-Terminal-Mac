@@ -21,23 +21,30 @@ public sealed partial class StrategyAuthoringViewModel
 
     [ObservableProperty] private string? _boundNativeSessionId;
 
-    /// <summary>True when Design is incomplete enough that Build should send the operator back.</summary>
+    /// <summary>True when Design is incomplete or review is not accepted for the current draft hash.</summary>
     public bool ShowBuildDesignBlockers =>
         IsBuildScreen &&
         GenerateCandidateFirst &&
-        (string.IsNullOrWhiteSpace(DesignInstrumentText) ||
-         string.IsNullOrWhiteSpace(DesignEntryRuleText));
+        (!IsDesignReviewCurrent ||
+         string.IsNullOrWhiteSpace(DesignInstrumentText) ||
+         (!DesignEntryCondition.IsComplete && string.IsNullOrWhiteSpace(DesignEntryRuleText)));
 
     public string BuildDesignBlockerText
     {
         get
         {
+            if (!IsDesignReviewCurrent)
+            {
+                return "Design review is not accepted for this exact draft. " +
+                       "Return to Design → Review & continue → Continue to Build.";
+            }
+
             var missing = new List<string>();
             if (string.IsNullOrWhiteSpace(DesignInstrumentText))
                 missing.Add("Entry instrument missing");
-            if (string.IsNullOrWhiteSpace(DesignEntryRuleText))
+            if (!DesignEntryCondition.IsComplete && string.IsNullOrWhiteSpace(DesignEntryRuleText))
                 missing.Add("Entry rule missing");
-            if (IsDesignFieldUnresolved(DesignExitRuleText))
+            if (IsDesignFieldUnresolved(DesignExitRuleText) && !DesignExitCondition.IsComplete)
                 missing.Add("Exit unresolved");
             if (missing.Count == 0)
                 return DesignUnresolvedChecklistText;

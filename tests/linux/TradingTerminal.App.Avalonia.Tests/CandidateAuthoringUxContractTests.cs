@@ -311,7 +311,7 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("Use template");
         root.ToString().Should().Contain("Design rule editor");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
-            (string?)element.Attribute("AutomationProperties.Name") == "Investigate in Research Studio" &&
+            (string?)element.Attribute("AutomationProperties.Name") == "Open Research Studio" &&
             (string?)element.Attribute("Command") == "{Binding InvestigateInResearchStudioCommand}");
         root.ToString().Should().Contain("DesignInstrumentText");
         root.ToString().Should().Contain("DesignInstrumentSearchText");
@@ -325,7 +325,12 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("Design entry summary");
         root.ToString().Should().Contain("Design entry notes");
         root.ToString().Should().Contain("Design composer draft attachment");
-        root.ToString().Should().Contain("Review before Build");
+        root.ToString().Should().Contain("Review &amp; continue");
+        root.ToString().Should().Contain("Ask Hyperion about this draft");
+        root.ToString().Should().Contain("Design review panel");
+        root.ToString().Should().Contain("Continue design to Build");
+        root.ToString().Should().Contain("Add design risk limit");
+        root.ToString().Should().Contain("DesignRiskLimits");
         root.ToString().Should().NotContain("ENTRY (SUMMARY / FREEFORM)");
         root.ToString().Should().Contain("DesignTimeframeText");
         root.ToString().Should().Contain("DesignEvaluationTimingText");
@@ -363,11 +368,17 @@ public sealed class CandidateAuthoringUxContractTests
             (string?)element.Attribute("Command") == "{Binding AcceptFindingDesignProposalCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Review design rules for build" &&
-            (string?)element.Attribute("Content") == "Review before Build" &&
+            (string?)element.Attribute("Content") == "Review & continue" &&
             (string?)element.Attribute("Command") == "{Binding ReviewDesignRulesCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
-            (string?)element.Attribute("AutomationProperties.Name") == "Promote design rules to request" &&
+            (string?)element.Attribute("AutomationProperties.Name") == "Ask Hyperion about this draft" &&
             (string?)element.Attribute("Command") == "{Binding PromoteDesignRulesToRequestCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Continue design to Build" &&
+            (string?)element.Attribute("Command") == "{Binding ContinueDesignToBuildCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Add design risk limit" &&
+            (string?)element.Attribute("Command") == "{Binding AddDesignRiskLimitCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Stage last Hyperion reply as design proposal" &&
             (string?)element.Attribute("Command") == "{Binding StageLastHyperionAsDesignProposalCommand}");

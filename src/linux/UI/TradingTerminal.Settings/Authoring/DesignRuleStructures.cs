@@ -554,7 +554,7 @@ public sealed partial class DesignSizingForm : ObservableObject
     }
 }
 
-/// <summary>Risk limits — max loss / daily stop, with optional stop distance range.</summary>
+/// <summary>Risk limits — max loss / daily stop, with optional stop distance range (legacy).</summary>
 public sealed partial class DesignRiskForm : ObservableObject
 {
     public static IReadOnlyList<string> UnitOptions { get; } =
@@ -634,6 +634,105 @@ public sealed partial class DesignRiskForm : ObservableObject
         Provenance = DesignValueProvenance.Unset;
     }
 }
+
+/// <summary>One structured risk limit (type · value · unit · scope · action).</summary>
+public sealed partial class DesignRiskLimitRow : ObservableObject
+{
+    public static IReadOnlyList<string> TypeOptions { get; } =
+    [
+        "Maximum loss",
+        "Daily loss",
+        "Maximum position size",
+        "Maximum exposure",
+        "Maximum open positions",
+        "Drawdown limit",
+        "Stop-loss",
+        "Trading-hours restriction",
+    ];
+
+    public static IReadOnlyList<string> UnitOptions { get; } =
+        ["% of equity", "account currency", "shares", "contracts", "%"];
+
+    public static IReadOnlyList<string> ScopeOptions { get; } =
+        ["This strategy", "Per position", "Account", "Session"];
+
+    public static IReadOnlyList<string> ActionOptions { get; } =
+    [
+        "Stop new entries",
+        "Exit position",
+        "Flatten all",
+        "Alert only",
+    ];
+
+    [ObservableProperty] private string _type = "Daily loss";
+    [ObservableProperty] private string _valueText = "";
+    [ObservableProperty] private string _unit = "% of equity";
+    [ObservableProperty] private string _scope = "This strategy";
+    [ObservableProperty] private string _action = "Stop new entries";
+    [ObservableProperty] private DesignValueProvenance _provenance = DesignValueProvenance.Operator;
+
+    public bool IsComplete =>
+        !string.IsNullOrWhiteSpace(Type) &&
+        !string.IsNullOrWhiteSpace(ValueText) &&
+        decimal.TryParse(ValueText.Trim(), out var v) &&
+        v > 0 &&
+        !string.IsNullOrWhiteSpace(Unit) &&
+        !string.IsNullOrWhiteSpace(Scope) &&
+        !string.IsNullOrWhiteSpace(Action);
+
+    public string SummaryText =>
+        IsComplete
+            ? $"{Type.Trim()} {ValueText.Trim()} {Unit.Trim()} · {Scope.Trim()} · {Action.Trim()}"
+            : "(incomplete risk limit)";
+
+    public string EditorSummary => SummaryText;
+
+    public DesignRiskLimitCanonicalV1 ToCanonical() =>
+        new(Type.Trim(), ValueText.Trim(), Unit.Trim(), Scope.Trim(), Action.Trim());
+
+    public DesignRiskLimitSessionV1 ToSession() =>
+        new(Type, ValueText, Unit, Scope, Action, Provenance.ToString());
+
+    public static DesignRiskLimitRow FromSession(DesignRiskLimitSessionV1 session)
+    {
+        var provenance = Enum.TryParse<DesignValueProvenance>(session.Provenance, true, out var p)
+            ? p
+            : DesignValueProvenance.Operator;
+        return new DesignRiskLimitRow
+        {
+            Type = session.Type,
+            ValueText = session.ValueText,
+            Unit = session.Unit,
+            Scope = session.Scope,
+            Action = session.Action,
+            Provenance = provenance,
+        };
+    }
+
+    public static DesignRiskLimitRow CreateDefault() => new();
+
+    partial void OnTypeChanged(string value) => NotifyShape();
+    partial void OnValueTextChanged(string value) => NotifyShape();
+    partial void OnUnitChanged(string value) => NotifyShape();
+    partial void OnScopeChanged(string value) => NotifyShape();
+    partial void OnActionChanged(string value) => NotifyShape();
+
+    private void NotifyShape()
+    {
+        OnPropertyChanged(nameof(IsComplete));
+        OnPropertyChanged(nameof(SummaryText));
+        OnPropertyChanged(nameof(EditorSummary));
+    }
+}
+
+/// <summary>Persisted structured risk limit for session restore.</summary>
+public sealed record DesignRiskLimitSessionV1(
+    string Type,
+    string ValueText,
+    string Unit,
+    string Scope,
+    string Action,
+    string Provenance);
 
 /// <summary>Execution policy — order type, TIF, optional price rule.</summary>
 public sealed partial class DesignOrdersForm : ObservableObject

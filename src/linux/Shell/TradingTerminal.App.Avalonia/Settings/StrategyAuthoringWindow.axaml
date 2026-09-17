@@ -2559,31 +2559,83 @@
                               CornerRadius="4" Padding="8,6"
                               AutomationProperties.Name="Design risk form">
                         <StackPanel Spacing="6">
-                          <TextBlock Text="RISK" Classes="eyebrow" />
-                          <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBox Text="{Binding DesignRisk.MaxLossText, Mode=TwoWay}"
-                                     Watermark="max loss" Width="80"
-                                     AutomationProperties.Name="Design risk max loss" />
-                            <ComboBox ItemsSource="{Binding DesignRiskUnitOptions}"
-                                      SelectedItem="{Binding DesignRisk.MaxLossUnit, Mode=TwoWay}"
-                                      MinWidth="88" HorizontalAlignment="Left"
-                                      AutomationProperties.Name="Design risk unit" />
-                            <TextBox Text="{Binding DesignRisk.DailyStopText, Mode=TwoWay}"
-                                     Watermark="daily stop" Width="88"
-                                     AutomationProperties.Name="Design risk daily stop" />
+                          <TextBlock Text="RISK LIMITS" Classes="eyebrow" />
+                          <TextBlock Text="Add enforceable limits (type · value · unit · scope · action). Freeform notes stay below."
+                                     Classes="caption" TextWrapping="Wrap" />
+                          <ItemsControl ItemsSource="{Binding DesignRiskLimits}"
+                                        AutomationProperties.Name="Design risk limit list">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <Border Padding="6,4" Margin="0,0,0,4"
+                                        Background="{StaticResource Background.Surface}"
+                                        BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                                        CornerRadius="3">
+                                  <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Spacing="4" Grid.Column="0">
+                                      <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <ComboBox ItemsSource="{Binding DataContext.DesignRiskLimitTypeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  SelectedItem="{Binding Type, Mode=TwoWay}"
+                                                  MinWidth="140" HorizontalAlignment="Left"
+                                                  AutomationProperties.Name="Design risk limit type" />
+                                        <TextBox Text="{Binding ValueText, Mode=TwoWay}"
+                                                 Watermark="value" Width="72"
+                                                 AutomationProperties.Name="Design risk limit value" />
+                                        <ComboBox ItemsSource="{Binding DataContext.DesignRiskLimitUnitOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  SelectedItem="{Binding Unit, Mode=TwoWay}"
+                                                  MinWidth="110" HorizontalAlignment="Left"
+                                                  AutomationProperties.Name="Design risk limit unit" />
+                                      </StackPanel>
+                                      <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <ComboBox ItemsSource="{Binding DataContext.DesignRiskLimitScopeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  SelectedItem="{Binding Scope, Mode=TwoWay}"
+                                                  MinWidth="120" HorizontalAlignment="Left"
+                                                  AutomationProperties.Name="Design risk limit scope" />
+                                        <ComboBox ItemsSource="{Binding DataContext.DesignRiskLimitActionOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  SelectedItem="{Binding Action, Mode=TwoWay}"
+                                                  MinWidth="140" HorizontalAlignment="Left"
+                                                  AutomationProperties.Name="Design risk limit action" />
+                                      </StackPanel>
+                                      <TextBlock Text="{Binding SummaryText}" Classes="caption" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Classes="ghost" Content="Remove"
+                                            Command="{Binding DataContext.RemoveDesignRiskLimitCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"
+                                            VerticalAlignment="Top"
+                                            AutomationProperties.Name="Remove design risk limit" />
+                                  </Grid>
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <TextBlock Text="No risk limits yet — add at least one before Review &amp; continue."
+                                     Classes="caption" TextWrapping="Wrap"
+                                     IsVisible="{Binding !HasDesignRiskLimits}" />
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ComboBox ItemsSource="{Binding DesignRiskLimitTypeOptions}"
+                                      SelectedItem="{Binding NewRiskLimitType, Mode=TwoWay}"
+                                      MinWidth="140" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="New design risk limit type" />
+                            <TextBox Text="{Binding NewRiskLimitValueText, Mode=TwoWay}"
+                                     Watermark="value" Width="72"
+                                     AutomationProperties.Name="New design risk limit value" />
+                            <ComboBox ItemsSource="{Binding DesignRiskLimitUnitOptions}"
+                                      SelectedItem="{Binding NewRiskLimitUnit, Mode=TwoWay}"
+                                      MinWidth="110" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="New design risk limit unit" />
                           </StackPanel>
-                          <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="Stop range" VerticalAlignment="Center" Classes="caption" />
-                            <TextBox Text="{Binding DesignRisk.StopRangeMinText, Mode=TwoWay}"
-                                     Watermark="min" Width="64"
-                                     AutomationProperties.Name="Design risk stop range min" />
-                            <TextBlock Text="–" VerticalAlignment="Center" />
-                            <TextBox Text="{Binding DesignRisk.StopRangeMaxText, Mode=TwoWay}"
-                                     Watermark="max" Width="64"
-                                     AutomationProperties.Name="Design risk stop range max" />
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ComboBox ItemsSource="{Binding DesignRiskLimitScopeOptions}"
+                                      SelectedItem="{Binding NewRiskLimitScope, Mode=TwoWay}"
+                                      MinWidth="120" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="New design risk limit scope" />
+                            <ComboBox ItemsSource="{Binding DesignRiskLimitActionOptions}"
+                                      SelectedItem="{Binding NewRiskLimitAction, Mode=TwoWay}"
+                                      MinWidth="140" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="New design risk limit action" />
+                            <Button Classes="aiAction" Content="+ Add risk limit"
+                                    Command="{Binding AddDesignRiskLimitCommand}"
+                                    AutomationProperties.Name="Add design risk limit" />
                           </StackPanel>
-                          <TextBlock Text="{Binding DesignRisk.ProvenanceLabel}" Classes="caption"
-                                     IsVisible="{Binding DesignRisk.ProvenanceLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                         </StackPanel>
                       </Border>
                       <Border Background="{StaticResource Background.Elevated}"
@@ -2626,27 +2678,79 @@
                       <TextBlock Text="{Binding DesignUnresolvedChecklistText}" Classes="caption"
                                  TextWrapping="Wrap"
                                  AutomationProperties.Name="Design unresolved checklist" />
+                      <Border IsVisible="{Binding ShowDesignReviewPanel}"
+                              Background="{StaticResource Background.Elevated}"
+                              BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                              CornerRadius="4" Padding="10,8"
+                              AutomationProperties.Name="Design review panel">
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="REVIEW STRATEGY" Classes="eyebrow" />
+                          <TextBlock Text="{Binding DesignReviewStatusText}" Classes="caption"
+                                     TextWrapping="Wrap"
+                                     AutomationProperties.Name="Design review status" />
+                          <TextBlock Text="{Binding DesignReviewEvidenceCaption}" Classes="caption"
+                                     TextWrapping="Wrap"
+                                     AutomationProperties.Name="Design review evidence caption" />
+                          <ItemsControl ItemsSource="{Binding DesignReviewItems}"
+                                        AutomationProperties.Name="Design review item list">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <Button Classes="ghost" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Command="{Binding DataContext.FocusDesignReviewItemCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}"
+                                        Margin="0,0,0,2"
+                                        AutomationProperties.Name="Design review item">
+                                  <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding SeverityGlyph}" FontWeight="SemiBold"
+                                               MinWidth="16" VerticalAlignment="Top" />
+                                    <StackPanel Spacing="2">
+                                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                      <TextBlock Text="{Binding Detail}" Classes="caption" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                  </StackPanel>
+                                </Button>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <CheckBox Content="Accept warnings and continue"
+                                    IsChecked="{Binding DesignReviewWarningsAccepted, Mode=TwoWay}"
+                                    IsVisible="{Binding DesignReviewHasWarnings}"
+                                    AutomationProperties.Name="Accept design review warnings" />
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="ghost" Content="Go to first missing item"
+                                    Command="{Binding GoToFirstMissingDesignReviewItemCommand}"
+                                    AutomationProperties.Name="Go to first missing design review item" />
+                            <Button Classes="aiAction" Content="Continue to Build"
+                                    Command="{Binding ContinueDesignToBuildCommand}"
+                                    IsEnabled="{Binding CanContinueDesignToBuild}"
+                                    ToolTip.Tip="Enabled when required items are ready and warnings are accepted. Binds acceptance to this exact draft hash."
+                                    AutomationProperties.Name="Continue design to Build" />
+                          </StackPanel>
+                        </StackPanel>
+                      </Border>
                       <TextBlock Text="{Binding DesignRulesReviewText}" Classes="caption" TextWrapping="Wrap"
                                  FontFamily="{StaticResource Font.Data}"
+                                 IsVisible="{Binding !ShowDesignReviewPanel}"
                                  AutomationProperties.Name="Design rules review summary" />
                       <TextBlock Text="{Binding CandidateEmptyText}" Classes="caption" TextWrapping="Wrap"
                                  Opacity="0.9" />
                       <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Classes="ghost" Content="Investigate in Research Studio"
+                        <Button Classes="ghost" Content="Open Research Studio"
                                 Command="{Binding InvestigateInResearchStudioCommand}"
                                 IsEnabled="{Binding CanInvestigateInResearchStudio}"
                                 ToolTip.Tip="Open Research Studio for chart evidence. Does not change Design fields — use ← Back or Add finding from Research."
-                                AutomationProperties.Name="Investigate in Research Studio" />
-                        <Button Classes="aiAction" Content="Review before Build"
+                                AutomationProperties.Name="Open Research Studio" />
+                        <Button Classes="aiAction" Content="Review &amp; continue"
                                 Command="{Binding ReviewDesignRulesCommand}"
                                 IsEnabled="{Binding CanReviewDesignRules}"
-                                ToolTip.Tip="Check the Design draft (instrument, data, indicators, entry/exit, sizing, risk, orders) before Build. Does not call Hyperion or invent TradeIR."
+                                ToolTip.Tip="Open the Design completion gate: required blockers, warnings, and Continue to Build. Does not invent TradeIR."
                                 AutomationProperties.Name="Review design rules for build" />
-                        <Button Classes="ghost" Content="Include draft in composer"
+                        <Button Classes="ghost" Content="Ask Hyperion about this draft"
                                 Command="{Binding PromoteDesignRulesToRequestCommand}"
                                 IsEnabled="{Binding CanPromoteDesignRulesToRequest}"
                                 ToolTip.Tip="{Binding DesignComposerDraftAttachmentText}"
-                                AutomationProperties.Name="Promote design rules to request" />
+                                AutomationProperties.Name="Ask Hyperion about this draft" />
                       </StackPanel>
                       <TextBlock Text="{Binding DesignComposerDraftAttachmentText}" Classes="caption"
                                  TextWrapping="Wrap"

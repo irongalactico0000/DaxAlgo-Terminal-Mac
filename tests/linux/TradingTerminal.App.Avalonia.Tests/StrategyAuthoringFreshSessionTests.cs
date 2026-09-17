@@ -304,8 +304,27 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignEntryRuleText.Should().Be("close crosses above EMA 20",
             "Including draft in composer must not mutate Design fields until Apply change");
         viewModel.ReviewDesignRulesCommand.Execute(null);
-        viewModel.Status.Should().Contain("Working draft rules reviewed");
+        viewModel.ShowDesignReviewPanel.Should().BeTrue();
+        viewModel.DesignReviewItems.Should().NotBeEmpty();
+        viewModel.Status.Should().Contain("Review & continue");
         viewModel.DesignRulesReviewText.Should().Contain("ENTRY: close crosses above EMA 20");
+        viewModel.CanContinueDesignToBuild.Should().BeFalse(
+            "sizing and risk limits are still required");
+        viewModel.DesignSizingRuleText = "1 contract";
+        viewModel.DesignRiskLimits.Add(new DesignRiskLimitRow
+        {
+            Type = "Daily loss",
+            ValueText = "2",
+            Unit = "% of equity",
+            Scope = "This strategy",
+            Action = "Stop new entries",
+        });
+        viewModel.ReviewDesignRulesCommand.Execute(null);
+        viewModel.DesignReviewHasRequired.Should().BeFalse();
+        viewModel.DesignReviewWarningsAccepted = true;
+        viewModel.CanContinueDesignToBuild.Should().BeTrue();
+        viewModel.AcceptedDesignReviewHashSha256.Should().BeNull(
+            "acceptance is recorded only when Continue to Build runs");
         viewModel.CanStageLastHyperionAsDesignProposal.Should().BeFalse();
         viewModel.Composer = "";
         viewModel.AwaitingHyperionDesignProposal = false;
@@ -353,7 +372,7 @@ public sealed class StrategyAuthoringFreshSessionTests
             "starting a new strategy must release transient raw provider output");
         viewModel.Files.Should().ContainSingle(file => file.Name == StrategyFile.DefaultName);
         viewModel.SelectedFile.Should().BeSameAs(viewModel.Files[0]);
-        viewModel.Status.Should().Contain("rules");
+        viewModel.Status.Should().Contain("Review & continue");
         viewModel.CandidateEmptyTitle.Should().Be("Trading rules");
         viewModel.AuthoredUnitSpecification.Should().BeNull();
         viewModel.ConfirmedStrategyIntent.Should().BeNull();
@@ -442,13 +461,28 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.ActiveScreen = StrategyAuthoringScreen.Build;
         viewModel.IsBuildScreen.Should().BeTrue();
         viewModel.ShowBuildDesignBlockers.Should().BeTrue(
-            "Build without instrument/entry must show blockers");
-        viewModel.BuildDesignBlockerText.Should().Contain("Entry");
+            "Build without accepted Design review must show blockers");
+        viewModel.BuildDesignBlockerText.Should().Contain("Review & continue");
         viewModel.ReturnToDesignFromBuildCommand.Execute(null);
         viewModel.IsChartDesignStage.Should().BeTrue();
 
         viewModel.DesignInstrumentText = "ES";
+        viewModel.DesignTimeframeText = "5m";
         viewModel.DesignEntryRuleText = "EMA 20 crosses above EMA 50";
+        viewModel.DesignSizingRuleText = "1 contract";
+        viewModel.DesignRiskLimits.Add(new DesignRiskLimitRow
+        {
+            Type = "Daily loss",
+            ValueText = "2",
+            Unit = "% of equity",
+            Scope = "This strategy",
+            Action = "Stop new entries",
+        });
+        viewModel.ReviewDesignRulesCommand.Execute(null);
+        viewModel.DesignReviewWarningsAccepted = true;
+        viewModel.CanContinueDesignToBuild.Should().BeTrue();
+        viewModel.ContinueDesignToBuildCommand.Execute(null);
+        viewModel.IsDesignReviewCurrent.Should().BeTrue();
         viewModel.ActiveScreen = StrategyAuthoringScreen.Build;
         viewModel.ShowBuildDesignBlockers.Should().BeFalse();
 
