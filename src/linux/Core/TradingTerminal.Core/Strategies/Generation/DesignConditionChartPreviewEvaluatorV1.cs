@@ -148,7 +148,16 @@ public static class DesignConditionChartPreviewEvaluatorV1
         period = 0;
         if (string.IsNullOrWhiteSpace(operand))
             return false;
-        var match = OperandPattern.Match(operand.Trim());
+        var trimmed = operand.Trim();
+        if (string.Equals(trimmed, "close", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "price", StringComparison.OrdinalIgnoreCase))
+        {
+            kind = "close";
+            period = 1;
+            return true;
+        }
+
+        var match = OperandPattern.Match(trimmed);
         if (!match.Success)
             return false;
         kind = match.Groups[1].Value.Trim().ToLowerInvariant();
@@ -177,6 +186,7 @@ public static class DesignConditionChartPreviewEvaluatorV1
         var closes = bars.Select(static b => b.Close).ToArray();
         return kind switch
         {
+            "close" or "price" => closes.Select(static c => c).ToArray(),
             "sma" => SeriesFromStreaming(closes, period, sma: true),
             _ => SeriesFromStreaming(closes, period, sma: false),
         };

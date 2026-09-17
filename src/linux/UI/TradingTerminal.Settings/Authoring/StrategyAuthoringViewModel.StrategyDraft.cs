@@ -43,6 +43,36 @@ public sealed partial class StrategyAuthoringViewModel
     private IReadOnlyList<SignalInstrument> _designInstrumentUniverse = Array.Empty<SignalInstrument>();
     private bool _syncingDesignInstrumentSelection;
     private bool _designInstrumentCatalogueLoading;
+    private bool _designInstrumentCatalogueLoadFailed;
+    private const string DesignInstrumentPersistKey = "design-strategy-authoring";
+
+    public bool IsDesignInstrumentCatalogueLoading => _designInstrumentCatalogueLoading;
+
+    /// <summary>Loading / empty / no-match / unavailable caption under the instrument search box.</summary>
+    public string DesignInstrumentPickerStatusText
+    {
+        get
+        {
+            if (_designInstrumentCatalogueLoading)
+                return "Loading instruments…";
+            if (_designInstrumentCatalogueLoadFailed && _designInstrumentUniverse.Count == 0)
+                return "Instrument data unavailable — reconnect a broker or retry.";
+            if (_designInstrumentUniverse.Count == 0)
+                return "No instruments available yet.";
+            var term = DesignInstrumentSearchText?.Trim() ?? "";
+            var browsing = term.Length == 0 ||
+                (SelectedDesignInstrument is not null &&
+                 string.Equals(term, SelectedDesignInstrument.DisplayName, StringComparison.OrdinalIgnoreCase));
+            if (!browsing && DesignInstrumentOptions.Count == 0)
+                return $"No matches for “{term}” — try symbol or venue.";
+            if (browsing)
+                return $"{_designInstrumentUniverse.Count} available · type to search symbol + venue";
+            return $"{DesignInstrumentOptions.Count} match(es) · symbol + venue";
+        }
+    }
+
+    public bool HasDesignInstrumentPickerStatus =>
+        !string.IsNullOrWhiteSpace(DesignInstrumentPickerStatusText);
 
     /// <summary>True while Accept applies a proposal — skips marking edits as Operator.</summary>
     private bool _applyingDesignProposal;
@@ -69,6 +99,21 @@ public sealed partial class StrategyAuthoringViewModel
     public IReadOnlyList<string> DesignConditionOperatorOptions =>
         DesignConditionRow.OperatorOptions;
 
+    public IReadOnlyList<string> DesignOperandKindOptions =>
+        DesignConditionRow.OperandKindOptions;
+
+    /// <summary>Labels from DesignIndicators for Saved-indicator operand pickers.</summary>
+    public IReadOnlyList<string> DesignIndicatorLabelOptions =>
+        DesignIndicators.Select(static i => i.DisplayLabel).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+
+    /// <summary>Saved-signal operand store — empty until Research/Hyperion signals are linked.</summary>
+    public IReadOnlyList<string> DesignSignalOptions { get; } = Array.Empty<string>();
+
+    public bool HasDesignSignalOptions => DesignSignalOptions.Count > 0;
+
+    [ObservableProperty] private string _designEntryNotesText = "";
+    [ObservableProperty] private string _designExitNotesText = "";
+
     public IReadOnlyList<string> DesignSizingMethodOptions => DesignSizingForm.MethodOptions;
     public IReadOnlyList<string> DesignSizingUnitOptions => DesignSizingForm.UnitOptions;
     public IReadOnlyList<string> DesignRiskUnitOptions => DesignRiskForm.UnitOptions;
@@ -77,10 +122,10 @@ public sealed partial class StrategyAuthoringViewModel
     public IReadOnlyList<string> DesignPriceRuleOptions => DesignOrdersForm.PriceRuleOptions;
 
     public IReadOnlyList<string> DesignTimeframeOptions { get; } =
-        ["", "1m", "5m", "15m", "1h", "1D"];
+        ["Choose…", "1m", "5m", "15m", "1h", "1D"];
 
     public IReadOnlyList<string> DesignEvaluationTimingOptions { get; } =
-        ["", "Completed bar", "Forming bar", "Session open"];
+        ["Choose…", "Completed bar", "Forming bar", "Session open"];
 
     public bool HasDesignIndicators => DesignIndicators.Count > 0;
 
@@ -214,16 +259,18 @@ public sealed partial class StrategyAuthoringViewModel
                 missing.Add("orders");
 
             if (missing.Count == 0)
-                return "All Design fields have text. Review strategy, then Build when ready.";
+                return "All Design fields have text. Review before Build, then Continue to Build when ready.";
 
             return "Unresolved before Build: " + string.Join(", ", missing) +
                    ". Choose an instrument and resolve the entry condition before review is complete.";
         }
     }
 
-    /// <summary>Empty or explicit "Unresolved …" placeholders are not ready for Build.</summary>
+    /// <summary>Empty, Choose…, or explicit "Unresolved …" placeholders are not ready for Build.</summary>
     public static bool IsDesignFieldUnresolved(string? value) =>
         string.IsNullOrWhiteSpace(value) ||
+        string.Equals(value.Trim(), "Choose…", StringComparison.Ordinal) ||
+        string.Equals(value.Trim(), "Choose...", StringComparison.OrdinalIgnoreCase) ||
         value.TrimStart().StartsWith("Unresolved", StringComparison.OrdinalIgnoreCase);
 
     public string DesignRulesReviewText
@@ -231,7 +278,7 @@ public sealed partial class StrategyAuthoringViewModel
         get
         {
             if (!HasDesignRuleDraft)
-                return "Add instrument, timeframe, evaluation timing, and rules — then Review strategy.";
+                return "Add instrument, timeframe, evaluation timing, and rules — then Review before Build.";
 
             static string Line(string key, string value) =>
                 string.IsNullOrWhiteSpace(value) ? $"{key}: (unresolved)" : $"{key}: {value.Trim()}";
@@ -439,6 +486,8 @@ public sealed partial class StrategyAuthoringViewModel
     {
         OnPropertyChanged(nameof(HasDesignRuleDraft));
         OnPropertyChanged(nameof(HasDesignIndicators));
+        OnPropertyChanged(nameof(DesignIndicatorLabelOptions));
+        OnPropertyChanged(nameof(DesignComposerDraftAttachmentText));
         OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
         OnPropertyChanged(nameof(CanReviewDesignRules));
         OnPropertyChanged(nameof(CanImportResearchIndicatorsToDesign));
@@ -457,6 +506,22 @@ public sealed partial class StrategyAuthoringViewModel
         NotifyBuildDesignBlockerStateChanged();
         NotifyWorkingFlowMapChanged();
         QueueLiveDesignConditionPreview();
+    }
+
+    /// <summary>Shown under Include draft — name/version of the attached Design draft for composer.</summary>
+    public string DesignComposerDraftAttachmentText
+    {
+        get
+        {
+            if (!HasDesignRuleDraft)
+                return "No Design draft attached yet.";
+            var instrument = string.IsNullOrWhiteSpace(DesignInstrumentText) ? "—" : DesignInstrumentText.Trim();
+            var entry = DesignEntryCondition.IsComplete
+                ? DesignEntryCondition.SummaryText
+                : (string.IsNullOrWhiteSpace(DesignEntryRuleText) ? "entry unresolved" : DesignEntryRuleText.Trim());
+            var rev = StrategyWorkspace.Revision;
+            return $"Attached draft · {instrument} · {entry} · workspace rev {rev}";
+        }
     }
 
     private void NotifyHyperionDesignProposalCommandsChanged()
@@ -486,6 +551,7 @@ public sealed partial class StrategyAuthoringViewModel
     partial void OnDesignInstrumentSearchTextChanged(string value)
     {
         ApplyDesignInstrumentFilter();
+        OnPropertyChanged(nameof(DesignInstrumentPickerStatusText));
         // Free-typed symbol without a catalogue match still updates the draft string.
         if (_syncingDesignInstrumentSelection)
             return;
@@ -530,6 +596,7 @@ public sealed partial class StrategyAuthoringViewModel
     {
         OnPropertyChanged(nameof(DesignInstrumentVenueCaption));
         OnPropertyChanged(nameof(HasDesignInstrumentVenueCaption));
+        OnPropertyChanged(nameof(DesignInstrumentPickerStatusText));
         if (_syncingDesignInstrumentSelection)
             return;
         if (value is null)
@@ -542,6 +609,7 @@ public sealed partial class StrategyAuthoringViewModel
             DesignInstrumentSearchText = value.DisplayName;
             if (!_applyingDesignProposal && !_restoring)
                 DesignInstrumentProvenance = DesignValueProvenance.Operator;
+            LastInstrumentStore.Save(DesignInstrumentPersistKey, value.Contract.Symbol);
         }
         finally
         {
@@ -557,6 +625,9 @@ public sealed partial class StrategyAuthoringViewModel
         if (_designInstrumentCatalogueLoading)
             return;
         _designInstrumentCatalogueLoading = true;
+        _designInstrumentCatalogueLoadFailed = false;
+        OnPropertyChanged(nameof(IsDesignInstrumentCatalogueLoading));
+        OnPropertyChanged(nameof(DesignInstrumentPickerStatusText));
         try
         {
             IReadOnlyList<SignalInstrument> universe;
@@ -580,29 +651,55 @@ public sealed partial class StrategyAuthoringViewModel
             }
 
             _designInstrumentUniverse = universe;
-            SyncSelectedDesignInstrumentFromText();
+            if (SelectedDesignInstrument is null &&
+                string.IsNullOrWhiteSpace(DesignInstrumentText) &&
+                InstrumentPickerFilter.Remembered(DesignInstrumentPersistKey, _designInstrumentUniverse) is { } remembered)
+            {
+                _syncingDesignInstrumentSelection = true;
+                try
+                {
+                    SelectedDesignInstrument = remembered;
+                    DesignInstrumentText = remembered.Contract.Symbol;
+                    DesignInstrumentSearchText = remembered.DisplayName;
+                }
+                finally
+                {
+                    _syncingDesignInstrumentSelection = false;
+                }
+            }
+            else
+            {
+                SyncSelectedDesignInstrumentFromText();
+            }
+
             ApplyDesignInstrumentFilter();
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Design instrument catalogue load failed");
+            _designInstrumentCatalogueLoadFailed = true;
             _designInstrumentUniverse = SignalInstrumentCatalog.All;
             ApplyDesignInstrumentFilter();
         }
         finally
         {
             _designInstrumentCatalogueLoading = false;
+            OnPropertyChanged(nameof(IsDesignInstrumentCatalogueLoading));
+            OnPropertyChanged(nameof(DesignInstrumentPickerStatusText));
         }
     }
 
     private void ApplyDesignInstrumentFilter()
     {
-        var visible = InstrumentPickerFilter.Visible(
+        var recent = LastInstrumentStore.Load(DesignInstrumentPersistKey);
+        var visible = InstrumentPickerFilter.VisibleSearchingSymbolAndVenue(
             _designInstrumentUniverse,
             DesignInstrumentSearchText,
             SelectedDesignInstrument,
-            cap: 80);
+            cap: 80,
+            recentSymbol: recent);
         InstrumentPickerFilter.Apply(DesignInstrumentOptions, visible);
+        OnPropertyChanged(nameof(DesignInstrumentPickerStatusText));
     }
 
     private void SyncSelectedDesignInstrumentFromText()
@@ -1112,11 +1209,12 @@ public sealed partial class StrategyAuthoringViewModel
 
     private void SyncEntryRuleTextFromCondition()
     {
-        if (!DesignEntryCondition.IsComplete) return;
         _syncingStructuredRuleText = true;
         try
         {
-            DesignEntryRuleText = DesignEntryCondition.SummaryText;
+            DesignEntryRuleText = DesignEntryCondition.IsComplete
+                ? DesignEntryCondition.SummaryText
+                : "";
         }
         finally
         {
@@ -1126,11 +1224,12 @@ public sealed partial class StrategyAuthoringViewModel
 
     private void SyncExitRuleTextFromCondition()
     {
-        if (!DesignExitCondition.IsComplete) return;
         _syncingStructuredRuleText = true;
         try
         {
-            DesignExitRuleText = DesignExitCondition.SummaryText;
+            DesignExitRuleText = DesignExitCondition.IsComplete
+                ? DesignExitCondition.SummaryText
+                : "";
         }
         finally
         {
@@ -1486,10 +1585,12 @@ public sealed partial class StrategyAuthoringViewModel
         UpsertDesignIndicator(leftKind, leftPeriod, provenance);
         UpsertDesignIndicator(rightKind, rightPeriod, provenance);
 
-        target.LeftOperand = $"{leftKind}({leftPeriod})";
-        target.OperatorKey = NormalizeConditionOperator(op);
-        target.RightOperand = $"{rightKind}({rightPeriod})";
-        target.Provenance = provenance;
+        target.SetFromTokens(
+            $"{leftKind}({leftPeriod})",
+            NormalizeConditionOperator(op),
+            $"{rightKind}({rightPeriod})",
+            provenance);
+        OnPropertyChanged(nameof(DesignIndicatorLabelOptions));
         if (ReferenceEquals(target, DesignEntryCondition))
             SyncEntryRuleTextFromCondition();
         else if (ReferenceEquals(target, DesignExitCondition))

@@ -147,9 +147,17 @@ public sealed record DesignIndicatorSessionV1(
 
 /// <summary>
 /// Structured entry/exit condition. "Crosses above" is distinct from "is above".
+/// Operand kinds drive the editors; <see cref="LeftOperand"/> / <see cref="RightOperand"/> stay the
+/// canonical tokens used by preview/eval and summaries.
 /// </summary>
 public sealed partial class DesignConditionRow : ObservableObject
 {
+    public const string KindPrice = "Price";
+    public const string KindIndicator = "Saved indicator";
+    public const string KindSignal = "Saved signal";
+    public const string KindConstant = "Constant";
+    public const string KindExpression = "Advanced expression";
+
     public static IReadOnlyList<string> OperatorOptions { get; } =
     [
         "crosses above",
@@ -159,10 +167,31 @@ public sealed partial class DesignConditionRow : ObservableObject
         "equals",
     ];
 
+    public static IReadOnlyList<string> OperandKindOptions { get; } =
+    [
+        KindPrice,
+        KindIndicator,
+        KindSignal,
+        KindConstant,
+        KindExpression,
+    ];
+
+    [ObservableProperty] private string _leftKind = KindIndicator;
+    [ObservableProperty] private string _rightKind = KindIndicator;
+    [ObservableProperty] private string _leftIndicatorLabel = "";
+    [ObservableProperty] private string _rightIndicatorLabel = "";
+    [ObservableProperty] private string _leftConstantText = "";
+    [ObservableProperty] private string _rightConstantText = "";
+    [ObservableProperty] private string _leftExpressionText = "";
+    [ObservableProperty] private string _rightExpressionText = "";
+    [ObservableProperty] private string _leftSignalId = "";
+    [ObservableProperty] private string _rightSignalId = "";
     [ObservableProperty] private string _leftOperand = "";
     [ObservableProperty] private string _operatorKey = "crosses above";
     [ObservableProperty] private string _rightOperand = "";
     [ObservableProperty] private DesignValueProvenance _provenance = DesignValueProvenance.Unset;
+
+    private bool _rebuildingOperands;
 
     public bool IsComplete =>
         !string.IsNullOrWhiteSpace(LeftOperand) &&
@@ -176,11 +205,234 @@ public sealed partial class DesignConditionRow : ObservableObject
 
     public string ProvenanceLabel => DesignValueProvenanceLabels.Label(Provenance);
 
-    partial void OnLeftOperandChanged(string value) => NotifyShape();
+    public bool ShowLeftIndicatorPicker =>
+        string.Equals(LeftKind, KindIndicator, StringComparison.Ordinal);
+    public bool ShowLeftConstant =>
+        string.Equals(LeftKind, KindConstant, StringComparison.Ordinal);
+    public bool ShowLeftExpression =>
+        string.Equals(LeftKind, KindExpression, StringComparison.Ordinal);
+    public bool ShowLeftSignalPicker =>
+        string.Equals(LeftKind, KindSignal, StringComparison.Ordinal);
+    public bool ShowLeftPriceHint =>
+        string.Equals(LeftKind, KindPrice, StringComparison.Ordinal);
+
+    public bool ShowRightIndicatorPicker =>
+        string.Equals(RightKind, KindIndicator, StringComparison.Ordinal);
+    public bool ShowRightConstant =>
+        string.Equals(RightKind, KindConstant, StringComparison.Ordinal);
+    public bool ShowRightExpression =>
+        string.Equals(RightKind, KindExpression, StringComparison.Ordinal);
+    public bool ShowRightSignalPicker =>
+        string.Equals(RightKind, KindSignal, StringComparison.Ordinal);
+    public bool ShowRightPriceHint =>
+        string.Equals(RightKind, KindPrice, StringComparison.Ordinal);
+
+    public string LeftSignalEmptyHint =>
+        "No saved signals in this draft yet — Research/Hyperion signals land here later.";
+    public string RightSignalEmptyHint => LeftSignalEmptyHint;
+
+    partial void OnLeftKindChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            RebuildLeftOperandFromKind();
+        NotifyOperandUi();
+    }
+
+    partial void OnRightKindChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            RebuildRightOperandFromKind();
+        NotifyOperandUi();
+    }
+
+    partial void OnLeftIndicatorLabelChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            RebuildLeftOperandFromKind();
+    }
+
+    partial void OnRightIndicatorLabelChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            RebuildRightOperandFromKind();
+    }
+
+    partial void OnLeftConstantTextChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            RebuildLeftOperandFromKind();
+    }
+
+    partial void OnRightConstantTextChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            RebuildRightOperandFromKind();
+    }
+
+    partial void OnLeftExpressionTextChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            RebuildLeftOperandFromKind();
+    }
+
+    partial void OnRightExpressionTextChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            RebuildRightOperandFromKind();
+    }
+
+    partial void OnLeftSignalIdChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            RebuildLeftOperandFromKind();
+    }
+
+    partial void OnRightSignalIdChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            RebuildRightOperandFromKind();
+    }
+
+    partial void OnLeftOperandChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            InferKindFromOperand(isLeft: true, value);
+        NotifyShape();
+    }
+
     partial void OnOperatorKeyChanged(string value) => NotifyShape();
-    partial void OnRightOperandChanged(string value) => NotifyShape();
+
+    partial void OnRightOperandChanged(string value)
+    {
+        if (!_rebuildingOperands)
+            InferKindFromOperand(isLeft: false, value);
+        NotifyShape();
+    }
+
     partial void OnProvenanceChanged(DesignValueProvenance value) =>
         OnPropertyChanged(nameof(ProvenanceLabel));
+
+    private void RebuildLeftOperandFromKind()
+    {
+        _rebuildingOperands = true;
+        try
+        {
+            LeftOperand = TokenFromKind(LeftKind, LeftIndicatorLabel, LeftConstantText, LeftExpressionText, LeftSignalId);
+        }
+        finally
+        {
+            _rebuildingOperands = false;
+        }
+
+        NotifyShape();
+    }
+
+    private void RebuildRightOperandFromKind()
+    {
+        _rebuildingOperands = true;
+        try
+        {
+            RightOperand = TokenFromKind(RightKind, RightIndicatorLabel, RightConstantText, RightExpressionText, RightSignalId);
+        }
+        finally
+        {
+            _rebuildingOperands = false;
+        }
+
+        NotifyShape();
+    }
+
+    private static string TokenFromKind(
+        string kind,
+        string indicatorLabel,
+        string constantText,
+        string expressionText,
+        string signalId) =>
+        kind switch
+        {
+            KindPrice => "close",
+            KindIndicator => indicatorLabel.Trim(),
+            KindConstant => constantText.Trim(),
+            KindExpression => expressionText.Trim(),
+            KindSignal => string.IsNullOrWhiteSpace(signalId) ? "" : signalId.Trim(),
+            _ => expressionText.Trim(),
+        };
+
+    private void InferKindFromOperand(bool isLeft, string operand)
+    {
+        var token = operand?.Trim() ?? "";
+        if (token.Length == 0)
+            return;
+
+        string kind;
+        if (string.Equals(token, "close", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(token, "price", StringComparison.OrdinalIgnoreCase))
+            kind = KindPrice;
+        else if (double.TryParse(token, System.Globalization.NumberStyles.Float,
+                     System.Globalization.CultureInfo.InvariantCulture, out _))
+            kind = KindConstant;
+        else if (DesignConditionChartPreviewEvaluatorV1.TryParseSeriesOperand(token, out _, out _))
+            kind = KindIndicator;
+        else
+            kind = KindExpression;
+
+        _rebuildingOperands = true;
+        try
+        {
+            if (isLeft)
+            {
+                LeftKind = kind;
+                switch (kind)
+                {
+                    case KindIndicator:
+                        LeftIndicatorLabel = token;
+                        break;
+                    case KindConstant:
+                        LeftConstantText = token;
+                        break;
+                    case KindExpression:
+                        LeftExpressionText = token;
+                        break;
+                }
+            }
+            else
+            {
+                RightKind = kind;
+                switch (kind)
+                {
+                    case KindIndicator:
+                        RightIndicatorLabel = token;
+                        break;
+                    case KindConstant:
+                        RightConstantText = token;
+                        break;
+                    case KindExpression:
+                        RightExpressionText = token;
+                        break;
+                }
+            }
+        }
+        finally
+        {
+            _rebuildingOperands = false;
+        }
+
+        NotifyOperandUi();
+    }
+
+    private void NotifyOperandUi()
+    {
+        OnPropertyChanged(nameof(ShowLeftIndicatorPicker));
+        OnPropertyChanged(nameof(ShowLeftConstant));
+        OnPropertyChanged(nameof(ShowLeftExpression));
+        OnPropertyChanged(nameof(ShowLeftSignalPicker));
+        OnPropertyChanged(nameof(ShowLeftPriceHint));
+        OnPropertyChanged(nameof(ShowRightIndicatorPicker));
+        OnPropertyChanged(nameof(ShowRightConstant));
+        OnPropertyChanged(nameof(ShowRightExpression));
+        OnPropertyChanged(nameof(ShowRightSignalPicker));
+        OnPropertyChanged(nameof(ShowRightPriceHint));
+    }
 
     private void NotifyShape()
     {
@@ -190,10 +442,41 @@ public sealed partial class DesignConditionRow : ObservableObject
 
     public void Clear()
     {
-        LeftOperand = "";
-        OperatorKey = "crosses above";
-        RightOperand = "";
-        Provenance = DesignValueProvenance.Unset;
+        _rebuildingOperands = true;
+        try
+        {
+            LeftKind = KindIndicator;
+            RightKind = KindIndicator;
+            LeftIndicatorLabel = "";
+            RightIndicatorLabel = "";
+            LeftConstantText = "";
+            RightConstantText = "";
+            LeftExpressionText = "";
+            RightExpressionText = "";
+            LeftSignalId = "";
+            RightSignalId = "";
+            LeftOperand = "";
+            OperatorKey = "crosses above";
+            RightOperand = "";
+            Provenance = DesignValueProvenance.Unset;
+        }
+        finally
+        {
+            _rebuildingOperands = false;
+        }
+
+        NotifyOperandUi();
+        NotifyShape();
+    }
+
+    /// <summary>Apply a parsed free-text condition while keeping kind editors in sync.</summary>
+    public void SetFromTokens(string left, string op, string right, DesignValueProvenance provenance)
+    {
+        OperatorKey = op;
+        _rebuildingOperands = false;
+        LeftOperand = left;
+        RightOperand = right;
+        Provenance = provenance;
     }
 }
 

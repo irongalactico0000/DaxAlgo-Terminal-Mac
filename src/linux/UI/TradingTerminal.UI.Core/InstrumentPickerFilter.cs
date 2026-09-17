@@ -27,6 +27,72 @@ public static class InstrumentPickerFilter
         public object? PendingDesired { get; set; }
     }
 
+    /// <summary>
+    /// Design instrument picker: browse-on-open uses DisplayName for "empty term" detection, but
+    /// typed search matches symbol, venue/exchange, broker label, category, and display name.
+    /// </summary>
+    public static List<SignalInstrument> VisibleSearchingSymbolAndVenue(
+        IReadOnlyList<SignalInstrument> all,
+        string? term,
+        SignalInstrument? selected,
+        int cap,
+        string? recentSymbol = null)
+    {
+        term = term?.Trim() ?? string.Empty;
+        var browsing = term.Length == 0
+            || (selected is not null &&
+                string.Equals(term, selected.DisplayName, StringComparison.OrdinalIgnoreCase));
+
+        IEnumerable<SignalInstrument> matches = browsing
+            ? all
+            : all.Where(i => MatchesSymbolOrVenue(i, term));
+
+        var shown = matches.Take(Math.Max(1, cap)).ToList();
+
+        // Pin recent (when browsing) then selection so click-open shows something useful first.
+        if (browsing &&
+            !string.IsNullOrWhiteSpace(recentSymbol) &&
+            all.FirstOrDefault(i =>
+                string.Equals(i.Contract.Symbol, recentSymbol, StringComparison.OrdinalIgnoreCase)) is { } recent &&
+            !ReferenceEquals(recent, selected))
+        {
+            shown.Remove(recent);
+            shown.Insert(0, recent);
+            if (shown.Count > cap)
+                shown.RemoveAt(shown.Count - 1);
+        }
+
+        if (selected is not null && !shown.Contains(selected))
+            shown.Insert(0, selected);
+        return shown;
+    }
+
+    public static bool MatchesSymbolOrVenue(SignalInstrument instrument, string term)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+            return true;
+        if (instrument.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (instrument.Contract.Symbol.Contains(term, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (instrument.Category.Contains(term, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (!string.IsNullOrWhiteSpace(instrument.Contract.Exchange) &&
+            instrument.Contract.Exchange.Contains(term, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (!string.IsNullOrWhiteSpace(instrument.Contract.PrimaryExchange) &&
+            instrument.Contract.PrimaryExchange.Contains(term, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (instrument.Broker is { } broker)
+        {
+            var label = BrokerInstrumentUniverse.BrokerLabel(broker);
+            if (label.Contains(term, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
     /// <summary>Rows to show for a <see cref="SignalInstrument"/> picker — see <see cref="Visible{T}"/>.</summary>
     public static List<SignalInstrument> Visible(
         IReadOnlyList<SignalInstrument> all, string? term, SignalInstrument? selected, int cap)

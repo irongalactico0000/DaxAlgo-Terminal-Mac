@@ -318,6 +318,14 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("SelectedDesignInstrument");
         root.ToString().Should().Contain("Design instrument search");
         root.ToString().Should().Contain("Design instrument venue");
+        root.ToString().Should().Contain("Design instrument picker status");
+        root.ToString().Should().Contain("DesignOperandKindOptions");
+        root.ToString().Should().Contain("Design entry left operand kind");
+        root.ToString().Should().Contain("Design entry summary");
+        root.ToString().Should().Contain("Design entry notes");
+        root.ToString().Should().Contain("Design composer draft attachment");
+        root.ToString().Should().Contain("Review before Build");
+        root.ToString().Should().NotContain("ENTRY (SUMMARY / FREEFORM)");
         root.ToString().Should().Contain("DesignTimeframeText");
         root.ToString().Should().Contain("DesignEvaluationTimingText");
         root.ToString().Should().Contain("DesignEntryRuleText");
@@ -337,7 +345,7 @@ public sealed class CandidateAuthoringUxContractTests
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Import research indicators to Design" &&
             (string?)element.Attribute("Command") == "{Binding ImportResearchIndicatorsToDesignCommand}");
-        root.ToString().Should().Contain("Design entry left operand");
+        root.ToString().Should().Contain("Design entry left operand kind");
         root.ToString().Should().Contain("Design sizing form");
         root.ToString().Should().Contain("Design risk form");
         root.ToString().Should().Contain("Design orders form");
@@ -354,6 +362,7 @@ public sealed class CandidateAuthoringUxContractTests
             (string?)element.Attribute("Command") == "{Binding AcceptFindingDesignProposalCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Review design rules for build" &&
+            (string?)element.Attribute("Content") == "Review before Build" &&
             (string?)element.Attribute("Command") == "{Binding ReviewDesignRulesCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Promote design rules to request" &&
