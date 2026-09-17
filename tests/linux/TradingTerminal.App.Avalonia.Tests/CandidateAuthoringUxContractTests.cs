@@ -302,11 +302,10 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("DesignTimeframeText");
         root.ToString().Should().Contain("DesignEvaluationTimingText");
         root.ToString().Should().Contain("DesignEntryRuleText");
-        root.ToString().Should().Contain("USE IN STRATEGY — REVIEW BEFORE LINK");
+        root.ToString().Should().Contain("USE AS ENTRY — REVIEW BEFORE APPLY");
+        root.ToString().Should().Contain("Apply change");
+        root.ToString().Should().Contain("PendingHyperionDesignChangeSummaryText");
         root.ToString().Should().Contain("Handoff condition role");
-        root.ToString().Should().Contain("HandoffIndicators");
-        root.ToString().Should().Contain("HandoffConditionSummaryText");
-        root.ToString().Should().Contain("DesignUnresolvedChecklistText");
         root.ToString().Should().Contain("Hyperion design proposal review");
         root.ToString().Should().Contain("Finding design proposal review");
         root.ToString().Should().Contain("Design indicators editor");
@@ -344,7 +343,7 @@ public sealed class CandidateAuthoringUxContractTests
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Discard Hyperion design proposal" &&
             (string?)element.Attribute("Command") == "{Binding DiscardHyperionDesignProposalCommand}");
-        root.ToString().Should().Contain("Design fields do not change until Accept");
+        root.ToString().Should().Contain("Apply change");
         root.ToString().Should().Contain("Linked research finding");
         // Single Research Studio CTA lives on the stage chrome — not duplicated in empty/rule panes.
         root.Descendants(Avalonia + "Button")

@@ -293,13 +293,13 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignUnresolvedChecklistText.Should().Contain("sizing");
         viewModel.CanPromoteDesignRulesToRequest.Should().BeTrue();
         viewModel.PromoteDesignRulesToRequestCommand.Execute(null);
-        viewModel.Composer.Should().Contain("composer prompt");
+        viewModel.Composer.Should().Contain("Current strategy draft");
         viewModel.Composer.Should().Contain("INSTRUMENT: ES");
         viewModel.Composer.Should().Contain("ENTRY: close crosses above EMA 20");
-        viewModel.Composer.Should().Contain("Accept before Design fields change");
+        viewModel.Composer.Should().Contain("Apply change");
         viewModel.AwaitingHyperionDesignProposal.Should().BeTrue();
         viewModel.DesignEntryRuleText.Should().Be("close crosses above EMA 20",
-            "Ask Hyperion must not mutate Design fields until Accept");
+            "Including draft in composer must not mutate Design fields until Apply change");
         viewModel.ReviewDesignRulesCommand.Execute(null);
         viewModel.Status.Should().Contain("Working draft rules reviewed");
         viewModel.DesignRulesReviewText.Should().Contain("ENTRY: close crosses above EMA 20");
@@ -393,7 +393,7 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModelA.CanUseObservationInDesign.Should().BeFalse(
             "Add finding stays disabled until there is something to transfer");
         viewModelA.ReturnToStrategyBuilderText.Should().Contain("Momentum");
-        viewModelA.UseInStrategyBuilderText.Should().Contain("Use in Strategy · Momentum");
+        viewModelA.UseInStrategyBuilderText.Should().Contain("Use as entry · Momentum");
         viewModelA.HasResearchDesignHandoff.Should().BeFalse();
 
         viewModelA.ReturnToStrategyBuilderCommand.Execute(null);
@@ -724,6 +724,36 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignEntryCondition.LeftOperand = "ema(30)";
         viewModel.DesignEntryRuleText.Should().Be("ema(30) crosses above ema(50)");
         viewModel.DesignEntryCondition.Provenance.Should().Be(DesignValueProvenance.Operator);
+    }
+
+    [Fact]
+    public void Design_Send_attaches_live_draft_and_Apply_change_summary_shows_diffs()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.DesignInstrumentText = "MSFT";
+        viewModel.DesignTimeframeText = "15m";
+        viewModel.DesignIndicators.Add(DesignIndicatorRow.Create("ema", 20, DesignValueProvenance.Operator));
+        viewModel.DesignIndicators.Add(DesignIndicatorRow.Create("ema", 50, DesignValueProvenance.Operator));
+        viewModel.DesignEntryCondition.LeftOperand = "ema(20)";
+        viewModel.DesignEntryCondition.OperatorKey = "crosses above";
+        viewModel.DesignEntryCondition.RightOperand = "ema(50)";
+
+        var attached = viewModel.AttachDesignDraftContextToChatPrompt("Change the fast EMA to 30.");
+        attached.Should().Contain("Current strategy draft");
+        attached.Should().Contain("INDICATORS:");
+        attached.Should().Contain("ema(20)");
+        attached.Should().Contain("Operator request:");
+        attached.Should().Contain("Change the fast EMA to 30.");
+
+        viewModel.PendingHyperionDesignProposalText =
+            "INSTRUMENT: MSFT\nTIMEFRAME: 15m\nINDICATORS: ema(30), ema(50)\n" +
+            "CONDITION: ema(30) crosses above ema(50)";
+        viewModel.PendingHyperionDesignChangeSummaryText.Should().Contain("→");
     }
 
     [Fact]

@@ -93,16 +93,31 @@ public sealed partial class StrategyAuthoringViewModel
     public bool HasPendingHyperionDesignProposal =>
         !string.IsNullOrWhiteSpace(PendingHyperionDesignProposalText);
 
+    /// <summary>
+    /// Human-readable proposed changes vs the current Design form (e.g. EMA(20) → EMA(30)).
+    /// </summary>
+    public string PendingHyperionDesignChangeSummaryText
+    {
+        get
+        {
+            if (!HasPendingHyperionDesignProposal)
+                return "";
+            return BuildDesignProposalChangeSummary(
+                PendingHyperionDesignProposalText,
+                includeUnchanged: false);
+        }
+    }
+
     public string DesignRuleEditorHint =>
         HasPendingFindingDesignProposal
-            ? "Review the finding → Design rules proposal below. Apply writes fields; Discard keeps your draft."
+            ? "Research is ready as a rule below. Apply change writes it into the form; Discard keeps your draft."
             : HasPendingHyperionDesignProposal
-            ? "Chat result is staged below — Accept writes the strategy form; Discard keeps your current draft."
+            ? "Hyperion proposed changes below. Apply change updates the form; Discard keeps your draft. Not trading yet."
             : AwaitingHyperionDesignProposal
-            ? "Waiting on Hyperion — the next assistant reply will appear here as a proposal (Accept still required)."
+            ? "Waiting on Hyperion — the next reply will show as Apply change beside your rules."
             : HasResearchDesignHandoff
-            ? "Linked research is below — Apply finding (review first), edit the form, or Ask Hyperion. Chat and form share one draft."
-            : "Chat and the strategy form are connected: Ask Hyperion from these rules, Accept the reply into the same controls, edit here, chat again.";
+            ? "Linked research stays here. Edit the form or ask Hyperion — Send always includes this draft."
+            : "Research → rules on the right. Chat proposes changes; Apply change updates the same draft. Edit the form anytime.";
 
     [ObservableProperty] private string _pendingFindingDesignProposalText = "";
 
@@ -306,6 +321,7 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(HasPendingHyperionDesignProposal));
         OnPropertyChanged(nameof(CanAcceptHyperionDesignProposal));
         OnPropertyChanged(nameof(DesignRuleEditorHint));
+        OnPropertyChanged(nameof(PendingHyperionDesignChangeSummaryText));
         AcceptHyperionDesignProposalCommand.NotifyCanExecuteChanged();
         DiscardHyperionDesignProposalCommand.NotifyCanExecuteChanged();
     }
@@ -326,13 +342,42 @@ public sealed partial class StrategyAuthoringViewModel
     }
 
     /// <summary>
-    /// Prompt path only: copies Design fields into the Hyperion composer.
-    /// Does not update Design fields. After Hyperion replies, stage and Accept the proposal.
+    /// Prompt path only (advanced): copies Design fields into the composer explicitly.
+    /// Prefer typing a question and Send — Design draft is attached automatically.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanPromoteDesignRulesToRequest))]
     private void PromoteDesignRulesToRequest()
     {
         if (!HasDesignRuleDraft) return;
+        Composer = AttachDesignDraftContextToChatPrompt(
+            string.IsNullOrWhiteSpace(Composer)
+                ? "Propose improvements to this strategy draft."
+                : Composer.Trim());
+        AwaitingHyperionDesignProposal = true;
+        Status =
+            "Current Design draft is in the prompt. Send your question — Hyperion’s reply will show as Apply change.";
+        NotifyWorkingFlowMapChanged();
+        OnPropertyChanged(nameof(DesignRuleEditorHint));
+    }
+
+    /// <summary>Attach the live strategy form to a chat question so the operator never retypes it.</summary>
+    public string AttachDesignDraftContextToChatPrompt(string userQuestion)
+    {
+        var draft = BuildDesignDraftContextBlock();
+        if (string.IsNullOrWhiteSpace(draft))
+            return userQuestion.Trim();
+
+        return
+            "Current strategy draft (source of truth — revise from the operator question):\n" +
+            draft +
+            "\n\nOperator request:\n" +
+            userQuestion.Trim() +
+            "\n\nReply with keyed lines (INSTRUMENT, TIMEFRAME, INDICATORS, CONDITION, ENTRY, EXIT, SIZING, RISK, ORDERS). " +
+            "Prefer concrete changes. Operator will Apply change before the form updates.";
+    }
+
+    public string BuildDesignDraftContextBlock()
+    {
         static string Line(string key, string value) =>
             string.IsNullOrWhiteSpace(value) ? "" : $"{key}: {value.Trim()}";
 
@@ -355,9 +400,8 @@ public sealed partial class StrategyAuthoringViewModel
             ? $"ORDERS: {DesignOrders.SummaryText}"
             : Line("ORDERS", DesignOrderRuleText);
 
-        var body = string.Join('\n', new[]
+        return string.Join('\n', new[]
         {
-            "Design rules draft (composer prompt — Hyperion may reinterpret on Send):",
             Line("INSTRUMENT", DesignInstrumentText),
             Line("TIMEFRAME", DesignTimeframeText),
             Line("EVALUATION", DesignEvaluationTimingText),
@@ -368,18 +412,86 @@ public sealed partial class StrategyAuthoringViewModel
             sizingLine,
             riskLine,
             ordersLine,
-            "",
-            "Reply with the same keys. Prefer INDICATORS / CONDITION / EXIT conditions,",
-            "SIZING: target 10 shares (range 5-15), RISK: max loss 1% · daily stop 2%, ORDERS: Market IOC.",
-            "Distinguish requested values from suggested defaults. Operator must Accept before Design fields change.",
-        }.Where(static s => s.Length == 0 || !string.IsNullOrWhiteSpace(s)));
+        }.Where(static s => !string.IsNullOrWhiteSpace(s)));
+    }
 
-        Composer = body;
-        AwaitingHyperionDesignProposal = true;
-        Status =
-            "Copied rules into the Hyperion prompt. After the reply, use “Stage last Hyperion reply” then Accept or Discard — " +
-            "Design fields do not change until Accept.";
-        NotifyWorkingFlowMapChanged();
+    public string BuildDesignProposalChangeSummary(string proposal, bool includeUnchanged)
+    {
+        var changes = new List<string>();
+        void Compare(string label, string? before, string? after)
+        {
+            var b = string.IsNullOrWhiteSpace(before) ? "(empty)" : before.Trim();
+            var a = string.IsNullOrWhiteSpace(after) ? null : after.Trim();
+            if (a is null) return;
+            if (string.Equals(b, a, StringComparison.Ordinal))
+            {
+                if (includeUnchanged)
+                    changes.Add($"{label}: {a}");
+                return;
+            }
+
+            changes.Add($"{label}: {b} → {a}");
+        }
+
+        string? Peek(string key)
+        {
+            foreach (var raw in proposal.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                var line = raw.Trim();
+                if (!line.StartsWith(key, StringComparison.OrdinalIgnoreCase)) continue;
+                var idx = line.IndexOf(':');
+                if (idx < 0) continue;
+                var value = line[(idx + 1)..].Trim();
+                if (value.Length == 0 || IsDesignFieldUnresolved(value)) return null;
+                return value;
+            }
+
+            return null;
+        }
+
+        Compare("INSTRUMENT", DesignInstrumentText, Peek("INSTRUMENT"));
+        Compare("TIMEFRAME", DesignTimeframeText, Peek("TIMEFRAME"));
+        Compare("EVALUATION", DesignEvaluationTimingText, Peek("EVALUATION"));
+        Compare("INDICATORS",
+            DesignIndicators.Count == 0
+                ? null
+                : string.Join(", ", DesignIndicators.Select(static i => i.DisplayLabel)),
+            Peek("INDICATORS"));
+        Compare(
+            "ENTRY",
+            DesignEntryCondition.IsComplete ? DesignEntryCondition.SummaryText : DesignEntryRuleText,
+            Peek("CONDITION") ?? Peek("ENTRY"));
+        Compare(
+            "EXIT",
+            DesignExitCondition.IsComplete ? DesignExitCondition.SummaryText : DesignExitRuleText,
+            Peek("EXIT"));
+        Compare("SIZING", DesignSizing.IsComplete ? DesignSizing.SummaryText : DesignSizingRuleText, Peek("SIZING"));
+        Compare("RISK", DesignRisk.IsComplete ? DesignRisk.SummaryText : DesignRiskRuleText, Peek("RISK"));
+        Compare("ORDERS", DesignOrders.IsComplete ? DesignOrders.SummaryText : DesignOrderRuleText, Peek("ORDERS"));
+
+        // Indicator period shortcuts: ema(20) → ema(30) style from INDICATORS line alone.
+        var indAfter = Peek("INDICATORS");
+        if (!string.IsNullOrWhiteSpace(indAfter))
+        {
+            foreach (Match match in IndicatorTokenRegex().Matches(indAfter))
+            {
+                var kind = match.Groups["kind"].Value;
+                if (!int.TryParse(match.Groups["period"].Value, out var period) || period <= 0)
+                    continue;
+                var existing = DesignIndicators.FirstOrDefault(i =>
+                    string.Equals(i.Kind, kind, StringComparison.OrdinalIgnoreCase));
+                if (existing is not null && existing.Period != period)
+                {
+                    var label = $"{existing.DisplayLabel} → {kind}({period})";
+                    if (!changes.Any(c => c.Contains(label, StringComparison.OrdinalIgnoreCase)))
+                        changes.Add(label);
+                }
+            }
+        }
+
+        return changes.Count == 0
+            ? "Proposed update (review full text below)."
+            : string.Join('\n', changes);
     }
 
     [RelayCommand(CanExecute = nameof(CanStageLastHyperionAsDesignProposal))]
@@ -391,7 +503,7 @@ public sealed partial class StrategyAuthoringViewModel
     }
 
     /// <summary>
-    /// Stages a chat reply into the Design proposal panel. Does not mutate fields until Accept.
+    /// Stages a chat reply into the Design proposal panel. Does not mutate fields until Apply change.
     /// </summary>
     internal void TryAutoStageHyperionDesignReply(string assistantText)
     {
@@ -399,9 +511,10 @@ public sealed partial class StrategyAuthoringViewModel
         PendingHyperionDesignProposalText = assistantText.Trim();
         AwaitingHyperionDesignProposal = false;
         Status =
-            "Hyperion reply connected to Design — review the proposal, then Accept into the strategy form or Discard.";
+            "Hyperion proposed changes beside your rules. Apply change updates the draft; Discard keeps it. Not trading.";
         StageLastHyperionAsDesignProposalCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(DesignRuleEditorHint));
+        OnPropertyChanged(nameof(PendingHyperionDesignChangeSummaryText));
     }
 
     [RelayCommand(CanExecute = nameof(CanAcceptHyperionDesignProposal))]
@@ -414,9 +527,9 @@ public sealed partial class StrategyAuthoringViewModel
         PendingHyperionDesignProposalText = "";
         AwaitingHyperionDesignProposal = false;
         Status =
-            "Accepted Hyperion proposal into Design fields and structured controls. " +
-            "Edit indicators/conditions here — next chat reads this draft. Review before Build.";
+            "Applied change into the strategy form. Edit here anytime — the next Send includes this draft. Not trading yet.";
         NotifyDesignDraftChanged();
+        OnPropertyChanged(nameof(PendingHyperionDesignChangeSummaryText));
     }
 
     [RelayCommand(CanExecute = nameof(CanAcceptHyperionDesignProposal))]
@@ -425,6 +538,7 @@ public sealed partial class StrategyAuthoringViewModel
         PendingHyperionDesignProposalText = "";
         AwaitingHyperionDesignProposal = false;
         Status = "Discarded Hyperion proposal. Design fields unchanged.";
+        OnPropertyChanged(nameof(PendingHyperionDesignChangeSummaryText));
     }
 
     [RelayCommand(CanExecute = nameof(CanAddDesignIndicator))]

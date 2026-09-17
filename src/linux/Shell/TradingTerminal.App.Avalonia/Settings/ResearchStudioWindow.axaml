@@ -126,8 +126,8 @@
                   MaxWidth="720" HorizontalAlignment="Left"
                   AutomationProperties.Name="Add finding review before link">
             <StackPanel Spacing="6">
-              <TextBlock Text="USE IN STRATEGY — REVIEW BEFORE LINK" Classes="eyebrow" />
-              <TextBlock Text="An indicator measures. A condition interprets. Choose Entry / Exit / Filter for how the strategy uses it."
+              <TextBlock Text="USE AS ENTRY — REVIEW BEFORE APPLY" Classes="eyebrow" />
+              <TextBlock Text="An indicator measures. A condition is true/false. Choosing Entry adds trading behavior when it becomes true."
                          Classes="caption" TextWrapping="Wrap" />
               <TextBlock Text="DESTINATION" Classes="eyebrow" />
               <TextBlock Text="{Binding HandoffDestinationText}" FontWeight="SemiBold"

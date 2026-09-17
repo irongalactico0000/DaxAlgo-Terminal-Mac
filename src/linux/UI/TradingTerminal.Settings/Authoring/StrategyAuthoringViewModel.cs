@@ -1911,23 +1911,32 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             return;
         }
 
-        var prompt = Composer.Trim();
-        if (prompt.Length == 0) return;
+        var displayPrompt = Composer.Trim();
+        if (displayPrompt.Length == 0) return;
+
+        // Design ↔ chat: Send always carries the live form. Operator types a short question only.
+        var prompt = displayPrompt;
+        if (IsDesignScreen && HasDesignRuleDraft)
+        {
+            prompt = AttachDesignDraftContextToChatPrompt(displayPrompt);
+            AwaitingHyperionDesignProposal = true;
+            OnPropertyChanged(nameof(DesignRuleEditorHint));
+        }
 
         ClearTurnFollowUps();
 
         // Backtesting is a separate, explicit action. A short navigation request must never become
         // the next four-lane strategy prompt and silently replace the user's actual strategy brief.
-        if (GenerateCandidateFirst && IsBacktestNavigationIntent(prompt))
+        if (GenerateCandidateFirst && IsBacktestNavigationIntent(displayPrompt))
         {
-            RouteBacktestNavigationIntent(prompt);
+            RouteBacktestNavigationIntent(displayPrompt);
             return;
         }
 
         // Host catalog (famous indicators / research scans) must work offline — no model call.
         if (GenerateCandidateFirst &&
             CurrentCandidate is null &&
-            TryRouteHostCatalogWithoutProvider(prompt))
+            TryRouteHostCatalogWithoutProvider(displayPrompt))
         {
             return;
         }
@@ -1940,7 +1949,14 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         }
 
         // First brief on an untouched identity: name the strategy after what it does, not "myStrategy".
-        if (Messages.Count == 0) DeriveIdentityFrom(prompt);
+        if (Messages.Count == 0) DeriveIdentityFrom(displayPrompt);
+
+        // Design rule editing: conversational Hyperion over the form — not a new candidate lane.
+        if (GenerateCandidateFirst && IsDesignScreen && HasDesignRuleDraft)
+        {
+            await SendDesignRuleChatAsync(choice, prompt, displayPrompt);
+            return;
+        }
 
         if (GenerateCandidateFirst)
         {
@@ -1961,7 +1977,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             }
             else
             {
-                await SendCandidateTurnAsync(choice, prompt);
+                await SendCandidateTurnAsync(choice, prompt, displayPrompt);
             }
             return;
         }
@@ -3392,12 +3408,111 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     private static string NormalizeInstrumentText(string value) =>
         new(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
-    private async Task SendCandidateTurnAsync(AiProviderChoice choice, string prompt)
+    /// <summary>
+    /// Design-form revision chat: short question in the transcript, full draft attached for the model,
+    /// reply auto-stages as Apply change. Does not start a candidate/Build lane.
+    /// </summary>
+    private async Task SendDesignRuleChatAsync(
+        AiProviderChoice choice,
+        string modelPrompt,
+        string displayedPrompt)
     {
         var turnStrategyId = StrategyId.Trim();
         var turnEpoch = Interlocked.Increment(ref _generationContextEpoch);
         Composer = string.Empty;
-        Append(new AuthoringMessage(CodegenRole.User, prompt));
+        Append(new AuthoringMessage(CodegenRole.User, displayedPrompt));
+        IsGenerating = true;
+        AiStatus = "Hyperion is proposing Design changes…";
+
+        _generateCts?.Cancel();
+        _generateCts?.Dispose();
+        var turnCts = new CancellationTokenSource();
+        _generateCts = turnCts;
+        var ticking = TickElapsedAsync(turnCts.Token);
+        var profile = StrategyBuildProfile.For(BuildEffort);
+        var session = EnsureSession(choice, profile);
+        var tokensBefore = session.TotalUsage;
+        _streamingReply = null;
+
+        try
+        {
+            var turn = await session.SendAsync(
+                modelPrompt,
+                new Progress<string>(step =>
+                {
+                    if (IsGenerationContextCurrent(turnEpoch, turnStrategyId)) PushActivity(step);
+                }),
+                turnCts.Token,
+                new Progress<CodegenEvent>(evt =>
+                {
+                    if (IsGenerationContextCurrent(turnEpoch, turnStrategyId)) OnStreamed(evt, tokensBefore);
+                }));
+            if (!IsGenerationContextCurrent(turnEpoch, turnStrategyId)) return;
+
+            InputTokens = session.TotalUsage.InputTokens;
+            OutputTokens = session.TotalUsage.OutputTokens;
+            CachedTokens = session.TotalUsage.CachedInputTokens;
+
+            if (turn.Kind == BuildTurnKind.ProviderError)
+            {
+                AwaitingHyperionDesignProposal = false;
+                AiStatus = $"{choice.DisplayName} failed: {turn.Error}";
+                Append(AuthoringMessage.Tool("Fail", $"{choice.DisplayName} failed", turn.Error ?? "Provider error."));
+                return;
+            }
+
+            var assistantText = turn.AssistantText?.Trim() ?? "";
+            if (_streamingReply is null)
+                Append(new AuthoringMessage(CodegenRole.Assistant, assistantText));
+            else
+                _streamingReply.Text = assistantText;
+
+            if (!string.IsNullOrWhiteSpace(assistantText))
+                TryAutoStageHyperionDesignReply(assistantText);
+
+            AiStatus = HasPendingHyperionDesignProposal
+                ? "Review the proposed changes, then Apply change — or Discard."
+                : "Hyperion replied. Use Stage last Hyperion reply if the proposal panel is empty.";
+            WorkbenchTab = 3;
+        }
+        catch (OperationCanceledException)
+        {
+            AwaitingHyperionDesignProposal = false;
+            AiStatus = "Canceled.";
+        }
+        catch (Exception ex)
+        {
+            AwaitingHyperionDesignProposal = false;
+            _logger.LogError(ex, "Design rule chat failed for {Id}", StrategyId);
+            AiStatus = "Hyperion Design chat failed.";
+            Append(AuthoringMessage.Tool("Fail", "Design chat failed", ex.Message));
+        }
+        finally
+        {
+            turnCts.Cancel();
+            try { await ticking; } catch (OperationCanceledException) { }
+            if (ReferenceEquals(_generateCts, turnCts))
+            {
+                _generateCts.Dispose();
+                _generateCts = null;
+            }
+
+            IsGenerating = false;
+            _streamingReply = null;
+            NotifyHyperionDesignProposalCommandsChanged();
+            OnPropertyChanged(nameof(DesignRuleEditorHint));
+        }
+    }
+
+    private async Task SendCandidateTurnAsync(
+        AiProviderChoice choice,
+        string prompt,
+        string? displayedPrompt = null)
+    {
+        var turnStrategyId = StrategyId.Trim();
+        var turnEpoch = Interlocked.Increment(ref _generationContextEpoch);
+        Composer = string.Empty;
+        Append(new AuthoringMessage(CodegenRole.User, displayedPrompt ?? prompt));
         Activity.Clear();
         Diagnostics.Clear();
         CompiledOk = false;

@@ -139,7 +139,7 @@ public sealed partial class StrategyAuthoringViewModel
         $"← Back to {StrategyReturnDisplayName}";
 
     public string UseInStrategyBuilderText =>
-        $"Use in Strategy · {StrategyReturnDisplayName}";
+        $"Use as entry · {StrategyReturnDisplayName}";
 
     public string StrategyReturnDisplayName =>
         string.IsNullOrWhiteSpace(DisplayName) ? "strategy" : DisplayName.Trim();

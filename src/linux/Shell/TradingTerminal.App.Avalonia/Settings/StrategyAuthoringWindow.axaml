@@ -1253,8 +1253,8 @@
                             CornerRadius="4" Padding="8,6"
                             AutomationProperties.Name="Add finding review before link">
                       <StackPanel Spacing="6">
-                        <TextBlock Text="USE IN STRATEGY — REVIEW BEFORE LINK" Classes="eyebrow" />
-                        <TextBlock Text="An indicator measures. A condition interprets. Choose Entry / Exit / Filter for how the strategy uses it."
+                        <TextBlock Text="USE AS ENTRY — REVIEW BEFORE APPLY" Classes="eyebrow" />
+                        <TextBlock Text="An indicator measures. A condition is true/false. Choosing Entry adds trading behavior when it becomes true."
                                    Classes="caption" TextWrapping="Wrap" />
                         <TextBlock Text="DESTINATION" Classes="eyebrow" />
                         <TextBlock Text="{Binding HandoffDestinationText}" FontWeight="SemiBold"
@@ -2153,7 +2153,7 @@
                                    FontFamily="{StaticResource Font.Data}" FontSize="11"
                                    AutomationProperties.Name="Pending finding design proposal text" />
                           <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Classes="aiAction" Content="Apply into Design fields"
+                            <Button Classes="aiAction" Content="Apply change"
                                     Command="{Binding AcceptFindingDesignProposalCommand}"
                                     IsEnabled="{Binding CanAcceptFindingDesignProposal}"
                                     AutomationProperties.Name="Apply finding design proposal" />
@@ -2170,13 +2170,18 @@
                               CornerRadius="4" Padding="8,6"
                               AutomationProperties.Name="Hyperion design proposal review">
                         <StackPanel Spacing="6">
-                          <TextBlock Text="HYPERION PROPOSAL — REVIEW BEFORE ACCEPT" Classes="eyebrow" />
+                          <TextBlock Text="PROPOSED CHANGES — APPLY TO UPDATE THE FORM" Classes="eyebrow" />
+                          <TextBlock Text="{Binding PendingHyperionDesignChangeSummaryText}"
+                                     FontFamily="{StaticResource Font.Data}" FontSize="12"
+                                     TextWrapping="Wrap"
+                                     AutomationProperties.Name="Pending Hyperion design change summary" />
                           <TextBox Text="{Binding PendingHyperionDesignProposalText, Mode=OneWay}"
                                    IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
-                                   MinHeight="72" MaxHeight="160"
-                                   FontFamily="{StaticResource Font.Data}" FontSize="11" />
+                                   MinHeight="56" MaxHeight="120"
+                                   FontFamily="{StaticResource Font.Data}" FontSize="11"
+                                   AutomationProperties.Name="Pending Hyperion design proposal text" />
                           <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Classes="aiAction" Content="Accept into Design fields"
+                            <Button Classes="aiAction" Content="Apply change"
                                     Command="{Binding AcceptHyperionDesignProposalCommand}"
                                     IsEnabled="{Binding CanAcceptHyperionDesignProposal}"
                                     AutomationProperties.Name="Accept Hyperion design proposal" />
@@ -2430,15 +2435,15 @@
                                 IsEnabled="{Binding CanReviewDesignRules}"
                                 ToolTip.Tip="Confirm these Design fields as the working draft for Build. Does not call Hyperion or invent TradeIR."
                                 AutomationProperties.Name="Review design rules for build" />
-                        <Button Classes="ghost" Content="Ask Hyperion from these rules"
+                        <Button Classes="ghost" Content="Include draft in composer"
                                 Command="{Binding PromoteDesignRulesToRequestCommand}"
                                 IsEnabled="{Binding CanPromoteDesignRulesToRequest}"
-                                ToolTip.Tip="Copies the fields into the Hyperion prompt only. After the reply, stage and Accept — Design fields do not change until Accept."
+                                ToolTip.Tip="Optional. Send already includes the current Design draft automatically."
                                 AutomationProperties.Name="Promote design rules to request" />
-                        <Button Classes="ghost" Content="Stage last Hyperion reply"
+                        <Button Classes="ghost" Content="Stage last reply"
                                 Command="{Binding StageLastHyperionAsDesignProposalCommand}"
                                 IsEnabled="{Binding CanStageLastHyperionAsDesignProposal}"
-                                ToolTip.Tip="Load the latest assistant message into the proposal review panel."
+                                ToolTip.Tip="Load the latest assistant message into Apply change if it was not auto-staged."
                                 AutomationProperties.Name="Stage last Hyperion reply as design proposal" />
                       </StackPanel>
                     </StackPanel>
