@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using TradingTerminal.Core.Strategies.Authoring;
 using TradingTerminal.Core.Strategies.Generation;
 using TradingTerminal.Infrastructure.Backtest;
@@ -19,6 +20,13 @@ public sealed partial class StrategyAuthoringViewModel
     /// </summary>
     [ObservableProperty]
     private IReadOnlyList<ValidationChartFillV1> _lastValidationFills = Array.Empty<ValidationChartFillV1>();
+
+    /// <summary>
+    /// Design ENTRY evaluation for Validate condition triangles — same evaluator as Design preview.
+    /// Not the compiled strategy kernel; not Nautilus.
+    /// </summary>
+    [ObservableProperty]
+    private ResearchConditionSearchResultV1? _lastValidationDesignEntryResult;
 
     /// <summary>
     /// Validate/Replay execution fidelity. L1 touch ± slippage is always applied.
@@ -99,17 +107,39 @@ public sealed partial class StrategyAuthoringViewModel
           "Next: Paper → Bind selected book → Harness.";
 
     /// <summary>
-    /// Honest chart-layer note: condition triangles ≠ Validate ENTRY eval; fill circles = last-run trades.
+    /// Honest chart-layer note: Design ENTRY triangles (Validate eval) vs fill circles (last-run trades).
     /// </summary>
     public string ValidationChartLayersStatusText
     {
         get
         {
-            var conditionCount = ResearchConditionSearchResult?.HitCount ?? 0;
+            var entryHits = LastValidationDesignEntryResult?.HitCount ?? 0;
+            var researchHits = ResearchConditionSearchResult?.HitCount ?? 0;
             var fillCount = LastValidationFills.Count;
-            var conditionPart = conditionCount > 0
-                ? $"{conditionCount} research/Design condition hit(s) available (triangles — not Validate ENTRY)"
-                : "no research/Design condition hits yet (Validate does not evaluate Design ENTRY on bars)";
+            string conditionPart;
+            if (entryHits > 0)
+            {
+                conditionPart =
+                    $"{entryHits} Design ENTRY hit(s) evaluated in Validate " +
+                    $"({LastValidationDesignEntryResult!.ConditionSummary}) — triangles; not compiled-kernel ENTRY";
+            }
+            else if (CanEvaluateValidateDesignEntry)
+            {
+                conditionPart =
+                    "Design ENTRY is ready to evaluate in Validate (same ema/sma rules as Design preview)";
+            }
+            else if (researchHits > 0)
+            {
+                conditionPart =
+                    $"{researchHits} research condition hit(s) available as fallback triangles " +
+                    "(not Design ENTRY Validate eval yet)";
+            }
+            else
+            {
+                conditionPart =
+                    "no Design ENTRY hits yet — set ema(n)/sma(n) ENTRY in Design, keep a Research chart setup, then Evaluate";
+            }
+
             var fillPart = fillCount > 0
                 ? $"{fillCount} simulated fill(s) from last accepted historical run (circles at price)"
                 : "no simulated fills stashed — run historical validation and Accept to capture trades";
@@ -117,9 +147,19 @@ public sealed partial class StrategyAuthoringViewModel
         }
     }
 
+    public bool CanEvaluateValidateDesignEntry =>
+        !IsGenerating &&
+        _researchConditionSearch is not null &&
+        DesignEntryCondition.IsComplete &&
+        DesignConditionChartPreviewEvaluatorV1.TryParseSeriesOperand(
+            DesignEntryCondition.LeftOperand, out _, out _) &&
+        TryGetValidationChartSelection(out _, out _, out _);
+
     public bool CanShowValidationConditionMarkersOnChart =>
         !IsGenerating &&
-        ResearchConditionSearchResult is { Hits.Count: > 0 };
+        (LastValidationDesignEntryResult is { Hits.Count: > 0 } ||
+         ResearchConditionSearchResult is { Hits.Count: > 0 } ||
+         CanEvaluateValidateDesignEntry);
 
     public bool CanShowValidationFillMarkersOnChart =>
         !IsGenerating && LastValidationFills.Count > 0;
@@ -463,21 +503,41 @@ public sealed partial class StrategyAuthoringViewModel
         return true;
     }
 
-    [RelayCommand(CanExecute = nameof(CanShowValidationConditionMarkersOnChart))]
-    private void ShowValidationConditionMarkersOnChart()
+    [RelayCommand(CanExecute = nameof(CanEvaluateValidateDesignEntry))]
+    private async Task EvaluateValidateDesignEntryOnChartAsync()
     {
-        if (ResearchConditionSearchResult is not { Hits.Count: > 0 } result)
+        var result = await RunValidateDesignEntryEvaluationAsync().ConfigureAwait(true);
+        if (result is null)
             return;
 
-        HostChartOverlayPreviewRequested?.Invoke(
-            this,
-            new HostChartOverlayPreviewRequestedEventArgs(
-                OverlaysForResearchPreview().ToArray(),
-                preferredSymbol: result.Symbol,
-                conditionHits: result.Hits));
+        PublishValidationConditionHits(result, fillHits: null);
         Status =
-            $"Condition layer: {result.HitCount} triangle marker(s) on chart. " +
-            "These are research/Design condition hits — not Validate ENTRY evaluation.";
+            result.HitCount == 0
+                ? $"Validate Design ENTRY: no hits · {result.ConditionSummary} · {result.Note}"
+                : $"Validate Design ENTRY: {result.HitCount} triangle(s) · {result.ConditionSummary}. " +
+                  "Same evaluator as Design preview — not compiled-kernel ENTRY; fills stay a separate layer.";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanShowValidationConditionMarkersOnChart))]
+    private async Task ShowValidationConditionMarkersOnChartAsync()
+    {
+        var result = await ResolveValidationConditionResultAsync().ConfigureAwait(true);
+        if (result is null || result.Hits.Count == 0)
+        {
+            Status =
+                CanEvaluateValidateDesignEntry
+                    ? "Validate Design ENTRY evaluated with no hits on the linked chart bars."
+                    : "No condition hits to show — evaluate Design ENTRY or run a research condition search first.";
+            return;
+        }
+
+        PublishValidationConditionHits(result, fillHits: null);
+        var source = ReferenceEquals(result, LastValidationDesignEntryResult)
+            ? "Validate Design ENTRY eval"
+            : "research condition search (fallback)";
+        Status =
+            $"Condition layer: {result.HitCount} triangle(s) · {source}. " +
+            "Separate from fill circles; not compiled-kernel ENTRY.";
     }
 
     [RelayCommand(CanExecute = nameof(CanShowValidationFillMarkersOnChart))]
@@ -486,13 +546,14 @@ public sealed partial class StrategyAuthoringViewModel
         if (LastValidationFills.Count == 0)
             return;
 
-        var symbol = ResearchConditionSearchResult?.Symbol
+        var symbol = LastValidationDesignEntryResult?.Symbol
+            ?? ResearchConditionSearchResult?.Symbol
             ?? PendingResearchChartSelection?.CanonicalSymbol
             ?? ResearchChartInstrumentText;
         HostChartOverlayPreviewRequested?.Invoke(
             this,
             new HostChartOverlayPreviewRequestedEventArgs(
-                OverlaysForResearchPreview().ToArray(),
+                OverlaysForDesignPreview().ToArray(),
                 preferredSymbol: symbol,
                 fillHits: LastValidationFills));
         Status =
@@ -501,36 +562,121 @@ public sealed partial class StrategyAuthoringViewModel
     }
 
     [RelayCommand(CanExecute = nameof(CanShowValidationChartLayersOnChart))]
-    private void ShowValidationChartLayersOnChart()
+    private async Task ShowValidationChartLayersOnChartAsync()
     {
-        var conditionHits = ResearchConditionSearchResult is { Hits.Count: > 0 } result
-            ? result.Hits
-            : null;
+        var conditionResult = await ResolveValidationConditionResultAsync().ConfigureAwait(true);
+        var conditionHits = conditionResult is { Hits.Count: > 0 } ? conditionResult.Hits : null;
         var fillHits = LastValidationFills.Count > 0 ? LastValidationFills : null;
         if (conditionHits is null && fillHits is null)
             return;
 
-        var symbol = ResearchConditionSearchResult?.Symbol
+        var symbol = conditionResult?.Symbol
             ?? PendingResearchChartSelection?.CanonicalSymbol
             ?? ResearchChartInstrumentText;
         HostChartOverlayPreviewRequested?.Invoke(
             this,
             new HostChartOverlayPreviewRequestedEventArgs(
-                OverlaysForResearchPreview().ToArray(),
+                OverlaysForDesignPreview().ToArray(),
                 preferredSymbol: symbol,
                 conditionHits: conditionHits,
                 fillHits: fillHits));
         Status =
-            $"Both layers: {(conditionHits?.Count ?? 0)} condition triangle(s) + " +
-            $"{(fillHits?.Count ?? 0)} fill circle(s). Condition ≠ Validate ENTRY; fills = last-run trades.";
+            $"Both layers: {(conditionHits?.Count ?? 0)} Design ENTRY/research triangle(s) + " +
+            $"{(fillHits?.Count ?? 0)} fill circle(s). ENTRY eval ≠ compiled kernel; fills = last-run trades.";
+    }
+
+    private async Task<ResearchConditionSearchResultV1?> ResolveValidationConditionResultAsync()
+    {
+        if (CanEvaluateValidateDesignEntry)
+        {
+            var evaluated = await RunValidateDesignEntryEvaluationAsync().ConfigureAwait(true);
+            if (evaluated is not null)
+                return evaluated;
+        }
+
+        if (LastValidationDesignEntryResult is { Hits.Count: > 0 } entry)
+            return entry;
+        if (ResearchConditionSearchResult is { Hits.Count: > 0 } research)
+            return research;
+        return null;
+    }
+
+    private async Task<ResearchConditionSearchResultV1?> RunValidateDesignEntryEvaluationAsync()
+    {
+        if (_researchConditionSearch is null || !DesignEntryCondition.IsComplete)
+            return null;
+        if (!TryGetValidationChartSelection(out var instrumentId, out var symbol, out var timeframe))
+        {
+            Status =
+                "Validate Design ENTRY needs a linked Research chart selection (instrument + timeframe). " +
+                "Keep a setup on Research, then return to Validate.";
+            return null;
+        }
+
+        try
+        {
+            var result = await _researchConditionSearch.SearchDesignOperandsLocalAsync(
+                    DesignEntryCondition.LeftOperand,
+                    DesignEntryCondition.OperatorKey,
+                    DesignEntryCondition.RightOperand,
+                    instrumentId,
+                    symbol,
+                    timeframe)
+                .ConfigureAwait(true);
+            LastValidationDesignEntryResult = result;
+            NotifyValidationChartLayersChanged();
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Validate Design ENTRY evaluation failed");
+            Status = $"Validate Design ENTRY failed: {ex.Message}";
+            return null;
+        }
+    }
+
+    private bool TryGetValidationChartSelection(
+        out TradingTerminal.Core.Domain.InstrumentId instrumentId,
+        out string symbol,
+        out TradingTerminal.Core.Domain.BarSize timeframe)
+    {
+        ResearchChartSelectionV1? selection = PendingResearchChartSelection
+            ?? ResearchDatasetDefinition?.Samples.LastOrDefault()?.Selection;
+        if (selection is null || selection.InstrumentId.IsNone)
+        {
+            instrumentId = default;
+            symbol = string.Empty;
+            timeframe = default;
+            return false;
+        }
+
+        instrumentId = selection.InstrumentId;
+        symbol = selection.CanonicalSymbol;
+        timeframe = selection.Timeframe;
+        return true;
+    }
+
+    private void PublishValidationConditionHits(
+        ResearchConditionSearchResultV1 result,
+        IReadOnlyList<ValidationChartFillV1>? fillHits)
+    {
+        HostChartOverlayPreviewRequested?.Invoke(
+            this,
+            new HostChartOverlayPreviewRequestedEventArgs(
+                OverlaysForDesignPreview().ToArray(),
+                preferredSymbol: result.Symbol,
+                conditionHits: result.Hits,
+                fillHits: fillHits));
     }
 
     private void NotifyValidationChartLayersChanged()
     {
         OnPropertyChanged(nameof(ValidationChartLayersStatusText));
+        OnPropertyChanged(nameof(CanEvaluateValidateDesignEntry));
         OnPropertyChanged(nameof(CanShowValidationConditionMarkersOnChart));
         OnPropertyChanged(nameof(CanShowValidationFillMarkersOnChart));
         OnPropertyChanged(nameof(CanShowValidationChartLayersOnChart));
+        EvaluateValidateDesignEntryOnChartCommand.NotifyCanExecuteChanged();
         ShowValidationConditionMarkersOnChartCommand.NotifyCanExecuteChanged();
         ShowValidationFillMarkersOnChartCommand.NotifyCanExecuteChanged();
         ShowValidationChartLayersOnChartCommand.NotifyCanExecuteChanged();
@@ -629,6 +775,9 @@ public sealed partial class StrategyAuthoringViewModel
     }
 
     partial void OnLastValidationFillsChanged(IReadOnlyList<ValidationChartFillV1> value) =>
+        NotifyValidationChartLayersChanged();
+
+    partial void OnLastValidationDesignEntryResultChanged(ResearchConditionSearchResultV1? value) =>
         NotifyValidationChartLayersChanged();
 
     partial void OnIsRegisteredChanged(bool value)

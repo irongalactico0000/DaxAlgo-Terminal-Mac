@@ -1042,9 +1042,12 @@ public sealed partial class StrategyAuthoringViewModel
             if (!_applyingDesignProposal && !_restoring && !_syncingStructuredRuleText)
                 DesignEntryCondition.Provenance = DesignValueProvenance.Operator;
             SyncEntryRuleTextFromCondition();
+            if (LastValidationDesignEntryResult is not null)
+                LastValidationDesignEntryResult = null;
         }
 
         NotifyDesignDraftChanged();
+        NotifyValidationChartLayersChanged();
     }
 
     private void OnDesignExitConditionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

@@ -248,6 +248,9 @@ public sealed class CandidateAuthoringUxContractTests
         historicalValidation.Attribute("Click")!.Value.Should().Be("OnHistoricalValidationRequested");
         historicalValidation.Attribute("IsEnabled")!.Value.Should().Be("{Binding CanRunHistoricalValidation}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Evaluate validate Design ENTRY on chart" &&
+            (string?)element.Attribute("Command") == "{Binding EvaluateValidateDesignEntryOnChartCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Show validation condition markers on chart" &&
             (string?)element.Attribute("Command") == "{Binding ShowValidationConditionMarkersOnChartCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>

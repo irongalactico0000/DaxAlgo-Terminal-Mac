@@ -216,11 +216,17 @@
             <TextBlock Text="{Binding ValidationChartLayersStatusText}" Classes="caption" TextWrapping="Wrap"
                        AutomationProperties.Name="Validation chart layers status" />
             <WrapPanel Orientation="Horizontal" Margin="0,2,0,0">
+              <Button Classes="ghost" Content="Evaluate Design ENTRY"
+                      Command="{Binding EvaluateValidateDesignEntryOnChartCommand}"
+                      IsEnabled="{Binding CanEvaluateValidateDesignEntry}"
+                      Margin="0,0,8,4"
+                      ToolTip.Tip="Runs Design ENTRY (ema/sma) on linked Research chart bars — same evaluator as Design preview. Triangles only; not compiled-kernel ENTRY."
+                      AutomationProperties.Name="Evaluate validate Design ENTRY on chart" />
               <Button Classes="ghost" Content="Show condition markers"
                       Command="{Binding ShowValidationConditionMarkersOnChartCommand}"
                       IsEnabled="{Binding CanShowValidationConditionMarkersOnChart}"
                       Margin="0,0,8,4"
-                      ToolTip.Tip="Triangles from research/Design condition search — not Validate ENTRY evaluation on bars."
+                      ToolTip.Tip="Triangles from Validate Design ENTRY eval when available; otherwise research condition search. Separate from fill circles."
                       AutomationProperties.Name="Show validation condition markers on chart" />
               <Button Classes="ghost" Content="Show fill markers"
                       Command="{Binding ShowValidationFillMarkersOnChartCommand}"
@@ -232,7 +238,7 @@
                       Command="{Binding ShowValidationChartLayersOnChartCommand}"
                       IsEnabled="{Binding CanShowValidationChartLayersOnChart}"
                       Margin="0,0,8,4"
-                      ToolTip.Tip="Condition triangles + fill circles as separate layers on the shared Research chart."
+                      ToolTip.Tip="Design ENTRY/research triangles + fill circles as separate layers on the shared Research chart."
                       AutomationProperties.Name="Show validation chart layers on chart" />
             </WrapPanel>
             <TextBlock Text="EXECUTION FIDELITY" Classes="eyebrow" Margin="0,6,0,0" />

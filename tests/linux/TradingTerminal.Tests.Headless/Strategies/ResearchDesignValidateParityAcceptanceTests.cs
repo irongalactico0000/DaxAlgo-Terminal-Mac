@@ -8,8 +8,8 @@ namespace TradingTerminal.Tests.Headless.Strategies;
 /// <summary>
 /// Acceptance: Research condition eval and Design chart preview share hit timestamps / metrics
 /// on one bar dataset, and Design EMA/SMA levels match Charts' <see cref="Indicators"/> at those
-/// hits. Validate is asserted only for honest L1 fill fidelity — it does not evaluate Design ENTRY
-/// conditions yet.
+/// hits. Validate Design ENTRY uses the same pure evaluator as Design preview; L1 fill fidelity
+/// remains a separate surface from condition hits.
 /// </summary>
 public sealed class ResearchDesignValidateParityAcceptanceTests
 {
@@ -114,10 +114,43 @@ public sealed class ResearchDesignValidateParityAcceptanceTests
     }
 
     [Fact]
-    public void Validate_L1_fixture_is_fill_fidelity_not_condition_hits()
+    public void Validate_Design_ENTRY_eval_matches_Design_preview_on_same_bars()
     {
-        // Honest gap: Validate does not evaluate Design ENTRY / research conditions on bars.
-        // This asserts the L1 fill-fidelity surface that Validate does attach today.
+        // Validate ENTRY layer uses DesignConditionChartPreviewEvaluatorV1 — same pure function
+        // as Design "Preview on chart". Timestamps + metrics must match on one dataset.
+        var bars = BuildCloseBars();
+        Assert.True(DesignConditionChartPreviewEvaluatorV1.TryEvaluateDesignOperands(
+            "ema(5)",
+            "is above",
+            "ema(20)",
+            bars,
+            dataSource: "validate-entry",
+            symbol: "TEST",
+            out var validateEntry));
+        Assert.True(DesignConditionChartPreviewEvaluatorV1.TryEvaluateDesignOperands(
+            "ema(5)",
+            "is above",
+            "ema(20)",
+            bars,
+            dataSource: "design-preview",
+            symbol: "TEST",
+            out var designPreview));
+
+        Assert.True(validateEntry.HitCount >= 1, validateEntry.Note);
+        Assert.Equal(designPreview.HitCount, validateEntry.HitCount);
+        Assert.Equal(
+            designPreview.Hits.Select(static h => h.BarTimeUtc).ToArray(),
+            validateEntry.Hits.Select(static h => h.BarTimeUtc).ToArray());
+        Assert.Equal(
+            designPreview.Hits.Select(static h => h.ConditionMetric).ToArray(),
+            validateEntry.Hits.Select(static h => h.ConditionMetric).ToArray());
+        Assert.Equal(designPreview.ConditionVersionHashSha256, validateEntry.ConditionVersionHashSha256);
+    }
+
+    [Fact]
+    public void Validate_L1_fixture_is_fill_fidelity_separate_from_ENTRY_eval()
+    {
+        // Fill layer honesty: L1 lifecycle fixture is not condition-hit evaluation.
         var report = L1ExecutionLifecycleFixtureV1.RunTarget50PartialFillCancel();
 
         Assert.Equal(L1ExecutionLifecycleFixtureV1.DataModeToken, report.DataModeToken);

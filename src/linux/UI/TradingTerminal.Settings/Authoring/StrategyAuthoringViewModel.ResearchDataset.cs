@@ -1711,6 +1711,7 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(CanUseObservationInDesign));
         UseObservationInDesignCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(ShowResearchObservationTools));
+        NotifyValidationChartLayersChanged();
     }
 
     partial void OnPendingResearchOverlayIdsChanged(IReadOnlyList<string> value)
