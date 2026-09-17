@@ -739,6 +739,16 @@ public sealed class CandidateAuthoringUxContractTests
         root.Descendants(Avalonia + "Button").Should().NotContain(element =>
             (string?)element.Attribute("Command") == "{Binding OpenResearchOrderBookCommand}",
             "Order book / Footprint / Bookmap belong on the open chart, not Rank.");
+        root.ToString().Should().Contain("ReturnToStrategyBuilderCommand");
+        root.ToString().Should().Contain("Back to strategy from Research");
+        root.ToString().Should().Contain("Add research finding to strategy");
+        root.ToString().Should().Contain("AddFindingTransferPreviewText");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Command") == "{Binding ReturnToStrategyBuilderCommand}" &&
+            (string?)element.Attribute("IsEnabled") == "{Binding CanReturnToStrategyBuilder}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Command") == "{Binding UseObservationInDesignCommand}" &&
+            (string?)element.Attribute("IsEnabled") == "{Binding CanUseObservationInDesign}");
         root.ToString().Should().Contain("PendingConditionMultipleText");
         root.ToString().Should().Contain("ApplyPendingResearchConditionCommand");
         root.ToString().Should().Contain("SaveResearchFinding1Command");

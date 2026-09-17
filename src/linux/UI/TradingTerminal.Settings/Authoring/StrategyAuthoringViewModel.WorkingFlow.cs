@@ -75,12 +75,14 @@ public sealed partial class StrategyAuthoringViewModel
                 if (SelectedResearchGalleryCard is not null || HasResearchChartSelection)
                 {
                     if (ResearchEventSampleCount == 0 && !HasResearchFinding1 && !HasResearchFinding2)
-                        return "Next: review indicators, optionally label B/C/N, or Save finding — then Use in Strategy Builder.";
-                    return "Next: Use in Strategy Builder to attach this finding to Design rules.";
+                        return "Next: review indicators, optionally label B/C/N, or Save finding — then Add finding to the strategy (Back returns without transferring).";
+                    return "Next: Add finding to attach evidence, or ← Back to return without changing the strategy.";
                 }
                 if (HasResearchOutcomeGalleryResult && !HasResearchOutcomeGalleryMatches)
                     return "Next: no gallery hits — brush manually on the Research chart or try another scan.";
-                return "Next: Rank or load a chart, add indicators, save a finding when ready.";
+                return ResearchOpenedFromBuilder
+                    ? "Next: investigate freely — ← Back returns to the strategy without requiring a finding."
+                    : "Next: Rank or load a chart, add indicators, save a finding when ready.";
             }
 
             if (IsChartDesignStage)

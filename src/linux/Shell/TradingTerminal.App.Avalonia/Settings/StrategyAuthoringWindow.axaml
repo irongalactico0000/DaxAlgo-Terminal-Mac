@@ -1208,12 +1208,18 @@
                                 Command="{Binding ToggleResearchDetailsCommand}"
                                 ToolTip.Tip="Open condition, labels, and similarity criteria when needed. Keep the chart as the main surface."
                                 AutomationProperties.Name="Toggle research details" />
+                        <Button Classes="ghost" Content="{Binding ReturnToStrategyBuilderText}"
+                                Command="{Binding ReturnToStrategyBuilderCommand}"
+                                IsVisible="{Binding ResearchOpenedFromBuilder}"
+                                IsEnabled="{Binding CanReturnToStrategyBuilder}"
+                                AutomationProperties.Name="Back to strategy from Research"
+                                ToolTip.Tip="Return to the same Strategy Builder draft and stage. Does not transfer a finding." />
                         <Button Classes="aiAction" Content="{Binding UseInStrategyBuilderText}"
                                 Command="{Binding UseObservationInDesignCommand}"
                                 IsVisible="{Binding CanUseObservationInDesign}"
                                 IsEnabled="{Binding CanUseObservationInDesign}"
-                                AutomationProperties.Name="Use research observation in Design"
-                                ToolTip.Tip="Carry the selected observation, indicators, and condition into Strategy Builder Design." />
+                                AutomationProperties.Name="Add research finding to strategy"
+                                ToolTip.Tip="{Binding AddFindingTransferPreviewText}" />
                         <Button Classes="ghost" Content="{Binding ChartLoadActionText}"
                                 Click="OnResearchChartRequested"
                                 IsVisible="{Binding HasEmbeddedResearchChart}"

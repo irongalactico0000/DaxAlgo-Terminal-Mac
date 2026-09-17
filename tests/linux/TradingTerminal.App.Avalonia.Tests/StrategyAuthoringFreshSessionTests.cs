@@ -359,6 +359,63 @@ public sealed class StrategyAuthoringFreshSessionTests
     }
 
     [Fact]
+    public void Research_Back_returns_to_strategy_without_finding_and_preserves_design_edits()
+    {
+        using var viewModelA = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModelA.DisplayName = "Strategy A";
+        viewModelA.DesignEntryRuleText = "A entry: EMA 20 cross";
+        viewModelA.OpenDesignScreenCommand.Execute(null);
+        viewModelA.IsChartDesignStage.Should().BeTrue();
+
+        var handoffCount = 0;
+        viewModelA.StrategyBuilderHandoffRequested += (_, _) => handoffCount++;
+
+        viewModelA.OpenResearchScreenCommand.Execute(null);
+        viewModelA.ResearchOpenedFromBuilder.Should().BeTrue();
+        viewModelA.IsResearchStudioShell = true;
+        viewModelA.CanReturnToStrategyBuilder.Should().BeTrue(
+            "Back must work without selecting a chart period or saving an observation");
+        viewModelA.CanUseObservationInDesign.Should().BeFalse(
+            "Add finding stays disabled until there is something to transfer");
+        viewModelA.ReturnToStrategyBuilderText.Should().Contain("Strategy A");
+        viewModelA.UseInStrategyBuilderText.Should().Contain("Add finding to Strategy A");
+        viewModelA.HasResearchDesignHandoff.Should().BeFalse();
+
+        viewModelA.ReturnToStrategyBuilderCommand.Execute(null);
+        handoffCount.Should().Be(1);
+        viewModelA.IsChartDesignStage.Should().BeTrue();
+        viewModelA.DesignEntryRuleText.Should().Be("A entry: EMA 20 cross");
+        viewModelA.HasResearchDesignHandoff.Should().BeFalse(
+            "Back must not attach a finding");
+
+        // Second trip — still preserves the draft.
+        viewModelA.OpenResearchScreenCommand.Execute(null);
+        viewModelA.IsResearchStudioShell = true;
+        viewModelA.ReturnToStrategyBuilderCommand.Execute(null);
+        viewModelA.DesignEntryRuleText.Should().Be("A entry: EMA 20 cross");
+
+        using var viewModelB = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModelB.DisplayName = "Strategy B";
+        viewModelB.DesignEntryRuleText = "B entry: RSI oversold";
+        viewModelB.MarkResearchOpenedFromBuilder();
+        viewModelB.IsResearchStudioShell = true;
+        viewModelB.ReturnToStrategyBuilderCommand.Execute(null);
+        viewModelB.DesignEntryRuleText.Should().Be("B entry: RSI oversold");
+        viewModelA.DesignEntryRuleText.Should().Be("A entry: EMA 20 cross",
+            "each strategy keeps its own draft");
+    }
+
+    [Fact]
     public void Hyperion_design_proposal_requires_Accept_before_overwriting_fields()
     {
         using var viewModel = new StrategyAuthoringViewModel(
@@ -543,7 +600,7 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.HasResearchDesignHandoff.Should().BeTrue();
         viewModel.CanOpenDesignScreen.Should().BeTrue();
         viewModel.WorkingFlowMapText.Should().Contain("1 Design ✓");
-        viewModel.Composer.Should().Contain("Use this saved Research finding in Design");
+        viewModel.Composer.Should().Contain("Add this saved Research finding");
         viewModel.Composer.Should().Contain("MSFT");
         viewModel.Composer.Should().Contain("ema");
         viewModel.Composer.Should().Contain("Saved finding");
@@ -554,7 +611,8 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.BuildStageState.Should().Be("PENDING");
         viewModel.Status.Should().Match(s =>
             s.Contains("No compile or register", StringComparison.Ordinal) ||
-            s.Contains("Strategy Builder", StringComparison.Ordinal));
+            s.Contains("opening Design", StringComparison.Ordinal) ||
+            s.Contains("Added finding", StringComparison.Ordinal));
     }
 
     [Fact]

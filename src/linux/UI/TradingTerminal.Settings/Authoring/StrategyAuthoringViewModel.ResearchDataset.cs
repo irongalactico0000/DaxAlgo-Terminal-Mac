@@ -137,17 +137,14 @@ public sealed partial class StrategyAuthoringViewModel
         PendingStrategyDraft is { IsLocked: false };
 
     /// <summary>
-    /// Research → Design handoff: promote the current observation/condition into Design without
-    /// requiring an executable strategy to already exist.
+    /// Research → Design transfer: requires a saved finding or an applied condition ready to save.
+    /// Chart selection alone is not enough — Back returns without transfer.
     /// </summary>
     public bool CanUseObservationInDesign =>
         GenerateCandidateFirst &&
         !IsGenerating &&
-        (HasResearchChartSelection ||
-         HasResearchFinding1 ||
+        (HasResearchFinding1 ||
          HasResearchFinding2 ||
-         SelectedResearchGalleryCard is not null ||
-         ResearchEventSampleCount > 0 ||
          HasPendingResearchCondition);
 
     /// <summary>
@@ -511,7 +508,7 @@ public sealed partial class StrategyAuthoringViewModel
     {
         if (!CanUseObservationInDesign) return;
 
-        // Handoff unit is a saved finding (U07/R11), not chat prose alone.
+        // Transfer only — navigation back is ReturnToStrategyBuilder (independent).
         if (PendingResearchCondition is not null)
         {
             if (!HasResearchFinding1)
@@ -520,8 +517,8 @@ public sealed partial class StrategyAuthoringViewModel
         else if (!HasResearchFinding1 && !HasResearchFinding2)
         {
             Status =
-                "Save a finding (applied condition + chart context) before Use in Strategy Builder. " +
-                "Research and Builder stay linked through saved findings, not duplicated toolbars.";
+                "Save a finding (applied condition + chart context) before adding it to the strategy. " +
+                "Use ← Back to return without transferring anything.";
             return;
         }
 
@@ -547,7 +544,7 @@ public sealed partial class StrategyAuthoringViewModel
         var condition = PendingResearchConditionText;
         var selection = ResearchChartSelectionText;
         var evidence =
-            $"Use this saved Research finding in Design for {eventSymbol}.\n\n" +
+            $"Add this saved Research finding to {StrategyReturnDisplayName} Design for {eventSymbol}.\n\n" +
             $"Saved finding: {activeFinding}\n" +
             $"Selection: {selection}\n" +
             $"Analysis indicators (candidates — include only what Design confirms): {indicators}\n" +
@@ -563,23 +560,26 @@ public sealed partial class StrategyAuthoringViewModel
             Composer = evidence + "\n\n---\n\n" + Composer.Trim();
 
         HasResearchDesignHandoff = true;
-        AiStatus = "Design opened from a saved Research finding. Confirm which conditions become strategy rules.";
+        AiStatus = $"Finding attached to {StrategyReturnDisplayName}. Confirm which conditions become strategy rules.";
         Status = IsResearchStudioShell
-            ? "Opening Strategy Builder with the saved finding."
-            : "Saved finding attached to Design. No compile or register yet.";
+            ? $"Added finding to {StrategyReturnDisplayName} — opening Design."
+            : $"Finding attached to {StrategyReturnDisplayName} Design. No compile or register yet.";
         Append(AuthoringMessage.Tool(
             "Ok",
-            IsResearchStudioShell ? "Use in Strategy Builder" : "Use observation in Design",
+            UseInStrategyBuilderText,
             $"Saved finding · {eventSymbol} · indicators [{indicators}] · samples {ResearchEventSampleCount}."));
         Save();
 
-        if (IsResearchStudioShell)
-            StrategyBuilderHandoffRequested?.Invoke(this, EventArgs.Empty);
-
         ActiveScreen = StrategyAuthoringScreen.Design;
         WorkbenchTab = 3;
+        var returnToBuilder = IsResearchStudioShell;
+        IsResearchStudioShell = false;
+        if (returnToBuilder)
+            StrategyBuilderHandoffRequested?.Invoke(this, EventArgs.Empty);
+
         NotifyWorkingFlowMapChanged();
         NotifyAuthoringScreenStateChanged();
+        OnPropertyChanged(nameof(AddFindingTransferPreviewText));
         UseObservationInDesignCommand.NotifyCanExecuteChanged();
     }
 
@@ -743,6 +743,7 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(ResearchFinding2Text));
         OnPropertyChanged(nameof(CanSaveResearchFinding));
         OnPropertyChanged(nameof(CanUseObservationInDesign));
+        OnPropertyChanged(nameof(AddFindingTransferPreviewText));
         RestoreResearchFinding1Command.NotifyCanExecuteChanged();
         RestoreResearchFinding2Command.NotifyCanExecuteChanged();
         SaveResearchFinding1Command.NotifyCanExecuteChanged();

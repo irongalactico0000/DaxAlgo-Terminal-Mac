@@ -126,7 +126,51 @@ public sealed partial class StrategyAuthoringViewModel
     public string NewSessionActionText =>
         IsResearchStudioShell ? "＋  New research" : "＋  New strategy";
 
-    public string UseInStrategyBuilderText => "Use in Strategy Builder";
+    /// <summary>True when Studio was opened from Strategy Builder — enables Back without a finding.</summary>
+    [ObservableProperty] private bool _researchOpenedFromBuilder;
+
+    [ObservableProperty] private StrategyAuthoringScreen _builderScreenBeforeResearch =
+        StrategyAuthoringScreen.Design;
+
+    public bool CanReturnToStrategyBuilder =>
+        IsResearchStudioShell && ResearchOpenedFromBuilder && !IsGenerating;
+
+    public string ReturnToStrategyBuilderText =>
+        $"← Back to {StrategyReturnDisplayName}";
+
+    public string UseInStrategyBuilderText =>
+        $"Add finding to {StrategyReturnDisplayName}";
+
+    public string StrategyReturnDisplayName =>
+        string.IsNullOrWhiteSpace(DisplayName) ? "strategy" : DisplayName.Trim();
+
+    /// <summary>
+    /// Preview of what Add finding will transfer — independent of whether Back is available.
+    /// </summary>
+    public string AddFindingTransferPreviewText
+    {
+        get
+        {
+            if (!CanUseObservationInDesign)
+                return "Nothing to transfer yet. Save a finding, apply a condition, or select a chart window first.";
+
+            var parts = new List<string>();
+            if (HasResearchFinding1)
+                parts.Add($"Finding 1: {ResearchFinding1Text}");
+            else if (HasResearchFinding2)
+                parts.Add($"Finding 2: {ResearchFinding2Text}");
+            if (HasPendingResearchCondition)
+                parts.Add($"Condition: {PendingResearchConditionText}");
+            if (HasResearchChartSelection)
+                parts.Add($"Selection: {ResearchChartSelectionText}");
+            if (HasPendingResearchIndicatorBindings)
+                parts.Add("Indicators: " + string.Join(", ",
+                    PendingResearchIndicatorBindings.Select(static b => b.DisplayLabel)));
+            return parts.Count == 0
+                ? "Ready to attach the current Research evidence to Design."
+                : "Will transfer — " + string.Join(" · ", parts);
+        }
+    }
 
     public string HyperionToggleText =>
         HyperionCollapsed ? "Show Hyperion" : "Hide Hyperion";
@@ -177,6 +221,11 @@ public sealed partial class StrategyAuthoringViewModel
             HyperionCollapsed = true;
             ResearchDetailsOpen = false;
         }
+        else
+        {
+            // Leaving Studio shell does not clear ResearchOpenedFromBuilder — Back remains valid
+            // if the operator reopens Studio from the same Builder trip.
+        }
 
         OnPropertyChanged(nameof(ShowScreenNavigation));
         OnPropertyChanged(nameof(ShowResearchWorkspace));
@@ -184,7 +233,11 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(ShowConversationEmptyState));
         OnPropertyChanged(nameof(ShowResearchComposerHint));
         NotifyAuthoringScreenStateChanged();
+        NotifyStrategyBuilderReturnStateChanged();
     }
+
+    partial void OnResearchOpenedFromBuilderChanged(bool value) =>
+        NotifyStrategyBuilderReturnStateChanged();
 
     /// <summary>Code/Parameters/Activity belong in Build — never steal Research for Strategy.cs.</summary>
     public bool ShowImplementationTabs =>
@@ -410,7 +463,53 @@ public sealed partial class StrategyAuthoringViewModel
             return;
         }
 
+        MarkResearchOpenedFromBuilder();
         ResearchStudioRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Record Builder origin so Studio can offer Back without requiring a finding.</summary>
+    public void MarkResearchOpenedFromBuilder()
+    {
+        ResearchOpenedFromBuilder = true;
+        BuilderScreenBeforeResearch = ActiveScreen is StrategyAuthoringScreen.Research
+            ? StrategyAuthoringScreen.Design
+            : ActiveScreen;
+        NotifyStrategyBuilderReturnStateChanged();
+    }
+
+    /// <summary>
+    /// Navigation only: return to the Builder draft/stage. Does not transfer Research evidence.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanReturnToStrategyBuilder))]
+    private void ReturnToStrategyBuilder()
+    {
+        if (!CanReturnToStrategyBuilder) return;
+
+        var target = BuilderScreenBeforeResearch;
+        if (target is StrategyAuthoringScreen.Research)
+            target = StrategyAuthoringScreen.Design;
+
+        Status =
+            $"Returned to {StrategyReturnDisplayName}. Research chart, indicators, and conversation are kept — reopen Research Studio to continue.";
+        // Leave Research screen before clearing shell mode so OnActiveScreenChanged does not re-open Studio.
+        ActiveScreen = target;
+        WorkbenchTab = 3;
+        IsResearchStudioShell = false;
+        StrategyBuilderHandoffRequested?.Invoke(this, EventArgs.Empty);
+        NotifyWorkingFlowMapChanged();
+        NotifyAuthoringScreenStateChanged();
+        NotifyStrategyBuilderReturnStateChanged();
+    }
+
+    private void NotifyStrategyBuilderReturnStateChanged()
+    {
+        OnPropertyChanged(nameof(CanReturnToStrategyBuilder));
+        OnPropertyChanged(nameof(ReturnToStrategyBuilderText));
+        OnPropertyChanged(nameof(UseInStrategyBuilderText));
+        OnPropertyChanged(nameof(StrategyReturnDisplayName));
+        OnPropertyChanged(nameof(AddFindingTransferPreviewText));
+        ReturnToStrategyBuilderCommand.NotifyCanExecuteChanged();
+        UseObservationInDesignCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Builder asks the shell to open Research Studio as a separate workspace.</summary>
@@ -486,6 +585,7 @@ public sealed partial class StrategyAuthoringViewModel
         if (value == StrategyAuthoringScreen.Research && !IsResearchStudioShell)
         {
             ActiveScreen = StrategyAuthoringScreen.Design;
+            MarkResearchOpenedFromBuilder();
             ResearchStudioRequested?.Invoke(this, EventArgs.Empty);
             Status = "Opening Research Studio — Strategy Builder stays on Design.";
             return;

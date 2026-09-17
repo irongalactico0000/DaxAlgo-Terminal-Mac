@@ -1710,6 +1710,8 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         NotifyTradeIrSynthesisStateChanged();
         NotifyTradeIrBacktestStateChanged();
         NotifyHyperionDesignProposalCommandsChanged();
+        ReturnToStrategyBuilderCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanReturnToStrategyBuilder));
     }
 
     partial void OnComposerChanged(string value)

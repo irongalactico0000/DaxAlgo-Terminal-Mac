@@ -1542,6 +1542,8 @@ public partial class MainWindow : Window
     {
         if ((Application.Current as App)?.Services is not { } sp) return;
         var vm = sp.GetRequiredService<TradingTerminal.App.Authoring.StrategyAuthoringViewModel>();
+        // Standalone Studio entry — no Builder return path until opened from a strategy.
+        vm.ResearchOpenedFromBuilder = false;
         OpenResearchStudioWindow(vm);
         Vm?.ActivityLog.Append("Tools", "INFO", "Opened Research Studio.");
     }
@@ -1593,6 +1595,7 @@ public partial class MainWindow : Window
         openStudio = (_, _) =>
         {
             // Only reuse Studio when it hosts this Builder session — never another project's research.
+            viewModel.MarkResearchOpenedFromBuilder();
             if (_researchStudioWindow is { } existing &&
                 ReferenceEquals(existing.DataContext, viewModel))
             {
@@ -1693,9 +1696,10 @@ public partial class MainWindow : Window
         handoff = (_, _) =>
         {
             // Keep the handler for Studio lifetime so Research → Builder → Research → Builder repeats.
+            // Screen is set by ReturnToStrategyBuilder / UseObservationInDesign — do not force Design.
             viewModel.IsResearchStudioShell = false;
-            if (viewModel.OpenDesignScreenCommand.CanExecute(null))
-                viewModel.OpenDesignScreenCommand.Execute(null);
+            if (viewModel.ActiveScreen is TradingTerminal.App.Authoring.StrategyAuthoringScreen.Research)
+                viewModel.ActiveScreen = TradingTerminal.App.Authoring.StrategyAuthoringScreen.Design;
             // Keep Studio alive (hidden) so ShowDisposing does not dispose the shared VM.
             studio.Hide();
 
