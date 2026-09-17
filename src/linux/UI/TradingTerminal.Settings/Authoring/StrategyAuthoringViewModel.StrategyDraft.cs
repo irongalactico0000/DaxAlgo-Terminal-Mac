@@ -36,18 +36,29 @@ public sealed partial class StrategyAuthoringViewModel
     /// <summary>True while Accept applies a proposal — skips marking edits as Operator.</summary>
     private bool _applyingDesignProposal;
 
-    /// <summary>True while syncing ENTRY text from the structured condition row.</summary>
-    private bool _syncingEntryFromCondition;
+    /// <summary>True while syncing freeform summaries from structured form controls.</summary>
+    private bool _syncingStructuredRuleText;
 
     public ObservableCollection<DesignIndicatorRow> DesignIndicators { get; } = [];
 
-    public DesignEntryConditionRow DesignEntryCondition { get; } = new();
+    public DesignConditionRow DesignEntryCondition { get; } = new();
+    public DesignConditionRow DesignExitCondition { get; } = new();
+    public DesignSizingForm DesignSizing { get; } = new();
+    public DesignRiskForm DesignRisk { get; } = new();
+    public DesignOrdersForm DesignOrders { get; } = new();
 
     public IReadOnlyList<string> DesignIndicatorKindOptions { get; } =
         ["ema", "sma", "rsi", "macd", "bb"];
 
     public IReadOnlyList<string> DesignConditionOperatorOptions =>
-        DesignEntryConditionRow.OperatorOptions;
+        DesignConditionRow.OperatorOptions;
+
+    public IReadOnlyList<string> DesignSizingMethodOptions => DesignSizingForm.MethodOptions;
+    public IReadOnlyList<string> DesignSizingUnitOptions => DesignSizingForm.UnitOptions;
+    public IReadOnlyList<string> DesignRiskUnitOptions => DesignRiskForm.UnitOptions;
+    public IReadOnlyList<string> DesignOrderTypeOptions => DesignOrdersForm.OrderTypeOptions;
+    public IReadOnlyList<string> DesignTimeInForceOptions => DesignOrdersForm.TimeInForceOptions;
+    public IReadOnlyList<string> DesignPriceRuleOptions => DesignOrdersForm.PriceRuleOptions;
 
     public IReadOnlyList<string> DesignTimeframeOptions { get; } =
         ["", "1m", "5m", "15m", "1h", "1D"];
@@ -133,13 +144,13 @@ public sealed partial class StrategyAuthoringViewModel
                 missing.Add("evaluation timing");
             if (IsDesignFieldUnresolved(DesignEntryRuleText) && !DesignEntryCondition.IsComplete)
                 missing.Add("entry condition");
-            if (IsDesignFieldUnresolved(DesignExitRuleText))
+            if (IsDesignFieldUnresolved(DesignExitRuleText) && !DesignExitCondition.IsComplete)
                 missing.Add("exit");
-            if (IsDesignFieldUnresolved(DesignSizingRuleText))
+            if (IsDesignFieldUnresolved(DesignSizingRuleText) && !DesignSizing.IsComplete)
                 missing.Add("sizing");
-            if (IsDesignFieldUnresolved(DesignRiskRuleText))
+            if (IsDesignFieldUnresolved(DesignRiskRuleText) && !DesignRisk.IsComplete)
                 missing.Add("risk");
-            if (IsDesignFieldUnresolved(DesignOrderRuleText))
+            if (IsDesignFieldUnresolved(DesignOrderRuleText) && !DesignOrders.IsComplete)
                 missing.Add("orders");
 
             if (missing.Count == 0)
@@ -171,6 +182,18 @@ public sealed partial class StrategyAuthoringViewModel
             var condition = DesignEntryCondition.IsComplete
                 ? $"CONDITION: {DesignEntryCondition.SummaryText}"
                 : "CONDITION: (unresolved)";
+            var exit = DesignExitCondition.IsComplete
+                ? $"EXIT: {DesignExitCondition.SummaryText}"
+                : Line("EXIT", DesignExitRuleText);
+            var sizing = DesignSizing.IsComplete
+                ? $"SIZING: {DesignSizing.SummaryText}"
+                : Line("SIZING", DesignSizingRuleText);
+            var risk = DesignRisk.IsComplete
+                ? $"RISK: {DesignRisk.SummaryText}"
+                : Line("RISK", DesignRiskRuleText);
+            var orders = DesignOrders.IsComplete
+                ? $"ORDERS: {DesignOrders.SummaryText}"
+                : Line("ORDERS", DesignOrderRuleText);
 
             return string.Join('\n', new[]
             {
@@ -183,10 +206,10 @@ public sealed partial class StrategyAuthoringViewModel
                 indicators,
                 condition,
                 Line("ENTRY", DesignEntryRuleText),
-                Line("EXIT", DesignExitRuleText),
-                Line("SIZING", DesignSizingRuleText),
-                Line("RISK", DesignRiskRuleText),
-                Line("ORDERS", DesignOrderRuleText),
+                exit,
+                sizing,
+                risk,
+                orders,
                 "",
                 DesignUnresolvedChecklistText,
                 "Changing EMA 20 → EMA 30 here must be what Build uses for the next revision.",
@@ -314,6 +337,18 @@ public sealed partial class StrategyAuthoringViewModel
         var conditionLine = DesignEntryCondition.IsComplete
             ? $"CONDITION: {DesignEntryCondition.SummaryText}"
             : "";
+        var exitLine = DesignExitCondition.IsComplete
+            ? $"EXIT: {DesignExitCondition.SummaryText}"
+            : Line("EXIT", DesignExitRuleText);
+        var sizingLine = DesignSizing.IsComplete
+            ? $"SIZING: {DesignSizing.SummaryText}"
+            : Line("SIZING", DesignSizingRuleText);
+        var riskLine = DesignRisk.IsComplete
+            ? $"RISK: {DesignRisk.SummaryText}"
+            : Line("RISK", DesignRiskRuleText);
+        var ordersLine = DesignOrders.IsComplete
+            ? $"ORDERS: {DesignOrders.SummaryText}"
+            : Line("ORDERS", DesignOrderRuleText);
 
         var body = string.Join('\n', new[]
         {
@@ -324,12 +359,13 @@ public sealed partial class StrategyAuthoringViewModel
             indicatorLine,
             conditionLine,
             Line("ENTRY", DesignEntryRuleText),
-            Line("EXIT", DesignExitRuleText),
-            Line("SIZING", DesignSizingRuleText),
-            Line("RISK", DesignRiskRuleText),
-            Line("ORDERS", DesignOrderRuleText),
+            exitLine,
+            sizingLine,
+            riskLine,
+            ordersLine,
             "",
-            "Reply with the same keys. Prefer INDICATORS: ema(20), ema(50) and CONDITION: ema(20) crosses above ema(50).",
+            "Reply with the same keys. Prefer INDICATORS / CONDITION / EXIT conditions,",
+            "SIZING: target 10 shares (range 5-15), RISK: max loss 1% · daily stop 2%, ORDERS: Market IOC.",
             "Distinguish requested values from suggested defaults. Operator must Accept before Design fields change.",
         }.Where(static s => s.Length == 0 || !string.IsNullOrWhiteSpace(s)));
 
@@ -439,13 +475,21 @@ public sealed partial class StrategyAuthoringViewModel
         return added;
     }
 
-    /// <summary>Wire once from ctor so condition edits refresh ENTRY summary.</summary>
+    /// <summary>Wire once from ctor so structured form edits refresh summary strings.</summary>
     internal void AttachDesignStructureChangeHandlers()
     {
         DesignIndicators.CollectionChanged -= OnDesignIndicatorsCollectionChanged;
         DesignIndicators.CollectionChanged += OnDesignIndicatorsCollectionChanged;
         DesignEntryCondition.PropertyChanged -= OnDesignEntryConditionPropertyChanged;
         DesignEntryCondition.PropertyChanged += OnDesignEntryConditionPropertyChanged;
+        DesignExitCondition.PropertyChanged -= OnDesignExitConditionPropertyChanged;
+        DesignExitCondition.PropertyChanged += OnDesignExitConditionPropertyChanged;
+        DesignSizing.PropertyChanged -= OnDesignSizingPropertyChanged;
+        DesignSizing.PropertyChanged += OnDesignSizingPropertyChanged;
+        DesignRisk.PropertyChanged -= OnDesignRiskPropertyChanged;
+        DesignRisk.PropertyChanged += OnDesignRiskPropertyChanged;
+        DesignOrders.PropertyChanged -= OnDesignOrdersPropertyChanged;
+        DesignOrders.PropertyChanged += OnDesignOrdersPropertyChanged;
     }
 
     private void OnDesignIndicatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
@@ -453,13 +497,73 @@ public sealed partial class StrategyAuthoringViewModel
 
     private void OnDesignEntryConditionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(DesignEntryConditionRow.LeftOperand) or
-            nameof(DesignEntryConditionRow.OperatorKey) or
-            nameof(DesignEntryConditionRow.RightOperand))
+        if (e.PropertyName is nameof(DesignConditionRow.LeftOperand) or
+            nameof(DesignConditionRow.OperatorKey) or
+            nameof(DesignConditionRow.RightOperand))
         {
-            if (!_applyingDesignProposal && !_restoring && !_syncingEntryFromCondition)
+            if (!_applyingDesignProposal && !_restoring && !_syncingStructuredRuleText)
                 DesignEntryCondition.Provenance = DesignValueProvenance.Operator;
             SyncEntryRuleTextFromCondition();
+        }
+
+        NotifyDesignDraftChanged();
+    }
+
+    private void OnDesignExitConditionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(DesignConditionRow.LeftOperand) or
+            nameof(DesignConditionRow.OperatorKey) or
+            nameof(DesignConditionRow.RightOperand))
+        {
+            if (!_applyingDesignProposal && !_restoring && !_syncingStructuredRuleText)
+                DesignExitCondition.Provenance = DesignValueProvenance.Operator;
+            SyncExitRuleTextFromCondition();
+        }
+
+        NotifyDesignDraftChanged();
+    }
+
+    private void OnDesignSizingPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(DesignSizingForm.QuantityText) or
+            nameof(DesignSizingForm.Unit) or
+            nameof(DesignSizingForm.Method) or
+            nameof(DesignSizingForm.RangeMinText) or
+            nameof(DesignSizingForm.RangeMaxText))
+        {
+            if (!_applyingDesignProposal && !_restoring && !_syncingStructuredRuleText)
+                DesignSizing.Provenance = DesignValueProvenance.Operator;
+            SyncSizingRuleTextFromForm();
+        }
+
+        NotifyDesignDraftChanged();
+    }
+
+    private void OnDesignRiskPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(DesignRiskForm.MaxLossText) or
+            nameof(DesignRiskForm.MaxLossUnit) or
+            nameof(DesignRiskForm.DailyStopText) or
+            nameof(DesignRiskForm.StopRangeMinText) or
+            nameof(DesignRiskForm.StopRangeMaxText))
+        {
+            if (!_applyingDesignProposal && !_restoring && !_syncingStructuredRuleText)
+                DesignRisk.Provenance = DesignValueProvenance.Operator;
+            SyncRiskRuleTextFromForm();
+        }
+
+        NotifyDesignDraftChanged();
+    }
+
+    private void OnDesignOrdersPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(DesignOrdersForm.OrderType) or
+            nameof(DesignOrdersForm.TimeInForce) or
+            nameof(DesignOrdersForm.PriceRule))
+        {
+            if (!_applyingDesignProposal && !_restoring && !_syncingStructuredRuleText)
+                DesignOrders.Provenance = DesignValueProvenance.Operator;
+            SyncOrderRuleTextFromForm();
         }
 
         NotifyDesignDraftChanged();
@@ -468,14 +572,70 @@ public sealed partial class StrategyAuthoringViewModel
     private void SyncEntryRuleTextFromCondition()
     {
         if (!DesignEntryCondition.IsComplete) return;
-        _syncingEntryFromCondition = true;
+        _syncingStructuredRuleText = true;
         try
         {
             DesignEntryRuleText = DesignEntryCondition.SummaryText;
         }
         finally
         {
-            _syncingEntryFromCondition = false;
+            _syncingStructuredRuleText = false;
+        }
+    }
+
+    private void SyncExitRuleTextFromCondition()
+    {
+        if (!DesignExitCondition.IsComplete) return;
+        _syncingStructuredRuleText = true;
+        try
+        {
+            DesignExitRuleText = DesignExitCondition.SummaryText;
+        }
+        finally
+        {
+            _syncingStructuredRuleText = false;
+        }
+    }
+
+    private void SyncSizingRuleTextFromForm()
+    {
+        if (!DesignSizing.IsComplete) return;
+        _syncingStructuredRuleText = true;
+        try
+        {
+            DesignSizingRuleText = DesignSizing.SummaryText;
+        }
+        finally
+        {
+            _syncingStructuredRuleText = false;
+        }
+    }
+
+    private void SyncRiskRuleTextFromForm()
+    {
+        if (!DesignRisk.IsComplete) return;
+        _syncingStructuredRuleText = true;
+        try
+        {
+            DesignRiskRuleText = DesignRisk.SummaryText;
+        }
+        finally
+        {
+            _syncingStructuredRuleText = false;
+        }
+    }
+
+    private void SyncOrderRuleTextFromForm()
+    {
+        if (!DesignOrders.IsComplete) return;
+        _syncingStructuredRuleText = true;
+        try
+        {
+            DesignOrderRuleText = DesignOrders.SummaryText;
+        }
+        finally
+        {
+            _syncingStructuredRuleText = false;
         }
     }
 
@@ -655,28 +815,46 @@ public sealed partial class StrategyAuthoringViewModel
                     ApplyKeyedLine(line, v =>
                     {
                         DesignEntryRuleText = v;
-                        TryParseConditionFromFreeText(v, provenance);
+                        TryParseConditionFromFreeText(v, DesignEntryCondition, provenance);
                     });
                     appliedKey = true;
                 }
                 else if (line.StartsWith("EXIT", StringComparison.OrdinalIgnoreCase))
                 {
-                    ApplyKeyedLine(line, v => DesignExitRuleText = v);
+                    ApplyKeyedLine(line, v =>
+                    {
+                        DesignExitRuleText = v;
+                        if (!TryParseConditionFromFreeText(v, DesignExitCondition, provenance))
+                            DesignExitCondition.Clear();
+                        SyncExitRuleTextFromCondition();
+                    });
                     appliedKey = true;
                 }
                 else if (line.StartsWith("SIZING", StringComparison.OrdinalIgnoreCase))
                 {
-                    ApplyKeyedLine(line, v => DesignSizingRuleText = v);
+                    ApplyKeyedLine(line, v =>
+                    {
+                        DesignSizingRuleText = v;
+                        TryParseSizingFromFreeText(v, provenance);
+                    });
                     appliedKey = true;
                 }
                 else if (line.StartsWith("RISK", StringComparison.OrdinalIgnoreCase))
                 {
-                    ApplyKeyedLine(line, v => DesignRiskRuleText = v);
+                    ApplyKeyedLine(line, v =>
+                    {
+                        DesignRiskRuleText = v;
+                        TryParseRiskFromFreeText(v, provenance);
+                    });
                     appliedKey = true;
                 }
                 else if (line.StartsWith("ORDERS", StringComparison.OrdinalIgnoreCase))
                 {
-                    ApplyKeyedLine(line, v => DesignOrderRuleText = v);
+                    ApplyKeyedLine(line, v =>
+                    {
+                        DesignOrderRuleText = v;
+                        TryParseOrdersFromFreeText(v, provenance);
+                    });
                     appliedKey = true;
                 }
             }
@@ -713,11 +891,14 @@ public sealed partial class StrategyAuthoringViewModel
         if (idx < 0) return;
         var value = line[(idx + 1)..].Trim();
         if (value.Length == 0 || IsDesignFieldUnresolved(value)) return;
-        if (!TryParseConditionFromFreeText(value, provenance))
+        if (!TryParseConditionFromFreeText(value, DesignEntryCondition, provenance))
             DesignEntryRuleText = value;
     }
 
-    private bool TryParseConditionFromFreeText(string text, DesignValueProvenance provenance)
+    private bool TryParseConditionFromFreeText(
+        string text,
+        DesignConditionRow target,
+        DesignValueProvenance provenance)
     {
         var match = ConditionPhraseRegex().Match(text);
         if (!match.Success) return false;
@@ -731,13 +912,129 @@ public sealed partial class StrategyAuthoringViewModel
         UpsertDesignIndicator(leftKind, leftPeriod, provenance);
         UpsertDesignIndicator(rightKind, rightPeriod, provenance);
 
-        DesignEntryCondition.LeftOperand = $"{leftKind}({leftPeriod})";
-        DesignEntryCondition.OperatorKey = NormalizeConditionOperator(op);
-        DesignEntryCondition.RightOperand = $"{rightKind}({rightPeriod})";
-        DesignEntryCondition.Provenance = provenance;
-        SyncEntryRuleTextFromCondition();
+        target.LeftOperand = $"{leftKind}({leftPeriod})";
+        target.OperatorKey = NormalizeConditionOperator(op);
+        target.RightOperand = $"{rightKind}({rightPeriod})";
+        target.Provenance = provenance;
+        if (ReferenceEquals(target, DesignEntryCondition))
+            SyncEntryRuleTextFromCondition();
+        else if (ReferenceEquals(target, DesignExitCondition))
+            SyncExitRuleTextFromCondition();
         return true;
     }
+
+    private void TryParseSizingFromFreeText(string text, DesignValueProvenance provenance)
+    {
+        var qty = SizingQuantityRegex().Match(text);
+        if (!qty.Success) return;
+
+        DesignSizing.QuantityText = qty.Groups["qty"].Value;
+        var unit = qty.Groups["unit"].Value.Trim().ToLowerInvariant();
+        DesignSizing.Unit = unit switch
+        {
+            "%" or "percent" or "pct" => "%",
+            "contract" or "contracts" => "contracts",
+            _ => "shares",
+        };
+        DesignSizing.Method = DesignSizing.Unit == "%"
+            ? "Percent of equity"
+            : DesignSizing.Unit == "contracts"
+                ? "Fixed contracts"
+                : "Target quantity";
+
+        var range = SizingRangeRegex().Match(text);
+        if (range.Success)
+        {
+            DesignSizing.RangeMinText = range.Groups["min"].Value;
+            DesignSizing.RangeMaxText = range.Groups["max"].Value;
+        }
+
+        DesignSizing.Provenance = provenance;
+        SyncSizingRuleTextFromForm();
+    }
+
+    private void TryParseRiskFromFreeText(string text, DesignValueProvenance provenance)
+    {
+        var daily = RiskDailyStopRegex().Match(text);
+        if (daily.Success)
+        {
+            DesignRisk.DailyStopText = daily.Groups["value"].Value;
+            if (daily.Groups["unit"].Success && !string.IsNullOrWhiteSpace(daily.Groups["unit"].Value))
+                DesignRisk.MaxLossUnit = NormalizeRiskUnit(daily.Groups["unit"].Value);
+        }
+
+        var maxLoss = RiskMaxLossRegex().Match(text);
+        if (maxLoss.Success)
+        {
+            DesignRisk.MaxLossText = maxLoss.Groups["value"].Value;
+            if (maxLoss.Groups["unit"].Success && !string.IsNullOrWhiteSpace(maxLoss.Groups["unit"].Value))
+                DesignRisk.MaxLossUnit = NormalizeRiskUnit(maxLoss.Groups["unit"].Value);
+        }
+        else if (!DesignRisk.HasMaxLoss && text.Contains('%', StringComparison.Ordinal))
+        {
+            var pct = Regex.Match(text, @"(\d+(?:\.\d+)?)\s*%");
+            if (pct.Success)
+            {
+                DesignRisk.MaxLossText = pct.Groups[1].Value;
+                DesignRisk.MaxLossUnit = "%";
+            }
+        }
+
+        var stopRange = RiskStopRangeRegex().Match(text);
+        if (stopRange.Success)
+        {
+            DesignRisk.StopRangeMinText = stopRange.Groups["min"].Value;
+            DesignRisk.StopRangeMaxText = stopRange.Groups["max"].Value;
+        }
+
+        if (DesignRisk.IsComplete)
+        {
+            DesignRisk.Provenance = provenance;
+            SyncRiskRuleTextFromForm();
+        }
+    }
+
+    private void TryParseOrdersFromFreeText(string text, DesignValueProvenance provenance)
+    {
+        var lower = text.ToLowerInvariant();
+        if (lower.Contains("limit", StringComparison.Ordinal))
+            DesignOrders.OrderType = "Limit";
+        else if (lower.Contains("market", StringComparison.Ordinal))
+            DesignOrders.OrderType = "Market";
+
+        if (lower.Contains("ioc", StringComparison.Ordinal))
+            DesignOrders.TimeInForce = "IOC";
+        else if (lower.Contains("fok", StringComparison.Ordinal))
+            DesignOrders.TimeInForce = "FOK";
+        else if (lower.Contains("gtc", StringComparison.Ordinal))
+            DesignOrders.TimeInForce = "GTC";
+        else if (lower.Contains("day", StringComparison.Ordinal))
+            DesignOrders.TimeInForce = "Day";
+
+        foreach (var rule in DesignOrdersForm.PriceRuleOptions)
+        {
+            if (string.IsNullOrEmpty(rule)) continue;
+            if (lower.Contains(rule, StringComparison.Ordinal))
+            {
+                DesignOrders.PriceRule = rule;
+                break;
+            }
+        }
+
+        if (DesignOrders.IsComplete)
+        {
+            DesignOrders.Provenance = provenance;
+            SyncOrderRuleTextFromForm();
+        }
+    }
+
+    private static string NormalizeRiskUnit(string unit) =>
+        unit.Trim().ToLowerInvariant() switch
+        {
+            "%" or "percent" or "pct" => "%",
+            "usd" or "$" => "USD",
+            _ => "currency units",
+        };
 
     private void UpsertDesignIndicator(string kind, int period, DesignValueProvenance provenance)
     {
@@ -776,6 +1073,31 @@ public sealed partial class StrategyAuthoringViewModel
         @"(?<leftKind>[A-Za-z]+)\s*\(?\s*(?<leftPeriod>\d+)\s*\)?\s+(?<op>crosses\s+above|crosses\s+below|is\s+above|is\s+below|equals|crosses\s+over|crosses\s+under|>|<|=)\s+(?<rightKind>[A-Za-z]+)\s*\(?\s*(?<rightPeriod>\d+)\s*\)?",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ConditionPhraseRegex();
+
+    [GeneratedRegex(
+        @"(?:target\s+)?(?<qty>\d+(?:\.\d+)?)\s*(?<unit>shares?|contracts?|%|percent|pct)?",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SizingQuantityRegex();
+
+    [GeneratedRegex(
+        @"range\s*(?:of\s*)?(?<min>\d+(?:\.\d+)?)\s*[-–to]+\s*(?<max>\d+(?:\.\d+)?)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SizingRangeRegex();
+
+    [GeneratedRegex(
+        @"daily\s*stop\s*(?<value>\d+(?:\.\d+)?)\s*(?<unit>%|USD|\$|percent)?",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex RiskDailyStopRegex();
+
+    [GeneratedRegex(
+        @"max(?:imum)?\s*loss\s*(?<value>\d+(?:\.\d+)?)\s*(?<unit>%|USD|\$|percent)?",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex RiskMaxLossRegex();
+
+    [GeneratedRegex(
+        @"stop\s*range\s*(?<min>\d+(?:\.\d+)?)\s*[-–to]+\s*(?<max>\d+(?:\.\d+)?)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex RiskStopRangeRegex();
 
     public bool HasStrategyDraft => PendingStrategyDraft is not null;
 

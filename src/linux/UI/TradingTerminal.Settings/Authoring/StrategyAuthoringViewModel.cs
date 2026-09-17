@@ -3749,6 +3749,10 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             DesignOrderRuleText = "";
             DesignIndicators.Clear();
             DesignEntryCondition.Clear();
+            DesignExitCondition.Clear();
+            DesignSizing.Clear();
+            DesignRisk.Clear();
+            DesignOrders.Clear();
             DesignInstrumentProvenance = DesignValueProvenance.Unset;
             DesignTimeframeProvenance = DesignValueProvenance.Unset;
             PendingFindingDesignProposalText = "";

@@ -314,6 +314,11 @@ public sealed class CandidateAuthoringUxContractTests
             (string?)element.Attribute("AutomationProperties.Name") == "Import research indicators to Design" &&
             (string?)element.Attribute("Command") == "{Binding ImportResearchIndicatorsToDesignCommand}");
         root.ToString().Should().Contain("Design entry left operand");
+        root.ToString().Should().Contain("Design sizing form");
+        root.ToString().Should().Contain("Design risk form");
+        root.ToString().Should().Contain("Design orders form");
+        root.ToString().Should().Contain("Design sizing range min");
+        root.ToString().Should().Contain("Design exit condition editor");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Propose Design rules from finding" &&
             (string?)element.Attribute("Command") == "{Binding StageFindingAsDesignProposalCommand}");

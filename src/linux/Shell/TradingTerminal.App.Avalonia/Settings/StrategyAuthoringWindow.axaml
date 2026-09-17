@@ -2245,25 +2245,135 @@
                                Watermark="When do you enter? (signal, confirmation)"
                                TextWrapping="Wrap" MinHeight="44"
                                AutomationProperties.Name="Design entry rule" />
-                      <TextBlock Text="EXIT" Classes="eyebrow" />
+                      <Border Background="{StaticResource Background.Elevated}"
+                              BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                              CornerRadius="4" Padding="8,6"
+                              AutomationProperties.Name="Design exit condition editor">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="EXIT CONDITION" Classes="eyebrow" />
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox Text="{Binding DesignExitCondition.LeftOperand, Mode=TwoWay}"
+                                     Watermark="e.g. ema(20)" MinWidth="100"
+                                     AutomationProperties.Name="Design exit left operand" />
+                            <ComboBox ItemsSource="{Binding DesignConditionOperatorOptions}"
+                                      SelectedItem="{Binding DesignExitCondition.OperatorKey, Mode=TwoWay}"
+                                      MinWidth="130" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Design exit operator" />
+                            <TextBox Text="{Binding DesignExitCondition.RightOperand, Mode=TwoWay}"
+                                     Watermark="e.g. ema(50)" MinWidth="100"
+                                     AutomationProperties.Name="Design exit right operand" />
+                          </StackPanel>
+                          <TextBlock Text="{Binding DesignExitCondition.ProvenanceLabel}" Classes="caption"
+                                     IsVisible="{Binding DesignExitCondition.ProvenanceLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        </StackPanel>
+                      </Border>
+                      <Border Background="{StaticResource Background.Elevated}"
+                              BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                              CornerRadius="4" Padding="8,6"
+                              AutomationProperties.Name="Design sizing form">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="SIZING" Classes="eyebrow" />
+                          <TextBlock Text="Target size plus optional allowed range (min–max)."
+                                     Classes="caption" TextWrapping="Wrap" />
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ComboBox ItemsSource="{Binding DesignSizingMethodOptions}"
+                                      SelectedItem="{Binding DesignSizing.Method, Mode=TwoWay}"
+                                      MinWidth="140" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Design sizing method" />
+                            <TextBox Text="{Binding DesignSizing.QuantityText, Mode=TwoWay}"
+                                     Watermark="qty" Width="72"
+                                     AutomationProperties.Name="Design sizing quantity" />
+                            <ComboBox ItemsSource="{Binding DesignSizingUnitOptions}"
+                                      SelectedItem="{Binding DesignSizing.Unit, Mode=TwoWay}"
+                                      MinWidth="100" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Design sizing unit" />
+                          </StackPanel>
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Range" VerticalAlignment="Center" Classes="caption" />
+                            <TextBox Text="{Binding DesignSizing.RangeMinText, Mode=TwoWay}"
+                                     Watermark="min" Width="64"
+                                     AutomationProperties.Name="Design sizing range min" />
+                            <TextBlock Text="–" VerticalAlignment="Center" />
+                            <TextBox Text="{Binding DesignSizing.RangeMaxText, Mode=TwoWay}"
+                                     Watermark="max" Width="64"
+                                     AutomationProperties.Name="Design sizing range max" />
+                          </StackPanel>
+                          <TextBlock Text="{Binding DesignSizing.ProvenanceLabel}" Classes="caption"
+                                     IsVisible="{Binding DesignSizing.ProvenanceLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        </StackPanel>
+                      </Border>
+                      <Border Background="{StaticResource Background.Elevated}"
+                              BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                              CornerRadius="4" Padding="8,6"
+                              AutomationProperties.Name="Design risk form">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="RISK" Classes="eyebrow" />
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox Text="{Binding DesignRisk.MaxLossText, Mode=TwoWay}"
+                                     Watermark="max loss" Width="80"
+                                     AutomationProperties.Name="Design risk max loss" />
+                            <ComboBox ItemsSource="{Binding DesignRiskUnitOptions}"
+                                      SelectedItem="{Binding DesignRisk.MaxLossUnit, Mode=TwoWay}"
+                                      MinWidth="88" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Design risk unit" />
+                            <TextBox Text="{Binding DesignRisk.DailyStopText, Mode=TwoWay}"
+                                     Watermark="daily stop" Width="88"
+                                     AutomationProperties.Name="Design risk daily stop" />
+                          </StackPanel>
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Stop range" VerticalAlignment="Center" Classes="caption" />
+                            <TextBox Text="{Binding DesignRisk.StopRangeMinText, Mode=TwoWay}"
+                                     Watermark="min" Width="64"
+                                     AutomationProperties.Name="Design risk stop range min" />
+                            <TextBlock Text="–" VerticalAlignment="Center" />
+                            <TextBox Text="{Binding DesignRisk.StopRangeMaxText, Mode=TwoWay}"
+                                     Watermark="max" Width="64"
+                                     AutomationProperties.Name="Design risk stop range max" />
+                          </StackPanel>
+                          <TextBlock Text="{Binding DesignRisk.ProvenanceLabel}" Classes="caption"
+                                     IsVisible="{Binding DesignRisk.ProvenanceLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        </StackPanel>
+                      </Border>
+                      <Border Background="{StaticResource Background.Elevated}"
+                              BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                              CornerRadius="4" Padding="8,6"
+                              AutomationProperties.Name="Design orders form">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="ORDERS / EXECUTION" Classes="eyebrow" />
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ComboBox ItemsSource="{Binding DesignOrderTypeOptions}"
+                                      SelectedItem="{Binding DesignOrders.OrderType, Mode=TwoWay}"
+                                      MinWidth="100" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Design order type" />
+                            <ComboBox ItemsSource="{Binding DesignTimeInForceOptions}"
+                                      SelectedItem="{Binding DesignOrders.TimeInForce, Mode=TwoWay}"
+                                      MinWidth="88" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Design time in force" />
+                            <ComboBox ItemsSource="{Binding DesignPriceRuleOptions}"
+                                      SelectedItem="{Binding DesignOrders.PriceRule, Mode=TwoWay}"
+                                      MinWidth="88" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Design price rule" />
+                          </StackPanel>
+                          <TextBlock Text="{Binding DesignOrders.ProvenanceLabel}" Classes="caption"
+                                     IsVisible="{Binding DesignOrders.ProvenanceLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        </StackPanel>
+                      </Border>
+                      <TextBlock Text="NOTES / OVERRIDE (FREEFORM)" Classes="eyebrow" />
                       <TextBox Text="{Binding DesignExitRuleText, Mode=TwoWay}"
-                               Watermark="When do you exit or cancel? (target, stop, time)"
-                               TextWrapping="Wrap" MinHeight="44"
+                               Watermark="Exit notes if not covered by the exit condition"
+                               TextWrapping="Wrap" MinHeight="36"
                                AutomationProperties.Name="Design exit rule" />
-                      <TextBlock Text="SIZING" Classes="eyebrow" />
                       <TextBox Text="{Binding DesignSizingRuleText, Mode=TwoWay}"
-                               Watermark="How much size / exposure per signal?"
-                               TextWrapping="Wrap" MinHeight="36"
+                               Watermark="Sizing notes / override"
+                               TextWrapping="Wrap" MinHeight="32"
                                AutomationProperties.Name="Design sizing rule" />
-                      <TextBlock Text="RISK" Classes="eyebrow" />
                       <TextBox Text="{Binding DesignRiskRuleText, Mode=TwoWay}"
-                               Watermark="Max loss, daily stop, forbidden regimes…"
-                               TextWrapping="Wrap" MinHeight="36"
+                               Watermark="Risk notes / override"
+                               TextWrapping="Wrap" MinHeight="32"
                                AutomationProperties.Name="Design risk rule" />
-                      <TextBlock Text="ORDERS" Classes="eyebrow" />
                       <TextBox Text="{Binding DesignOrderRuleText, Mode=TwoWay}"
-                               Watermark="Market/limit, TIF, replace/cancel rules"
-                               TextWrapping="Wrap" MinHeight="36"
+                               Watermark="Order notes / override"
+                               TextWrapping="Wrap" MinHeight="32"
                                AutomationProperties.Name="Design order instructions" />
                       <TextBlock Text="{Binding DesignUnresolvedChecklistText}" Classes="caption"
                                  TextWrapping="Wrap"

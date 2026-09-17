@@ -61,7 +61,11 @@ Chat and the Rules panel share one working draft. Hyperion **stages → Accept**
 |---------|------|
 | **INDICATORS (optional)** | Add / Remove / Reuse from Research — available for conditions; never auto-entry |
 | **ENTRY CONDITION** | Left operand · operator (`crosses above` ≠ `is above`) · right operand |
+| **EXIT CONDITION** | Same condition row shape for exits |
+| **SIZING** | Method · quantity · unit · optional **min–max range** |
+| **RISK** | Max loss · daily stop · optional stop range |
+| **ORDERS** | Order type · TIF · price rule |
 | **Provenance captions** | You set this · From Hyperion (accepted) · From Research (available) · Suggested default |
-| **Ask Hyperion** | Prompt includes `INDICATORS` / `CONDITION` keys; Accept parses them into the same controls |
+| **Ask Hyperion** | Prompt includes structured keys; Accept parses them into the same form |
 
 

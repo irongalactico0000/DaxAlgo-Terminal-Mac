@@ -661,7 +661,12 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignInstrumentText.Should().Be("NQ");
         viewModel.DesignTimeframeText.Should().Be("15m");
         viewModel.DesignEntryRuleText.Should().Be("EMA(20) crosses above EMA(50)");
-        viewModel.DesignSizingRuleText.Should().Be("1 contract");
+        viewModel.DesignSizing.QuantityText.Should().Be("1");
+        viewModel.DesignSizing.Unit.Should().Be("contracts");
+        viewModel.DesignSizingRuleText.Should().Contain("1");
+        viewModel.DesignRisk.IsComplete.Should().BeTrue();
+        viewModel.DesignOrders.OrderType.Should().Be("Market");
+        viewModel.DesignOrders.TimeInForce.Should().Be("IOC");
         viewModel.HasPendingHyperionDesignProposal.Should().BeFalse();
         viewModel.DesignUnresolvedChecklistText.Should().Contain("All Design fields have text");
         viewModel.DesignInstrumentProvenance.Should().Be(DesignValueProvenance.HyperionAccepted);
@@ -717,6 +722,54 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignEntryCondition.LeftOperand = "ema(30)";
         viewModel.DesignEntryRuleText.Should().Be("ema(30) crosses above ema(50)");
         viewModel.DesignEntryCondition.Provenance.Should().Be(DesignValueProvenance.Operator);
+    }
+
+    [Fact]
+    public void Strategic_form_sizing_range_and_exit_sync_into_draft_summaries()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.DesignExitCondition.LeftOperand = "ema(20)";
+        viewModel.DesignExitCondition.OperatorKey = "crosses below";
+        viewModel.DesignExitCondition.RightOperand = "ema(50)";
+        viewModel.DesignExitRuleText.Should().Be("ema(20) crosses below ema(50)");
+
+        viewModel.DesignSizing.QuantityText = "10";
+        viewModel.DesignSizing.Unit = "shares";
+        viewModel.DesignSizing.RangeMinText = "5";
+        viewModel.DesignSizing.RangeMaxText = "15";
+        viewModel.DesignSizing.SummaryText.Should().Contain("range 5–15");
+        viewModel.DesignSizingRuleText.Should().Contain("10");
+        viewModel.DesignSizingRuleText.Should().Contain("5");
+
+        viewModel.DesignRisk.MaxLossText = "1";
+        viewModel.DesignRisk.MaxLossUnit = "%";
+        viewModel.DesignRisk.DailyStopText = "2";
+        viewModel.DesignRisk.IsComplete.Should().BeTrue();
+
+        viewModel.DesignOrders.OrderType = "Market";
+        viewModel.DesignOrders.TimeInForce = "IOC";
+        viewModel.DesignOrderRuleText.Should().Be("Market IOC");
+
+        viewModel.Messages.Add(new AuthoringMessage(
+            CodegenRole.Assistant,
+            "SIZING: target 10 shares (range 5-15)\n" +
+            "RISK: max loss 1% · daily stop 2%\n" +
+            "ORDERS: Limit Day · price mid\n" +
+            "EXIT: ema(20) crosses below ema(50)"));
+        viewModel.StageLastHyperionAsDesignProposalCommand.Execute(null);
+        viewModel.AcceptHyperionDesignProposalCommand.Execute(null);
+        viewModel.DesignSizing.HasRange.Should().BeTrue();
+        viewModel.DesignSizing.RangeMinText.Should().Be("5");
+        viewModel.DesignSizing.RangeMaxText.Should().Be("15");
+        viewModel.DesignOrders.OrderType.Should().Be("Limit");
+        viewModel.DesignOrders.TimeInForce.Should().Be("Day");
+        viewModel.DesignOrders.PriceRule.Should().Be("mid");
+        viewModel.DesignExitCondition.OperatorKey.Should().Be("crosses below");
     }
 
     [Fact]

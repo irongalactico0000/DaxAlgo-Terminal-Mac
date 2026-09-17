@@ -91,9 +91,9 @@ public sealed partial class DesignIndicatorRow : ObservableObject
 }
 
 /// <summary>
-/// Structured entry condition. "Crosses above" is distinct from "is above".
+/// Structured entry/exit condition. "Crosses above" is distinct from "is above".
 /// </summary>
-public sealed partial class DesignEntryConditionRow : ObservableObject
+public sealed partial class DesignConditionRow : ObservableObject
 {
     public static IReadOnlyList<string> OperatorOptions { get; } =
     [
@@ -138,6 +138,217 @@ public sealed partial class DesignEntryConditionRow : ObservableObject
         LeftOperand = "";
         OperatorKey = "crosses above";
         RightOperand = "";
+        Provenance = DesignValueProvenance.Unset;
+    }
+}
+
+/// <summary>Position sizing: target quantity plus optional min–max range.</summary>
+public sealed partial class DesignSizingForm : ObservableObject
+{
+    public static IReadOnlyList<string> MethodOptions { get; } =
+        ["Target quantity", "Percent of equity", "Fixed contracts"];
+
+    public static IReadOnlyList<string> UnitOptions { get; } =
+        ["shares", "contracts", "%"];
+
+    [ObservableProperty] private string _method = "Target quantity";
+    [ObservableProperty] private string _quantityText = "";
+    [ObservableProperty] private string _unit = "shares";
+    [ObservableProperty] private string _rangeMinText = "";
+    [ObservableProperty] private string _rangeMaxText = "";
+    [ObservableProperty] private DesignValueProvenance _provenance = DesignValueProvenance.Unset;
+
+    public bool HasQuantity =>
+        !string.IsNullOrWhiteSpace(QuantityText) &&
+        decimal.TryParse(QuantityText.Trim(), out var q) &&
+        q > 0;
+
+    public bool HasRange =>
+        !string.IsNullOrWhiteSpace(RangeMinText) &&
+        !string.IsNullOrWhiteSpace(RangeMaxText) &&
+        decimal.TryParse(RangeMinText.Trim(), out var min) &&
+        decimal.TryParse(RangeMaxText.Trim(), out var max) &&
+        min >= 0 &&
+        max >= min;
+
+    public bool IsComplete => HasQuantity;
+
+    public string SummaryText
+    {
+        get
+        {
+            if (!HasQuantity) return "";
+            var core = Method.StartsWith("Percent", StringComparison.OrdinalIgnoreCase)
+                ? $"{QuantityText.Trim()}{Unit.Trim()}"
+                : $"target {QuantityText.Trim()} {Unit.Trim()}";
+            if (HasRange)
+                core += $" (range {RangeMinText.Trim()}–{RangeMaxText.Trim()})";
+            return core;
+        }
+    }
+
+    public string ProvenanceLabel => DesignValueProvenanceLabels.Label(Provenance);
+
+    partial void OnMethodChanged(string value) => NotifyShape();
+    partial void OnQuantityTextChanged(string value) => NotifyShape();
+    partial void OnUnitChanged(string value) => NotifyShape();
+    partial void OnRangeMinTextChanged(string value) => NotifyShape();
+    partial void OnRangeMaxTextChanged(string value) => NotifyShape();
+    partial void OnProvenanceChanged(DesignValueProvenance value) =>
+        OnPropertyChanged(nameof(ProvenanceLabel));
+
+    private void NotifyShape()
+    {
+        OnPropertyChanged(nameof(HasQuantity));
+        OnPropertyChanged(nameof(HasRange));
+        OnPropertyChanged(nameof(IsComplete));
+        OnPropertyChanged(nameof(SummaryText));
+    }
+
+    public void Clear()
+    {
+        Method = "Target quantity";
+        QuantityText = "";
+        Unit = "shares";
+        RangeMinText = "";
+        RangeMaxText = "";
+        Provenance = DesignValueProvenance.Unset;
+    }
+}
+
+/// <summary>Risk limits — max loss / daily stop, with optional stop distance range.</summary>
+public sealed partial class DesignRiskForm : ObservableObject
+{
+    public static IReadOnlyList<string> UnitOptions { get; } =
+        ["%", "USD", "currency units"];
+
+    [ObservableProperty] private string _maxLossText = "";
+    [ObservableProperty] private string _maxLossUnit = "%";
+    [ObservableProperty] private string _dailyStopText = "";
+    [ObservableProperty] private string _stopRangeMinText = "";
+    [ObservableProperty] private string _stopRangeMaxText = "";
+    [ObservableProperty] private DesignValueProvenance _provenance = DesignValueProvenance.Unset;
+
+    public bool HasMaxLoss =>
+        !string.IsNullOrWhiteSpace(MaxLossText) &&
+        decimal.TryParse(MaxLossText.Trim(), out var v) &&
+        v > 0;
+
+    public bool HasDailyStop =>
+        !string.IsNullOrWhiteSpace(DailyStopText) &&
+        decimal.TryParse(DailyStopText.Trim(), out var v) &&
+        v > 0;
+
+    public bool HasStopRange =>
+        !string.IsNullOrWhiteSpace(StopRangeMinText) &&
+        !string.IsNullOrWhiteSpace(StopRangeMaxText) &&
+        decimal.TryParse(StopRangeMinText.Trim(), out var min) &&
+        decimal.TryParse(StopRangeMaxText.Trim(), out var max) &&
+        min >= 0 &&
+        max >= min;
+
+    public bool IsComplete => HasMaxLoss || HasDailyStop;
+
+    public string SummaryText
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (HasMaxLoss)
+                parts.Add($"max loss {MaxLossText.Trim()}{FormatUnit(MaxLossUnit)}");
+            if (HasDailyStop)
+                parts.Add($"daily stop {DailyStopText.Trim()}{FormatUnit(MaxLossUnit)}");
+            if (HasStopRange)
+                parts.Add($"stop range {StopRangeMinText.Trim()}–{StopRangeMaxText.Trim()}");
+            return string.Join(" · ", parts);
+        }
+    }
+
+    public string ProvenanceLabel => DesignValueProvenanceLabels.Label(Provenance);
+
+    private static string FormatUnit(string unit) =>
+        unit.Trim() == "%" ? "%" : $" {unit.Trim()}";
+
+    partial void OnMaxLossTextChanged(string value) => NotifyShape();
+    partial void OnMaxLossUnitChanged(string value) => NotifyShape();
+    partial void OnDailyStopTextChanged(string value) => NotifyShape();
+    partial void OnStopRangeMinTextChanged(string value) => NotifyShape();
+    partial void OnStopRangeMaxTextChanged(string value) => NotifyShape();
+    partial void OnProvenanceChanged(DesignValueProvenance value) =>
+        OnPropertyChanged(nameof(ProvenanceLabel));
+
+    private void NotifyShape()
+    {
+        OnPropertyChanged(nameof(HasMaxLoss));
+        OnPropertyChanged(nameof(HasDailyStop));
+        OnPropertyChanged(nameof(HasStopRange));
+        OnPropertyChanged(nameof(IsComplete));
+        OnPropertyChanged(nameof(SummaryText));
+    }
+
+    public void Clear()
+    {
+        MaxLossText = "";
+        MaxLossUnit = "%";
+        DailyStopText = "";
+        StopRangeMinText = "";
+        StopRangeMaxText = "";
+        Provenance = DesignValueProvenance.Unset;
+    }
+}
+
+/// <summary>Execution policy — order type, TIF, optional price rule.</summary>
+public sealed partial class DesignOrdersForm : ObservableObject
+{
+    public static IReadOnlyList<string> OrderTypeOptions { get; } =
+        ["", "Market", "Limit"];
+
+    public static IReadOnlyList<string> TimeInForceOptions { get; } =
+        ["", "Day", "IOC", "GTC", "FOK"];
+
+    public static IReadOnlyList<string> PriceRuleOptions { get; } =
+        ["", "last", "mid", "bid", "ask"];
+
+    [ObservableProperty] private string _orderType = "";
+    [ObservableProperty] private string _timeInForce = "";
+    [ObservableProperty] private string _priceRule = "";
+    [ObservableProperty] private DesignValueProvenance _provenance = DesignValueProvenance.Unset;
+
+    public bool IsComplete =>
+        !string.IsNullOrWhiteSpace(OrderType) &&
+        !string.IsNullOrWhiteSpace(TimeInForce);
+
+    public string SummaryText
+    {
+        get
+        {
+            if (!IsComplete) return "";
+            var text = $"{OrderType.Trim()} {TimeInForce.Trim()}".Trim();
+            if (!string.IsNullOrWhiteSpace(PriceRule))
+                text += $" · price {PriceRule.Trim()}";
+            return text;
+        }
+    }
+
+    public string ProvenanceLabel => DesignValueProvenanceLabels.Label(Provenance);
+
+    partial void OnOrderTypeChanged(string value) => NotifyShape();
+    partial void OnTimeInForceChanged(string value) => NotifyShape();
+    partial void OnPriceRuleChanged(string value) => NotifyShape();
+    partial void OnProvenanceChanged(DesignValueProvenance value) =>
+        OnPropertyChanged(nameof(ProvenanceLabel));
+
+    private void NotifyShape()
+    {
+        OnPropertyChanged(nameof(IsComplete));
+        OnPropertyChanged(nameof(SummaryText));
+    }
+
+    public void Clear()
+    {
+        OrderType = "";
+        TimeInForce = "";
+        PriceRule = "";
         Provenance = DesignValueProvenance.Unset;
     }
 }
