@@ -1006,6 +1006,8 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(CanSaveResearchFinding));
         OnPropertyChanged(nameof(CanUseObservationInDesign));
         OnPropertyChanged(nameof(AddFindingTransferPreviewText));
+        OnPropertyChanged(nameof(DesignSignalOptions));
+        OnPropertyChanged(nameof(HasDesignSignalOptions));
         RestoreResearchFinding1Command.NotifyCanExecuteChanged();
         RestoreResearchFinding2Command.NotifyCanExecuteChanged();
         SaveResearchFinding1Command.NotifyCanExecuteChanged();

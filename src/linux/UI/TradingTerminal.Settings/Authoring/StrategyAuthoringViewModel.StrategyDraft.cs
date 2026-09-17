@@ -114,10 +114,21 @@ public sealed partial class StrategyAuthoringViewModel
     public IReadOnlyList<string> DesignIndicatorLabelOptions =>
         DesignIndicators.Select(static i => i.DisplayLabel).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
-    /// <summary>Saved-signal operand store — empty until Research/Hyperion signals are linked.</summary>
-    public IReadOnlyList<string> DesignSignalOptions { get; } = Array.Empty<string>();
+    /// <summary>
+    /// Research composites (saved findings with a condition) — pick as ENTRY/EXIT operand.
+    /// A "signal" here means a named condition / indicator combo from Research, not a freeform flag.
+    /// </summary>
+    public IReadOnlyList<string> DesignSignalOptions =>
+        _researchAnalysisReferences.Values
+            .OrderBy(static r => ResearchFindingOrdinal(r.ReferenceId))
+            .ThenBy(static r => r.ReferenceId, StringComparer.Ordinal)
+            .Select(static r => FormatDesignSavedConditionOption(r))
+            .ToArray();
 
     public bool HasDesignSignalOptions => DesignSignalOptions.Count > 0;
+
+    private static string FormatDesignSavedConditionOption(ResearchAnalysisReferenceV1 reference) =>
+        $"{reference.Label} · {reference.Condition.SummaryText} · {reference.Condition.ConditionId}";
 
     [ObservableProperty] private string _designEntryNotesText = "";
     [ObservableProperty] private string _designExitNotesText = "";

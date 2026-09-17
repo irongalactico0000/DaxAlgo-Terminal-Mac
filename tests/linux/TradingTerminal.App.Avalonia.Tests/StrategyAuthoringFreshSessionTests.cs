@@ -283,9 +283,17 @@ public sealed class StrategyAuthoringFreshSessionTests
         withPartials.LatencyMs.Should().Be(25);
         withPartials.DataModeToken.Should().Contain("partials=max4");
         withPartials.DataModeToken.Should().Contain("latencyMs=25");
+        withPartials.DataModeToken.Should().Contain("oppositeSize=off");
+        viewModel.ExecutionEnableOppositeL1SizeCap = true;
+        viewModel.TryGetAppliedExecutionFidelity(out var withOpposite, out rejection).Should().BeTrue(rejection);
+        withOpposite.OppositeL1SizeCapEnabled.Should().BeTrue();
+        withOpposite.DataModeToken.Should().Contain("oppositeSize=on");
+        viewModel.ExecutionEnableOppositeL1SizeCap = false;
         viewModel.ExecutionUnsupportedOptionsExplanation.Should().Contain("Nautilus-class");
         viewModel.ExecutionUnsupportedOptionsExplanation.Should().Contain("L1");
+        viewModel.ExecutionUnsupportedOptionsExplanation.Should().Contain("opposite-L1-size");
         viewModel.ExecutionUnsupportedOptionsAvailable.Should().BeFalse();
+        viewModel.ExecutionOppositeL1SizeCapAvailable.Should().BeTrue();
         viewModel.ExecutionEnablePartialFills = false;
         viewModel.ExecutionLatencyMs = 0;
         viewModel.DesignInstrumentText = "ES";
@@ -704,7 +712,7 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignSizing.Unit.Should().Be("contracts");
         viewModel.DesignSizingRuleText.Should().Contain("1");
         viewModel.DesignRisk.IsComplete.Should().BeTrue();
-        viewModel.DesignOrders.OrderType.Should().Be("Market");
+        viewModel.DesignOrders.OrderType.Should().Be(DesignOrdersForm.OrderTypeMarket);
         viewModel.DesignOrders.TimeInForce.Should().Be("IOC");
         viewModel.HasPendingHyperionDesignProposal.Should().BeFalse();
         viewModel.DesignUnresolvedChecklistText.Should().Contain("All Design fields have text");

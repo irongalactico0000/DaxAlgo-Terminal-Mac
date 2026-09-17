@@ -205,10 +205,11 @@ public sealed partial class StrategyAuthoringViewModel
 
         // Carry the exact Design draft (incl. ORDERS side + 시장가/지정가) into Build brief/composer.
         SeedBuildBriefFromDesignDraft();
+        ApplyDesignOrdersIntentSeeds();
 
         Status =
-            "Design review accepted for this exact draft hash. Build brief includes ORDERS/side. " +
-            "Edit Design again and you must Review & continue once more.";
+            "Design review accepted for this exact draft hash. Build brief includes ORDERS/side; " +
+            "intent execution rows seeded when present. Edit Design again and you must Review & continue once more.";
         ShowDesignReviewPanel = false;
         if (OpenBuildScreenCommand.CanExecute(null))
             OpenBuildScreenCommand.Execute(null);
@@ -235,6 +236,66 @@ public sealed partial class StrategyAuthoringViewModel
         Composer = AttachDesignDraftContextToChatPrompt(
             "Build a runnable Paper strategy from this Design draft. " +
             "Preserve ORDERS (side, 시장가/지정가, TIF) and RISK limits exactly.");
+    }
+
+    /// <summary>
+    /// Prefills Strategy-intent execution requirement answers from Design ORDERS.
+    /// Limit/FOK remain intent prose — TradeIR only accepts Market + Day/GTC/IOC today.
+    /// Seeds persist across intent-row rebuilds until Design ORDERS change or clear.
+    /// </summary>
+    private IReadOnlyDictionary<string, string>? _pendingDesignOrdersIntentSeeds;
+
+    internal void ApplyDesignOrdersIntentSeeds()
+    {
+        if (!DesignOrders.IsComplete)
+        {
+            _pendingDesignOrdersIntentSeeds = null;
+            return;
+        }
+
+        var seeds = DesignOrdersToIntentSeedV1.BuildSeeds(new DesignOrdersToIntentSeedV1.DesignOrdersSeedInput(
+            DesignOrders.Side,
+            DesignOrders.OrderType,
+            DesignOrders.TimeInForce,
+            string.IsNullOrWhiteSpace(DesignOrders.PriceRule) ? null : DesignOrders.PriceRule));
+
+        _pendingDesignOrdersIntentSeeds = seeds.Count == 0 ? null : seeds;
+        ApplyPendingDesignOrdersIntentSeedsToRows();
+    }
+
+    private void ApplyPendingDesignOrdersIntentSeedsToRows()
+    {
+        if (_pendingDesignOrdersIntentSeeds is not { Count: > 0 } seeds)
+            return;
+
+        foreach (var row in StrategyIntentRequirements)
+        {
+            if (!seeds.TryGetValue(row.RequirementId, out var answer))
+                continue;
+            if (!string.IsNullOrWhiteSpace(row.Answer))
+                continue;
+            row.Answer = answer;
+        }
+
+        // Stash so a later intent rebuild still sees Design ORDERS.
+        if (_strategyIntentRequirementContext is { } context)
+        {
+            var statementIds = CurrentCandidate is null
+                ? Array.Empty<string>()
+                : ConfirmedCandidateStatementIds(CurrentCandidate);
+            var evidenceIds = DefaultRequirementEvidenceIds(
+                StrategyResearchEvidenceRows.Select(static r => r.EvidenceId));
+            foreach (var row in StrategyIntentRequirements)
+            {
+                if (!seeds.ContainsKey(row.RequirementId))
+                    continue;
+                _strategyIntentRequirementStash[new StrategyIntentRequirementStashKey(
+                    context.ClassificationHash,
+                    context.IntentKind,
+                    context.ExtensionId,
+                    row.RequirementId)] = row.ToRequirement(statementIds, evidenceIds);
+            }
+        }
     }
 
     [RelayCommand]

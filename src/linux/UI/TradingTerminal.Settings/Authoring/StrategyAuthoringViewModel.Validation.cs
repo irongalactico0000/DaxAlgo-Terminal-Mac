@@ -30,12 +30,13 @@ public sealed partial class StrategyAuthoringViewModel
 
     /// <summary>
     /// Validate/Replay execution fidelity. L1 touch ± slippage is always applied.
-    /// Optional: quantity-capped partials per touch and execution latency ms.
-    /// Queue position and liquidity consumption remain unavailable.
+    /// Optional: quantity-capped partials per touch, opposite-L1-size cap (BidSize/AskSize proxy),
+    /// and execution latency ms. Queue position and multi-level liquidity walk remain unavailable.
     /// </summary>
     [ObservableProperty] private string _executionBookType = SupportedExecutionBookType;
     [ObservableProperty] private bool _executionEnableQueuePosition;
     [ObservableProperty] private bool _executionEnableLiquidityConsumption;
+    [ObservableProperty] private bool _executionEnableOppositeL1SizeCap;
     [ObservableProperty] private bool _executionEnablePartialFills;
     [ObservableProperty] private int _executionLatencyMs;
     [ObservableProperty] private string _executionFillModel = SupportedExecutionFillModel;
@@ -52,21 +53,28 @@ public sealed partial class StrategyAuthoringViewModel
     /// <summary>Only engine-applied fill models — unsupported walks/queue fills are not selectable.</summary>
     public IReadOnlyList<string> ExecutionFillModelOptions { get; } = [SupportedExecutionFillModel];
 
-    /// <summary>Queue / liquidity walk are not applied yet.</summary>
+    /// <summary>Queue / multi-level liquidity walk are not applied yet.</summary>
     public bool ExecutionUnsupportedOptionsAvailable => false;
 
-    /// <summary>Partials and latency are applied by L1TouchFillModel / SimulatedOrderBook when enabled.</summary>
+    /// <summary>Partials, opposite-L1-size cap, and latency are applied by L1FillModel when enabled.</summary>
     public bool ExecutionPartialsAndLatencyAvailable => true;
+
+    /// <summary>Opposite BidSize/AskSize fill cap is applied — not full Nautilus matching.</summary>
+    public bool ExecutionOppositeL1SizeCapAvailable => true;
 
     public string ExecutionUnsupportedOptionsExplanation =>
         "Applied today: L1 touch ± slippage; optional capped partials (max " +
         AppliedPartialFillMaxPerTouch +
-        " per touch) and latency ms. " +
-        "Not claimed: L2/L3 books, queue position, liquidity walk — those are a later Nautilus-class " +
-        "fill-fidelity target, not this Validate lane.";
+        " per touch); optional opposite-L1-size cap (BidSize/AskSize proxy); latency ms. " +
+        "Not claimed: L2/L3 books, queue position, multi-level liquidity walk — those remain a later " +
+        "Nautilus-class fill-fidelity target, not this Validate lane.";
 
     public string ExecutionPartialsTip =>
         $"When checked, each L1 touch fills at most {AppliedPartialFillMaxPerTouch} units so orders can PartiallyFilled → Filled/Cancelled.";
+
+    public string ExecutionOppositeL1SizeCapTip =>
+        "When checked, each fill is also capped by the opposite L1 size (AskSize for buys, BidSize for sells). " +
+        "Zero opposite size → no fill. This is an L1 size proxy — not queue position or book walk.";
 
     public string ExecutionLatencyTip =>
         "Milliseconds after submit before the order may fill on L1 touches (sim clock). 0 = immediate.";
@@ -184,13 +192,17 @@ public sealed partial class StrategyAuthoringViewModel
 
             var partials = applied.PartialsEnabled
                 ? $"on (max {AppliedPartialFillMaxPerTouch} per L1 touch)"
-                : "off — full remaining qty per touch";
+                : "off — full remaining qty per touch (unless opposite-size cap)";
+            var opposite = applied.OppositeL1SizeCapEnabled
+                ? "on — BidSize/AskSize proxy (not queue walk)"
+                : "off";
             return
                 "Execution fidelity (Validate → Replay) — applied by engine:\n" +
                 $"• Book / data: {applied.BookType}\n" +
                 $"• Fill model: {applied.FillModel}\n" +
                 $"• Queue position: off (not available)\n" +
-                $"• Liquidity consumption: off (not available)\n" +
+                $"• Multi-level liquidity walk: off (not available)\n" +
+                $"• Opposite L1 size cap: {opposite}\n" +
                 $"• Partial fills / lifecycle: {partials}\n" +
                 $"• Execution latency: {applied.LatencyMs} ms\n" +
                 "• Order books in Research: live L2 windows are separate; not synchronized to this replay clock\n" +
@@ -210,6 +222,7 @@ public sealed partial class StrategyAuthoringViewModel
         int LatencyMs,
         bool PartialsEnabled,
         long MaxFillPerTouch,
+        bool OppositeL1SizeCapEnabled,
         string DataModeToken);
 
     /// <summary>
@@ -234,7 +247,7 @@ public sealed partial class StrategyAuthoringViewModel
         {
             applied = default;
             rejection =
-                "Queue position and liquidity consumption are not available. Turn them off.";
+                "Queue position and multi-level liquidity consumption are not available. Turn them off.";
             return false;
         }
 
@@ -247,6 +260,7 @@ public sealed partial class StrategyAuthoringViewModel
 
         var partials = ExecutionEnablePartialFills;
         var maxFill = partials ? AppliedPartialFillMaxPerTouch : 0L;
+        var opposite = ExecutionEnableOppositeL1SizeCap;
         var latency = ExecutionLatencyMs;
         applied = new AppliedExecutionFidelityV1(
             SupportedExecutionBookType,
@@ -254,13 +268,15 @@ public sealed partial class StrategyAuthoringViewModel
             LatencyMs: latency,
             PartialsEnabled: partials,
             MaxFillPerTouch: maxFill,
+            OppositeL1SizeCapEnabled: opposite,
             DataModeToken:
-                $"L1TouchFillModel|book=L1|queue=off|liq=off|partials={(partials ? $"max{maxFill}" : "off")}|latencyMs={latency}|applied");
+                $"L1TouchFillModel|book=L1|queue=off|liq=off|oppositeSize={(opposite ? "on" : "off")}|" +
+                $"partials={(partials ? $"max{maxFill}" : "off")}|latencyMs={latency}|applied");
         rejection = string.Empty;
         return true;
     }
 
-    /// <summary>Normalize restored/legacy planned labels; keep applied partials/latency user choices.</summary>
+    /// <summary>Normalize restored/legacy planned labels; keep applied partials/latency/opposite-size user choices.</summary>
     internal void CoerceLegacyExecutionFidelitySettings()
     {
         if (!string.Equals(ExecutionBookType, SupportedExecutionBookType, StringComparison.Ordinal))
@@ -278,6 +294,7 @@ public sealed partial class StrategyAuthoringViewModel
     partial void OnExecutionBookTypeChanged(string value) => NotifyExecutionFidelityChanged();
     partial void OnExecutionEnableQueuePositionChanged(bool value) => NotifyExecutionFidelityChanged();
     partial void OnExecutionEnableLiquidityConsumptionChanged(bool value) => NotifyExecutionFidelityChanged();
+    partial void OnExecutionEnableOppositeL1SizeCapChanged(bool value) => NotifyExecutionFidelityChanged();
     partial void OnExecutionEnablePartialFillsChanged(bool value) => NotifyExecutionFidelityChanged();
     partial void OnExecutionLatencyMsChanged(int value) => NotifyExecutionFidelityChanged();
     partial void OnExecutionFillModelChanged(string value) => NotifyExecutionFidelityChanged();

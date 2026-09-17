@@ -67,7 +67,8 @@ public sealed class BacktestEngine
         var execution = spec.ExecutionOrDefault;
         var fillModel = new L1TouchFillModel(
             execution.SlippageTicks,
-            execution.MaxFillQuantityPerTouch);
+            execution.MaxFillQuantityPerTouch,
+            execution.CapToOppositeL1Size);
         var latency = TimeSpan.FromMilliseconds(Math.Max(0, execution.LatencyMs));
         var book = new SimulatedOrderBook(clock, fillModel, id => tickSizeOf.GetValueOrDefault(id, 0.01), latency);
         var portfolio = new Portfolio(spec.StartingCash, multipliers, fees);

@@ -77,6 +77,7 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
     private string? _appliedExecutionFidelityToken;
     private double _executionLatencyMs;
     private long _maxFillQuantityPerTouch;
+    private bool _capToOppositeL1Size;
 
     public QuickBacktestViewModel(
         IBacktestStrategyRegistry registry,
@@ -221,6 +222,9 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
         ClearPaperLaunchRequest();
         _validationContext = null;
         _appliedExecutionFidelityToken = null;
+        _executionLatencyMs = 0;
+        _maxFillQuantityPerTouch = 0;
+        _capToOppositeL1Size = false;
         _kernelOption = null;
         _canonicalSelections = [];
         Parameters = null;
@@ -263,7 +267,8 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
         HistoricalValidationContextV1? validationContext = null,
         string? appliedExecutionFidelityToken = null,
         int executionLatencyMs = 0,
-        long maxFillQuantityPerTouch = 0)
+        long maxFillQuantityPerTouch = 0,
+        bool capToOppositeL1Size = false)
     {
         ArgumentNullException.ThrowIfNull(registration);
         ClearPaperLaunchRequest();
@@ -273,6 +278,7 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
             : appliedExecutionFidelityToken.Trim();
         _executionLatencyMs = Math.Max(0, executionLatencyMs);
         _maxFillQuantityPerTouch = Math.Max(0, maxFillQuantityPerTouch);
+        _capToOppositeL1Size = capToOppositeL1Size;
         StrategyDisplayName = registration.DisplayName;
         _option = null;
         _kernelOption = _kernelRegistry.Find(registration.Id);
@@ -543,7 +549,8 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
                     Source: BacktestDataSource.ParquetFile,
                     TradeDataPath: tradesPath,
                     LatencyMs: _executionLatencyMs,
-                    MaxFillQuantityPerTouch: _maxFillQuantityPerTouch);
+                    MaxFillQuantityPerTouch: _maxFillQuantityPerTouch,
+                    CapToOppositeL1Size: _capToOppositeL1Size);
                 FeedQuality = "Real tape (q = 1.0) — full quality. Depth/OBI excluded (engine is L1-only for depth).";
             }
             else
@@ -606,7 +613,8 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
                     ReplayBarSize: SelectedBarSize,
                     ReplayBarSeries: series.Length > 1 ? series : null,
                     LatencyMs: _executionLatencyMs,
-                    MaxFillQuantityPerTouch: _maxFillQuantityPerTouch);
+                    MaxFillQuantityPerTouch: _maxFillQuantityPerTouch,
+                    CapToOppositeL1Size: _capToOppositeL1Size);
                 FeedQuality = _kernelOption is null
                     ? "Completed broker bars + deterministic synthetic L1 fills (q ≈ 0.4 for tape logic)."
                     : $"Reviewed SDK bars + contract-scoped synthetic L1 fills. {coverage.Description} Missing bars are not forward-filled; orders are risk-gated.";

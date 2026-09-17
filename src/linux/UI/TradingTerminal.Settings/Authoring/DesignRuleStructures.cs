@@ -178,7 +178,10 @@ public sealed partial class DesignConditionRow : ObservableObject
 {
     public const string KindPrice = "Price";
     public const string KindIndicator = "Saved indicator";
-    public const string KindSignal = "Saved signal";
+    /// <summary>Named Research composite (finding condition / indicator combo) — not a vague signal.</summary>
+    public const string KindSavedCondition = "Saved condition";
+    /// <summary>Legacy alias for <see cref="KindSavedCondition"/>.</summary>
+    public const string KindSignal = KindSavedCondition;
     public const string KindConstant = "Constant";
     public const string KindExpression = "Advanced expression";
 
@@ -200,7 +203,7 @@ public sealed partial class DesignConditionRow : ObservableObject
     [
         KindPrice,
         KindIndicator,
-        KindSignal,
+        KindSavedCondition,
         KindConstant,
         KindExpression,
     ];
@@ -270,7 +273,7 @@ public sealed partial class DesignConditionRow : ObservableObject
     public string RightConstantWatermark => ConstantParameterWatermark(RightConstantParameter);
 
     public string LeftSignalEmptyHint =>
-        "No saved signals in this draft yet — Research/Hyperion signals land here later.";
+        "No Research composites yet — save a finding with a condition in Research Studio (indicator combo / rule), then pick it here.";
     public string RightSignalEmptyHint => LeftSignalEmptyHint;
 
     partial void OnLeftKindChanged(string value)
@@ -412,7 +415,7 @@ public sealed partial class DesignConditionRow : ObservableObject
             KindIndicator => indicatorLabel.Trim(),
             KindConstant => TryNormalizeConstantNumber(constantText, out var normalized) ? normalized : "",
             KindExpression => expressionText.Trim(),
-            KindSignal => string.IsNullOrWhiteSpace(signalId) ? "" : signalId.Trim(),
+            KindSavedCondition => string.IsNullOrWhiteSpace(signalId) ? "" : signalId.Trim(),
             _ => expressionText.Trim(),
         };
 

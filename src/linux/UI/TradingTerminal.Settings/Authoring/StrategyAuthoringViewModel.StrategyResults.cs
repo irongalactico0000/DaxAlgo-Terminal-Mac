@@ -116,7 +116,7 @@ public sealed partial class StrategyAuthoringViewModel
                     ActiveScreen = StrategyAuthoringScreen.Validate;
                 Status =
                     $"Reopened execution report · {item.Title} · {item.Summary}. " +
-                    "L1FillModel only — queue/liquidity/Nautilus matching are not claimed.";
+                    "L1FillModel only — queue walk / Nautilus matching are not claimed.";
                 break;
         }
 

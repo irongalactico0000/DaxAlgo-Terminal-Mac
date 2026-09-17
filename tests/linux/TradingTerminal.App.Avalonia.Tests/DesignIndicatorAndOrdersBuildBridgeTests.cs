@@ -4,6 +4,7 @@ using TradingTerminal.App.Authoring;
 using TradingTerminal.Core.Backtest;
 using TradingTerminal.Core.Strategies;
 using TradingTerminal.Core.Strategies.Authoring;
+using TradingTerminal.Core.Strategies.Generation;
 using TradingTerminal.Infrastructure.Backtest;
 using TradingTerminal.Infrastructure.Strategies.Authoring;
 using TradingTerminal.UI;
@@ -91,6 +92,76 @@ public sealed class DesignIndicatorAndOrdersBuildBridgeTests
         restored.DesignOrders.Side.Should().Be(DesignOrdersForm.SideBoth);
         restored.DesignOrders.OrderType.Should().Be(DesignOrdersForm.OrderTypeMarket);
         restored.DesignOrders.TimeInForce.Should().Be("IOC");
+    }
+
+    [Fact]
+    public void Restoring_research_findings_populates_saved_condition_options()
+    {
+        var condition = ResearchConditionDefinitionV1.VolumeMultiple(2, 20);
+        var reference = new ResearchAnalysisReferenceV1(
+            ResearchAnalysisReferenceV1.CurrentSchemaVersion,
+            "A",
+            "Finding A",
+            DateTimeOffset.UnixEpoch,
+            condition,
+            SearchResult: null,
+            Selection: null,
+            IndicatorBindings: [new ResearchIndicatorBindingV1("ema-20", "ema", 20)]);
+        var json = ResearchAnalysisReferenceCanonicalJsonV1.SerializeMany([reference]);
+        var sessions = new MemoryAuthoringSessionRepository();
+        sessions.Save(new AuthoringSessionSnapshot(
+            StrategyId: "saved-condition",
+            DisplayName: "Saved condition",
+            Chat: [],
+            Thread: [],
+            Files: [new StrategyFile(StrategyFile.DefaultName, "// draft")],
+            AuthoringUxVersion: AuthoringSessionSnapshot.CurrentAuthoringUxVersion,
+            UpdatedUtc: DateTime.UtcNow,
+            ResearchAnalysisReferencesJson: json));
+
+        using var restored = CreateVm(sessions);
+        restored.SelectedSavedSession = sessions.List().First(s => s.StrategyId == "saved-condition");
+
+        restored.HasDesignSignalOptions.Should().BeTrue();
+        restored.DesignSignalOptions.Should().ContainSingle()
+            .Which.Should().Contain("Finding A")
+            .And.Contain(condition.ConditionId);
+    }
+
+    [Fact]
+    public void Continue_to_Build_keeps_ORDERS_complete_for_intent_seed_mapping()
+    {
+        using var viewModel = CreateVm();
+
+        viewModel.DesignInstrumentText = "ES";
+        viewModel.DesignTimeframeText = "5m";
+        viewModel.DesignEntryRuleText = "close crosses above ema(20)";
+        viewModel.DesignSizingRuleText = "1 contract";
+        viewModel.DesignOrders.Side = DesignOrdersForm.SideLong;
+        viewModel.DesignOrders.OrderType = DesignOrdersForm.OrderTypeMarket;
+        viewModel.DesignOrders.TimeInForce = "Day";
+        viewModel.DesignRiskLimits.Add(new DesignRiskLimitRow
+        {
+            Type = "Daily loss",
+            ValueText = "2",
+            Unit = "% of equity",
+            Scope = "This strategy",
+            Action = "Stop new entries",
+        });
+
+        viewModel.ReviewDesignRulesCommand.Execute(null);
+        viewModel.DesignReviewWarningsAccepted = true;
+        viewModel.ContinueDesignToBuildCommand.Execute(null);
+
+        viewModel.DesignOrders.IsComplete.Should().BeTrue();
+        var seeds = DesignOrdersToIntentSeedV1.BuildSeeds(new DesignOrdersToIntentSeedV1.DesignOrdersSeedInput(
+            viewModel.DesignOrders.Side,
+            viewModel.DesignOrders.OrderType,
+            viewModel.DesignOrders.TimeInForce,
+            null));
+        seeds.Should().ContainKey(DesignOrdersToIntentSeedV1.RequirementOrderType);
+        seeds[DesignOrdersToIntentSeedV1.RequirementOrderType].Should().Contain("Market");
+        viewModel.Status.Should().Contain("intent");
     }
 
     private static StrategyAuthoringViewModel CreateVm(IAuthoringSessionRepository? repository = null) =>

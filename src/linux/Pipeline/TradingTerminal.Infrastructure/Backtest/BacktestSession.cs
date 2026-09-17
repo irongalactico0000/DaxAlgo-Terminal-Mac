@@ -62,7 +62,8 @@ public sealed class BacktestSession : IBacktestSession
         var fillModel = new L1FillModel(
             config.TickSize,
             config.SlippageTicks,
-            config.MaxFillQuantityPerTouch);
+            config.MaxFillQuantityPerTouch,
+            config.CapToOppositeL1Size);
         var latency = TimeSpan.FromMilliseconds(config.LatencyMs);
         var orderBook = new SimulatedOrderBook(clock, fillModel, latency);
         var router = new BacktestOrderRouter(orderBook, risk, clock);

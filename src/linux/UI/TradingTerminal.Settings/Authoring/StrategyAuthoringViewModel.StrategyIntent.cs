@@ -503,6 +503,7 @@ public sealed partial class StrategyAuthoringViewModel
                 changed: OnStrategyIntentRequirementEdited));
         }
         _strategyIntentRequirementContext = targetContext;
+        ApplyPendingDesignOrdersIntentSeedsToRows();
     }
 
     private void CaptureRequirementRowsInStash()

@@ -82,4 +82,30 @@ public sealed class DesignConditionOperandKindTests
         Assert.Equal("sma(10)", row.LeftIndicatorLabel);
         Assert.Equal("sma(10)", row.LeftOperand);
     }
+
+    [Fact]
+    public void Saved_condition_kind_alias_matches_signal_legacy()
+    {
+        Assert.Equal(DesignConditionRow.KindSavedCondition, DesignConditionRow.KindSignal);
+        Assert.Contains(DesignConditionRow.KindSavedCondition, DesignConditionRow.OperandKindOptions);
+        Assert.DoesNotContain("Saved signal", DesignConditionRow.OperandKindOptions);
+    }
+
+    [Fact]
+    public void Saved_condition_kind_uses_selected_id_token()
+    {
+        var row = new DesignConditionRow
+        {
+            LeftKind = DesignConditionRow.KindSavedCondition,
+            LeftSignalId = "Finding A · close crosses above ema(20) · cond-1",
+            OperatorKey = "is above",
+            RightKind = DesignConditionRow.KindConstant,
+            RightConstantParameter = DesignConditionRow.ConstantParameterNumber,
+            RightConstantText = "0",
+        };
+
+        Assert.Equal("Finding A · close crosses above ema(20) · cond-1", row.LeftOperand);
+        Assert.True(row.ShowLeftSignalPicker);
+        Assert.Contains("Research composites", row.LeftSignalEmptyHint, StringComparison.Ordinal);
+    }
 }

@@ -267,11 +267,16 @@
                         IsEnabled="{Binding ExecutionUnsupportedOptionsAvailable}"
                         Margin="0,0,8,4"
                         ToolTip.Tip="{Binding ExecutionUnsupportedOptionsExplanation}" />
-              <CheckBox Content="Liquidity consumption (unavailable)"
+              <CheckBox Content="Liquidity walk (unavailable)"
                         IsChecked="{Binding ExecutionEnableLiquidityConsumption}"
                         IsEnabled="{Binding ExecutionUnsupportedOptionsAvailable}"
                         Margin="0,0,8,4"
                         ToolTip.Tip="{Binding ExecutionUnsupportedOptionsExplanation}" />
+              <CheckBox Content="Opposite L1 size cap (BidSize/AskSize)"
+                        IsChecked="{Binding ExecutionEnableOppositeL1SizeCap}"
+                        IsEnabled="{Binding ExecutionOppositeL1SizeCapAvailable}"
+                        Margin="0,0,8,4"
+                        ToolTip.Tip="{Binding ExecutionOppositeL1SizeCapTip}" />
               <CheckBox Content="Partial fills (max 4 per touch)"
                         IsChecked="{Binding ExecutionEnablePartialFills}"
                         IsEnabled="{Binding ExecutionPartialsAndLatencyAvailable}"
@@ -2412,8 +2417,8 @@
                                 <ComboBox ItemsSource="{Binding DesignSignalOptions}"
                                           SelectedItem="{Binding DesignEntryCondition.LeftSignalId, Mode=TwoWay}"
                                           IsEnabled="{Binding HasDesignSignalOptions}"
-                                          PlaceholderText="Saved signal…"
-                                          AutomationProperties.Name="Design entry left signal" />
+                                          PlaceholderText="Saved condition…"
+                                          AutomationProperties.Name="Design entry left saved condition" />
                                 <TextBlock Text="{Binding DesignEntryCondition.LeftSignalEmptyHint}" Classes="caption"
                                            TextWrapping="Wrap"
                                            IsVisible="{Binding !HasDesignSignalOptions}" />
@@ -2451,8 +2456,8 @@
                                 <ComboBox ItemsSource="{Binding DesignSignalOptions}"
                                           SelectedItem="{Binding DesignEntryCondition.RightSignalId, Mode=TwoWay}"
                                           IsEnabled="{Binding HasDesignSignalOptions}"
-                                          PlaceholderText="Saved signal…"
-                                          AutomationProperties.Name="Design entry right signal" />
+                                          PlaceholderText="Saved condition…"
+                                          AutomationProperties.Name="Design entry right saved condition" />
                                 <TextBlock Text="{Binding DesignEntryCondition.RightSignalEmptyHint}" Classes="caption"
                                            TextWrapping="Wrap"
                                            IsVisible="{Binding !HasDesignSignalOptions}" />
@@ -2539,8 +2544,8 @@
                                 <ComboBox ItemsSource="{Binding DesignSignalOptions}"
                                           SelectedItem="{Binding DesignExitCondition.LeftSignalId, Mode=TwoWay}"
                                           IsEnabled="{Binding HasDesignSignalOptions}"
-                                          PlaceholderText="Saved signal…"
-                                          AutomationProperties.Name="Design exit left signal" />
+                                          PlaceholderText="Saved condition…"
+                                          AutomationProperties.Name="Design exit left saved condition" />
                                 <TextBlock Text="{Binding DesignExitCondition.LeftSignalEmptyHint}" Classes="caption"
                                            TextWrapping="Wrap"
                                            IsVisible="{Binding !HasDesignSignalOptions}" />
@@ -2578,8 +2583,8 @@
                                 <ComboBox ItemsSource="{Binding DesignSignalOptions}"
                                           SelectedItem="{Binding DesignExitCondition.RightSignalId, Mode=TwoWay}"
                                           IsEnabled="{Binding HasDesignSignalOptions}"
-                                          PlaceholderText="Saved signal…"
-                                          AutomationProperties.Name="Design exit right signal" />
+                                          PlaceholderText="Saved condition…"
+                                          AutomationProperties.Name="Design exit right saved condition" />
                                 <TextBlock Text="{Binding DesignExitCondition.RightSignalEmptyHint}" Classes="caption"
                                            TextWrapping="Wrap"
                                            IsVisible="{Binding !HasDesignSignalOptions}" />

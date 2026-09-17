@@ -76,6 +76,75 @@ public sealed class L1TouchFillModelPartialsTests
         Assert.True(model.TryFill(order, tick, out _, out var qty));
         Assert.Equal(10, qty);
     }
+
+    [Fact]
+    public void Session_opposite_l1_size_caps_buy_to_ask_size()
+    {
+        var model = new L1FillModel(
+            tickSize: 0.01,
+            slippageTicks: 0,
+            maxFillQuantityPerTouch: 0,
+            capToOppositeL1Size: true);
+        var order = new PendingOrder
+        {
+            Request = new OrderRequest(
+                "c1",
+                Contract.UsStock("TEST"),
+                OrderSide.Buy,
+                OrderType.Market,
+                Quantity: 10),
+            BrokerOrderId = "BT-1",
+        };
+        var tick = new Tick(DateTime.UtcNow, Bid: 99, Ask: 100, BidSize: 50, AskSize: 3);
+
+        Assert.True(model.TryFill(order, tick, out _, out var qty));
+        Assert.Equal(3, qty);
+    }
+
+    [Fact]
+    public void Session_opposite_l1_size_zero_means_no_fill()
+    {
+        var model = new L1FillModel(
+            tickSize: 0.01,
+            slippageTicks: 0,
+            maxFillQuantityPerTouch: 0,
+            capToOppositeL1Size: true);
+        var order = new PendingOrder
+        {
+            Request = new OrderRequest(
+                "c1",
+                Contract.UsStock("TEST"),
+                OrderSide.Sell,
+                OrderType.Market,
+                Quantity: 10),
+            BrokerOrderId = "BT-1",
+        };
+        var tick = new Tick(DateTime.UtcNow, Bid: 99, Ask: 100, BidSize: 0, AskSize: 100);
+
+        Assert.False(model.TryFill(order, tick, out _, out var qty));
+        Assert.Equal(0, qty);
+    }
+
+    [Fact]
+    public void Engine_opposite_l1_size_caps_with_max_per_touch()
+    {
+        var model = new EngineFill(slippageTicks: 0, maxFillQuantityPerTouch: 4, capToOppositeL1Size: true);
+        var order = new EngineOrder
+        {
+            Request = new OrderRequest(
+                "c1",
+                Contract.UsStock("TEST"),
+                OrderSide.Buy,
+                OrderType.Market,
+                Quantity: 10),
+            Instrument = new InstrumentId(1),
+            BrokerOrderId = "BT-1",
+        };
+        var tick = new Tick(DateTime.UtcNow, Bid: 99, Ask: 100, BidSize: 1, AskSize: 2);
+
+        Assert.True(model.TryFill(order, tick, tickSize: 0.01, out _, out var qty));
+        Assert.Equal(2, qty);
+    }
 }
 
 public sealed class ResearchCompareMetricsTests

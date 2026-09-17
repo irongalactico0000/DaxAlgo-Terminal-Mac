@@ -321,6 +321,11 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("Design instrument venue");
         root.ToString().Should().Contain("Design instrument picker status");
         root.ToString().Should().Contain("DesignOperandKindOptions");
+        root.ToString().Should().Contain("Saved condition");
+        root.ToString().Should().Contain("Design entry left saved condition");
+        root.ToString().Should().NotContain("Saved signal…");
+        root.ToString().Should().Contain("Opposite L1 size cap");
+        root.ToString().Should().Contain("ExecutionEnableOppositeL1SizeCap");
         root.ToString().Should().Contain("DesignConstantParameterOptions");
         root.ToString().Should().Contain("Design entry left operand kind");
         root.ToString().Should().Contain("Design entry left constant parameter");

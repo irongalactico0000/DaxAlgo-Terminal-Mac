@@ -1218,7 +1218,8 @@ public partial class MainWindow : Window
                 context,
                 appliedFidelity.DataModeToken,
                 executionLatencyMs: appliedFidelity.LatencyMs,
-                maxFillQuantityPerTouch: appliedFidelity.MaxFillPerTouch))
+                maxFillQuantityPerTouch: appliedFidelity.MaxFillPerTouch,
+                capToOppositeL1Size: appliedFidelity.OppositeL1SizeCapEnabled))
         {
             authoring.Status = backtest.Status;
             window.Close();

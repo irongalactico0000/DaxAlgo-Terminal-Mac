@@ -60,8 +60,10 @@ public sealed record BacktestConfig(
     IReadOnlyList<BacktestBarSeries>? ReplayBarSeries = null,
     // Simulated delay after submit before L1 fills may occur (ms). 0 = immediate.
     double LatencyMs = 0,
-    // When > 0, each L1 touch fills at most this many units (partials). 0 = full remaining.
-    long MaxFillQuantityPerTouch = 0);
+    // When > 0, each L1 touch fills at most this many units (partials). 0 = no fixed ceiling.
+    long MaxFillQuantityPerTouch = 0,
+    // Cap each fill to opposite L1 size (AskSize buys / BidSize sells). Proxy only — not queue walk.
+    bool CapToOppositeL1Size = false);
 
 /// <summary>
 /// One reviewed instrument's completed-bar history in a multi-series replay. Tick size and contract
