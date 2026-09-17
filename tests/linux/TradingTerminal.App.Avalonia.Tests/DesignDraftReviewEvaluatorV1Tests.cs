@@ -112,6 +112,7 @@ public sealed class DesignDraftReviewEvaluatorV1Tests
             Instrument: "",
             Timeframe: "",
             EvaluationTiming: "",
+            Indicators: Array.Empty<string>(),
             EntrySummary: "",
             ExitSummary: "",
             SizingSummary: "",

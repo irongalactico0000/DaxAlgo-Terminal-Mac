@@ -3886,6 +3886,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             DesignRiskRuleText = "";
             DesignOrderRuleText = "";
             DesignIndicators.Clear();
+            SelectedDesignIndicator = null;
             foreach (var row in DesignRiskLimits.ToArray())
                 DesignRiskLimits.Remove(row);
             ShowDesignReviewPanel = false;
@@ -4287,9 +4288,15 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         LastAppliedStarterId = session.LastAppliedStarterId;
         RestoreDesignIndicatorsFromSession(session.DesignIndicatorsJson);
         RestoreDesignRiskLimitsFromSession(session.DesignRiskLimitsJson);
+        // Rehydrate structured ORDERS ComboBoxes from freeform / summary text.
+        if (!string.IsNullOrWhiteSpace(session.DesignOrderRuleText))
+            TryParseOrdersFromFreeText(session.DesignOrderRuleText, DesignValueProvenance.Operator);
+        if (!string.IsNullOrWhiteSpace(session.DesignSizingRuleText) && !DesignSizing.IsComplete)
+            TryParseSizingFromFreeText(session.DesignSizingRuleText, DesignValueProvenance.Operator);
         AcceptedDesignReviewHashSha256 = session.AcceptedDesignReviewHashSha256;
         DesignReviewDraftHashSha256 = DesignDraftReviewEvaluatorV1.HashDraft(CaptureDesignDraftCanonical());
         OnPropertyChanged(nameof(IsDesignReviewCurrent));
+        SelectedDesignIndicator = DesignIndicators.FirstOrDefault();
         OnPropertyChanged(nameof(CanInvestigateInResearchStudio));
         InvestigateInResearchStudioCommand.NotifyCanExecuteChanged();
         NotifyDesignDraftChanged();

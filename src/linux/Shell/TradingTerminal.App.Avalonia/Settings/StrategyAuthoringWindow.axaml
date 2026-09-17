@@ -2286,9 +2286,13 @@
                           <TextBlock Text="INDICATORS (OPTIONAL)" Classes="eyebrow" />
                           <TextBlock Text="{Binding DesignIndicatorsEmptyHint}" Classes="caption"
                                      TextWrapping="Wrap" />
-                          <ItemsControl ItemsSource="{Binding DesignIndicators}"
-                                        AutomationProperties.Name="Design indicator list">
-                            <ItemsControl.ItemTemplate>
+                          <TextBlock Text="Select a row to edit period / input — same pick-then-type pattern as Constant."
+                                     Classes="caption" TextWrapping="Wrap" />
+                          <ListBox ItemsSource="{Binding DesignIndicators}"
+                                   SelectedItem="{Binding SelectedDesignIndicator, Mode=TwoWay}"
+                                   MaxHeight="140"
+                                   AutomationProperties.Name="Design indicator list">
+                            <ListBox.ItemTemplate>
                               <DataTemplate>
                                 <Grid ColumnDefinitions="*,Auto" Margin="0,2">
                                   <StackPanel Spacing="1">
@@ -2304,8 +2308,34 @@
                                           AutomationProperties.Name="Remove design indicator" />
                                 </Grid>
                               </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                          </ItemsControl>
+                            </ListBox.ItemTemplate>
+                          </ListBox>
+                          <Border IsVisible="{Binding HasSelectedDesignIndicator}"
+                                  Padding="8,6" CornerRadius="3"
+                                  Background="{StaticResource Background.Surface}"
+                                  BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                                  AutomationProperties.Name="Design indicator param editor">
+                            <StackPanel Spacing="6">
+                              <TextBlock Text="INDICATOR PARAMETERS" Classes="eyebrow" />
+                              <TextBlock Text="{Binding SelectedDesignIndicator.CanonicalToken}"
+                                         Classes="caption" FontFamily="{StaticResource Font.Data}"
+                                         TextWrapping="Wrap"
+                                         AutomationProperties.Name="Design indicator will-become" />
+                              <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Period" VerticalAlignment="Center" Classes="caption" />
+                                <TextBox Text="{Binding SelectedDesignIndicator.PeriodText, Mode=TwoWay}"
+                                         Watermark="period" Width="72"
+                                         AutomationProperties.Name="Design indicator period" />
+                                <TextBlock Text="Input" VerticalAlignment="Center" Classes="caption" />
+                                <ComboBox ItemsSource="{Binding DesignIndicatorInputOptions}"
+                                          SelectedItem="{Binding SelectedDesignIndicator.Input, Mode=TwoWay}"
+                                          MinWidth="88" HorizontalAlignment="Left"
+                                          AutomationProperties.Name="Design indicator input" />
+                              </StackPanel>
+                              <TextBlock Text="{Binding SelectedDesignIndicator.ProvenanceLabel}" Classes="caption"
+                                         IsVisible="{Binding SelectedDesignIndicator.ProvenanceLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            </StackPanel>
+                          </Border>
                           <StackPanel Orientation="Horizontal" Spacing="8">
                             <ComboBox ItemsSource="{Binding DesignIndicatorKindOptions}"
                                       SelectedItem="{Binding NewDesignIndicatorKind, Mode=TwoWay}"

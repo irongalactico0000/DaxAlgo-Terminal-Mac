@@ -36,6 +36,11 @@ public sealed partial class StrategyAuthoringViewModel
     [ObservableProperty] private DesignValueProvenance _designTimeframeProvenance = DesignValueProvenance.Unset;
     [ObservableProperty] private string _newDesignIndicatorKind = "ema";
     [ObservableProperty] private string _newDesignIndicatorPeriodText = "20";
+    [ObservableProperty] private DesignIndicatorRow? _selectedDesignIndicator;
+
+    public IReadOnlyList<string> DesignIndicatorInputOptions => DesignIndicatorRow.InputOptions;
+
+    public bool HasSelectedDesignIndicator => SelectedDesignIndicator is not null;
 
     /// <summary>Catalogue rows for Design instrument search (broker-tagged when available).</summary>
     public ObservableCollection<SignalInstrument> DesignInstrumentOptions { get; } = [];
@@ -846,7 +851,7 @@ public sealed partial class StrategyAuthoringViewModel
 
         var indicatorLine = DesignIndicators.Count == 0
             ? ""
-            : "INDICATORS: " + string.Join(", ", DesignIndicators.Select(static i => i.DisplayLabel));
+            : "INDICATORS: " + string.Join(", ", DesignIndicators.Select(static i => i.CanonicalToken));
         var conditionLine = DesignEntryCondition.IsComplete
             ? $"CONDITION: {DesignEntryCondition.SummaryText}"
             : "";
@@ -856,9 +861,11 @@ public sealed partial class StrategyAuthoringViewModel
         var sizingLine = DesignSizing.IsComplete
             ? $"SIZING: {DesignSizing.SummaryText}"
             : Line("SIZING", DesignSizingRuleText);
-        var riskLine = DesignRisk.IsComplete
-            ? $"RISK: {DesignRisk.SummaryText}"
-            : Line("RISK", DesignRiskRuleText);
+        var riskLine = DesignRiskLimits.Any(static r => r.IsComplete)
+            ? "RISK: " + string.Join("; ", DesignRiskLimits.Where(static r => r.IsComplete).Select(static r => r.SummaryText))
+            : DesignRisk.IsComplete
+                ? $"RISK: {DesignRisk.SummaryText}"
+                : Line("RISK", DesignRiskRuleText);
         var ordersLine = DesignOrders.IsComplete
             ? $"ORDERS: {DesignOrders.SummaryText}"
             : Line("ORDERS", DesignOrderRuleText);
@@ -1020,7 +1027,10 @@ public sealed partial class StrategyAuthoringViewModel
         }
 
         DesignIndicators.Add(row);
-        Status = $"Added {row.DisplayLabel} to Design. It is available for conditions — not an entry rule until you set one.";
+        SelectedDesignIndicator = row;
+        Status =
+            $"Added {row.DisplayLabel}. Edit period/input below, then use it in ENTRY/EXIT — " +
+            "not an entry rule until you set one.";
         NotifyDesignDraftChanged();
     }
 
@@ -1029,9 +1039,22 @@ public sealed partial class StrategyAuthoringViewModel
     {
         if (row is null) return;
         if (!DesignIndicators.Remove(row)) return;
+        if (ReferenceEquals(SelectedDesignIndicator, row))
+            SelectedDesignIndicator = DesignIndicators.FirstOrDefault();
         Status = $"Removed {row.DisplayLabel} from Design indicators.";
         NotifyDesignDraftChanged();
     }
+
+    [RelayCommand]
+    private void SelectDesignIndicator(DesignIndicatorRow? row)
+    {
+        SelectedDesignIndicator = row;
+        if (row is not null)
+            Status = $"Editing {row.DisplayLabel} — change period or input, then preview ENTRY if needed.";
+    }
+
+    partial void OnSelectedDesignIndicatorChanged(DesignIndicatorRow? value) =>
+        OnPropertyChanged(nameof(HasSelectedDesignIndicator));
 
     /// <summary>
     /// Copy Research chart bindings into Design as available indicators — does not invent an entry rule.

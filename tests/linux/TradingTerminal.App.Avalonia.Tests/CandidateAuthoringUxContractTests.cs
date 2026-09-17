@@ -348,6 +348,10 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("Hyperion design proposal review");
         root.ToString().Should().Contain("Finding design proposal review");
         root.ToString().Should().Contain("Design indicators editor");
+        root.ToString().Should().Contain("Design indicator param editor");
+        root.ToString().Should().Contain("Design indicator period");
+        root.ToString().Should().Contain("Design indicator input");
+        root.ToString().Should().Contain("DesignIndicatorInputOptions");
         root.ToString().Should().Contain("Design indicator formula detail");
         root.ToString().Should().Contain("FormulaDetailText");
         root.ToString().Should().Contain("Design entry condition editor");

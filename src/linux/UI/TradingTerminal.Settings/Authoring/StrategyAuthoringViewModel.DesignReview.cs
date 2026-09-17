@@ -122,6 +122,7 @@ public sealed partial class StrategyAuthoringViewModel
             Instrument: DesignInstrumentText?.Trim() ?? "",
             Timeframe: DesignTimeframeText?.Trim() ?? "",
             EvaluationTiming: DesignEvaluationTimingText?.Trim() ?? "",
+            Indicators: DesignIndicators.Select(static i => i.CanonicalToken).ToArray(),
             EntrySummary: DesignEntryCondition.IsComplete
                 ? DesignEntryCondition.SummaryText
                 : NonUnresolved(DesignEntryRuleText),
@@ -201,9 +202,13 @@ public sealed partial class StrategyAuthoringViewModel
         if (!CanContinueDesignToBuild) return;
         AcceptedDesignReviewHashSha256 = DesignReviewDraftHashSha256;
         OnPropertyChanged(nameof(IsDesignReviewCurrent));
+
+        // Carry the exact Design draft (incl. ORDERS side + 시장가/지정가) into Build brief/composer.
+        SeedBuildBriefFromDesignDraft();
+
         Status =
-            "Design review accepted for this exact draft hash. Opening Build — " +
-            "edit Design again and you must Review & continue once more.";
+            "Design review accepted for this exact draft hash. Build brief includes ORDERS/side. " +
+            "Edit Design again and you must Review & continue once more.";
         ShowDesignReviewPanel = false;
         if (OpenBuildScreenCommand.CanExecute(null))
             OpenBuildScreenCommand.Execute(null);
@@ -211,6 +216,25 @@ public sealed partial class StrategyAuthoringViewModel
             ActiveScreen = StrategyAuthoringScreen.Build;
         NotifyWorkingFlowMapChanged();
         NotifyBuildDesignBlockerStateChanged();
+    }
+
+    /// <summary>
+    /// Puts the live Design draft into the four-lane brief and Composer so Build generation
+    /// sees Side · Market/Limit · TIF without retyping.
+    /// </summary>
+    private void SeedBuildBriefFromDesignDraft()
+    {
+        var draft = BuildDesignDraftContextBlock();
+        if (string.IsNullOrWhiteSpace(draft))
+            return;
+
+        _fourLaneStrategyBrief = string.IsNullOrWhiteSpace(_fourLaneStrategyBrief)
+            ? draft
+            : CombineFourLaneStrategyBrief(_fourLaneStrategyBrief, draft);
+
+        Composer = AttachDesignDraftContextToChatPrompt(
+            "Build a runnable Paper strategy from this Design draft. " +
+            "Preserve ORDERS (side, 시장가/지정가, TIF) and RISK limits exactly.");
     }
 
     [RelayCommand]

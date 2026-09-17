@@ -35,6 +35,7 @@ public sealed record DesignDraftCanonicalV1(
     string Instrument,
     string Timeframe,
     string EvaluationTiming,
+    IReadOnlyList<string> Indicators,
     string EntrySummary,
     string ExitSummary,
     string SizingSummary,
@@ -103,6 +104,25 @@ public static class DesignDraftReviewEvaluatorV1
             readyWhen: !IsBlank(draft.EvaluationTiming) && !IsChoose(draft.EvaluationTiming),
             severityIfMissing: DesignReviewSeverityV1.Warning,
             missingDetail: "Evaluation timing not set — default may be assumed later.");
+
+        if (draft.Indicators.Count == 0)
+        {
+            items.Add(new DesignReviewItemV1(
+                "indicators",
+                "Indicators",
+                DesignReviewSeverityV1.Ready,
+                "None (optional) — add only if ENTRY/EXIT reference them.",
+                "indicators"));
+        }
+        else
+        {
+            items.Add(new DesignReviewItemV1(
+                "indicators",
+                "Indicators",
+                DesignReviewSeverityV1.Ready,
+                string.Join(", ", draft.Indicators),
+                "indicators"));
+        }
 
         if (!IsBlank(draft.EntrySummary))
         {
@@ -204,7 +224,7 @@ public static class DesignDraftReviewEvaluatorV1
                 "orders",
                 "Order instructions",
                 DesignReviewSeverityV1.Warning,
-                "Order type / TIF not set — you may continue after accepting warnings.",
+                "Order type / TIF / side not set — pick Long·Short·Both and 시장가/지정가, or accept warnings.",
                 "orders"));
         }
 

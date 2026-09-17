@@ -34,6 +34,9 @@ public static class DesignValueProvenanceLabels
 /// <summary>Editable Design indicator row. Optional — strategies need not use chart indicators.</summary>
 public sealed partial class DesignIndicatorRow : ObservableObject
 {
+    public static IReadOnlyList<string> InputOptions { get; } =
+        ["Close", "Open", "High", "Low", "HL2", "HLC3"];
+
     [ObservableProperty] private string _bindingId = "";
     [ObservableProperty] private string _kind = "ema";
     [ObservableProperty] private int _period = 20;
@@ -43,8 +46,26 @@ public sealed partial class DesignIndicatorRow : ObservableObject
     /// <summary>Period before the latest edit — used to retune Design ENTRY operands.</summary>
     public int PreviousPeriod { get; private set; } = 20;
 
+    /// <summary>Text box binding for period — rejects non-positive values.</summary>
+    public string PeriodText
+    {
+        get => Period.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        set
+        {
+            if (!int.TryParse(value?.Trim(), System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out var period) ||
+                period <= 0)
+                return;
+            Period = period;
+        }
+    }
+
     public string DisplayLabel =>
         Period > 0 ? $"{Kind.Trim()}({Period})" : Kind.Trim();
+
+    /// <summary>Canonical token for review hash / draft context (includes input).</summary>
+    public string CanonicalToken =>
+        $"{DisplayLabel}|input {(string.IsNullOrWhiteSpace(Input) ? "Close" : Input.Trim())}";
 
     public string FormulaDescription => ToBinding().FormulaDescription;
 
@@ -82,6 +103,8 @@ public sealed partial class DesignIndicatorRow : ObservableObject
     private void NotifyDisplay()
     {
         OnPropertyChanged(nameof(DisplayLabel));
+        OnPropertyChanged(nameof(CanonicalToken));
+        OnPropertyChanged(nameof(PeriodText));
         OnPropertyChanged(nameof(FormulaDescription));
         OnPropertyChanged(nameof(SettingsSummary));
         OnPropertyChanged(nameof(VersionShort));
