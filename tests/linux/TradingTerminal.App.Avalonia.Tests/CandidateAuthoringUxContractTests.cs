@@ -284,6 +284,12 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("DesignEntryRuleText");
         root.ToString().Should().Contain("OPTIONAL RESEARCH TEMPLATES");
         root.ToString().Should().Contain("Write trading rules");
+        root.ToString().Should().Contain("top chrome");
+        // Single Research Studio CTA lives on the stage chrome — not duplicated in empty/rule panes.
+        root.Descendants(Avalonia + "Button")
+            .Count(element =>
+                (string?)element.Attribute("AutomationProperties.Name") == "Open Research screen")
+            .Should().Be(1);
         researchWorkspace.Descendants(Avalonia + "Border").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Research embedded chart surface");
         researchWorkspace.Descendants(Avalonia + "Border").Should().Contain(element =>
@@ -709,9 +715,11 @@ public sealed class CandidateAuthoringUxContractTests
             "Order book / Footprint / Bookmap belong on the open chart, not Rank.");
         root.ToString().Should().Contain("PendingConditionMultipleText");
         root.ToString().Should().Contain("ApplyPendingResearchConditionCommand");
-        root.ToString().Should().Contain("SaveResearchReferenceACommand");
+        root.ToString().Should().Contain("SaveResearchFinding1Command");
         root.ToString().Should().Contain("Save finding 1");
         root.ToString().Should().Contain("SAVED FINDINGS");
+        root.ToString().Should().NotContain("Reference A/B");
+        root.ToString().Should().NotContain("Bookmark A");
         root.ToString().Should().Contain("OpenResearchConditionHitCommand");
         root.Descendants(Avalonia + "ComboBox").Should().Contain(element =>
             (string?)element.Attribute("ItemsSource") == "{Binding ResearchScreenBarSizeOptions}");

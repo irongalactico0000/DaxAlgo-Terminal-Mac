@@ -31,7 +31,7 @@ public sealed partial class StrategyAuthoringViewModel
     public string DesignRuleEditorHint =>
         HasResearchDesignHandoff
             ? "Linked Research finding is in the composer — turn it into explicit rules below."
-            : "Start from rules here, or open Research Studio for chart evidence. Templates remain optional in the left pane.";
+            : "Start from rules here, or use Research Studio in the top chrome for chart evidence. Templates remain optional in the left pane.";
 
     partial void OnDesignEntryRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));
     partial void OnDesignExitRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));

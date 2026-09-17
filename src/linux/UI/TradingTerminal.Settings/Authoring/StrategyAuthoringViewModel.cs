@@ -3652,7 +3652,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             ResearchExperimentEvidence = null;
             ResearchOutcomeGalleryResult = null;
             _researchAnalysisReferences.Clear();
-            NotifyResearchReferencesChanged();
+            NotifyResearchFindingsChanged();
             PendingStrategyDraft = null;
             AuthoredUnitSpecification = null;
             ConfirmedStrategyIntent = null;
@@ -3699,7 +3699,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             AiStatus = null;
             Status = IsResearchStudioShell
                 ? "New research. Open the chart, inspect events, and save findings — no strategy required."
-                : "New strategy project. Open Research Studio to investigate charts, or describe rules here.";
+                : "Design is open — edit entry, exit, sizing, risk, and order rules. Research Studio is optional.";
         }
         finally
         {

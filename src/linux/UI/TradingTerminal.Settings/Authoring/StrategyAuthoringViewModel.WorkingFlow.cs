@@ -74,7 +74,7 @@ public sealed partial class StrategyAuthoringViewModel
                     return "Next: select an event in RESULTS to load it on the Research chart.";
                 if (SelectedResearchGalleryCard is not null || HasResearchChartSelection)
                 {
-                    if (ResearchEventSampleCount == 0 && !HasResearchReferenceA && !HasResearchReferenceB)
+                    if (ResearchEventSampleCount == 0 && !HasResearchFinding1 && !HasResearchFinding2)
                         return "Next: review indicators, optionally label B/C/N, or Save finding — then Use in Strategy Builder.";
                     return "Next: Use in Strategy Builder to attach this finding to Design rules.";
                 }

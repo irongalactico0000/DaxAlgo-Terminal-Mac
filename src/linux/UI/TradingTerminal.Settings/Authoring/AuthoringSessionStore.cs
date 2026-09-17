@@ -32,7 +32,7 @@ public sealed record AuthoringChatEntry(
 /// <param name="StrategyDraftJson">Optional chart-authored strategy draft (stop/target). Unlocked drafts are not TradeIR.</param>
 /// <param name="ResearchConditionJson">Pending editable research condition (canon R08) — survives reopen without file re-upload.</param>
 /// <param name="ResearchConditionSearchResultJson">Last condition search result, including LiveMeetsCondition.</param>
-/// <param name="ResearchAnalysisReferencesJson">Named in-app research references A/B/… (canon R13).</param>
+/// <param name="ResearchAnalysisReferencesJson">Named in-app research findings 1/2/… (canon R13; ReferenceId stays A/B).</param>
 /// <param name="ResearchChartSelectionJson">Pending chart brush (U03) — survives reopen without re-selecting on the chart.</param>
 /// <param name="ResearchIndicatorBindingsJson">Pending indicator bindings captured with the chart brush (U04).</param>
 public sealed record AuthoringSessionSnapshot(

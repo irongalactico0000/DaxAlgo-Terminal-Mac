@@ -91,12 +91,12 @@ public sealed partial class StrategyAuthoringViewModel
         PendingResearchCondition is not null &&
         !IsResearchConditionSearching &&
         _researchConditionSearch is not null;
-    public bool CanSaveResearchReference => PendingResearchCondition is not null;
-    public bool HasResearchReferenceA => _researchAnalysisReferences.ContainsKey("A");
-    public bool HasResearchReferenceB => _researchAnalysisReferences.ContainsKey("B");
-    public string ResearchReferenceAText =>
+    public bool CanSaveResearchFinding => PendingResearchCondition is not null;
+    public bool HasResearchFinding1 => _researchAnalysisReferences.ContainsKey("A");
+    public bool HasResearchFinding2 => _researchAnalysisReferences.ContainsKey("B");
+    public string ResearchFinding1Text =>
         _researchAnalysisReferences.TryGetValue("A", out var a) ? a.SummaryText : "Finding 1: empty";
-    public string ResearchReferenceBText =>
+    public string ResearchFinding2Text =>
         _researchAnalysisReferences.TryGetValue("B", out var b) ? b.SummaryText : "Finding 2: empty";
     public string ResearchConditionSearchSummaryText => ResearchConditionSearchResult is null
         ? "No condition search yet. Apply a condition, then Search local or Search TSD."
@@ -144,8 +144,8 @@ public sealed partial class StrategyAuthoringViewModel
         GenerateCandidateFirst &&
         !IsGenerating &&
         (HasResearchChartSelection ||
-         HasResearchReferenceA ||
-         HasResearchReferenceB ||
+         HasResearchFinding1 ||
+         HasResearchFinding2 ||
          SelectedResearchGalleryCard is not null ||
          ResearchEventSampleCount > 0 ||
          HasPendingResearchCondition);
@@ -513,10 +513,10 @@ public sealed partial class StrategyAuthoringViewModel
         // Handoff unit is a saved finding (U07/R11), not chat prose alone.
         if (PendingResearchCondition is not null)
         {
-            if (!HasResearchReferenceA)
-                SaveResearchReference("A");
+            if (!HasResearchFinding1)
+                SaveResearchFindingSlot("A");
         }
-        else if (!HasResearchReferenceA && !HasResearchReferenceB)
+        else if (!HasResearchFinding1 && !HasResearchFinding2)
         {
             Status =
                 "Save a finding (applied condition + chart context) before Use in Strategy Builder. " +
@@ -533,10 +533,10 @@ public sealed partial class StrategyAuthoringViewModel
                 ? refB.Selection?.CanonicalSymbol
                 : null)
             ?? "the selected instrument";
-        var activeFinding = HasResearchReferenceA
-            ? ResearchReferenceAText
-            : HasResearchReferenceB
-                ? ResearchReferenceBText
+        var activeFinding = HasResearchFinding1
+            ? ResearchFinding1Text
+            : HasResearchFinding2
+                ? ResearchFinding2Text
                 : "(none)";
         var indicators = HasPendingResearchIndicatorBindings
             ? string.Join(", ", PendingResearchIndicatorBindings.Select(static b => b.DisplayLabel))
@@ -611,27 +611,57 @@ public sealed partial class StrategyAuthoringViewModel
         Save();
     }
 
-    [RelayCommand(CanExecute = nameof(CanSaveResearchReference))]
-    private void SaveResearchReferenceA() => SaveResearchReference("A");
+    [RelayCommand(CanExecute = nameof(CanSaveResearchFinding))]
+    private void SaveResearchFinding1() => SaveResearchFindingSlot("A");
 
-    [RelayCommand(CanExecute = nameof(CanSaveResearchReference))]
-    private void SaveResearchReferenceB() => SaveResearchReference("B");
+    [RelayCommand(CanExecute = nameof(CanSaveResearchFinding))]
+    private void SaveResearchFinding2() => SaveResearchFindingSlot("B");
 
-    [RelayCommand(CanExecute = nameof(HasResearchReferenceA))]
-    private void RestoreResearchReferenceA() => RestoreResearchReference("A");
+    [RelayCommand(CanExecute = nameof(HasResearchFinding1))]
+    private void RestoreResearchFinding1() => RestoreResearchFindingSlot("A");
 
-    [RelayCommand(CanExecute = nameof(HasResearchReferenceB))]
-    private void RestoreResearchReferenceB() => RestoreResearchReference("B");
+    [RelayCommand(CanExecute = nameof(HasResearchFinding2))]
+    private void RestoreResearchFinding2() => RestoreResearchFindingSlot("B");
 
-    private void SaveResearchReference(string label)
+    /// <summary>
+    /// Slot keys stay "A"/"B" in session JSON; display Label is "Finding 1"/"Finding 2".
+    /// Accepts "A"/"1" and "B"/"2" when restoring.
+    /// </summary>
+    private static string NormalizeResearchFindingSlot(string slot) =>
+        slot.Trim().ToUpperInvariant() switch
+        {
+            "1" or "A" => "A",
+            "2" or "B" => "B",
+            var other => other,
+        };
+
+    private static string ResearchFindingDisplayLabel(string referenceId) =>
+        referenceId switch
+        {
+            "A" => "Finding 1",
+            "B" => "Finding 2",
+            _ => referenceId,
+        };
+
+    private static int ResearchFindingOrdinal(string referenceId) =>
+        referenceId switch
+        {
+            "A" => 1,
+            "B" => 2,
+            _ => 0,
+        };
+
+    private void SaveResearchFindingSlot(string slot)
     {
         if (PendingResearchCondition is not { } condition)
             return;
 
+        var referenceId = NormalizeResearchFindingSlot(slot);
+        var displayLabel = ResearchFindingDisplayLabel(referenceId);
         var reference = new ResearchAnalysisReferenceV1(
             ResearchAnalysisReferenceV1.CurrentSchemaVersion,
-            ReferenceId: label.Trim().ToUpperInvariant(),
-            Label: label.Trim().ToUpperInvariant(),
+            ReferenceId: referenceId,
+            Label: displayLabel,
             SavedAtUtc: DateTimeOffset.UtcNow,
             Condition: condition,
             SearchResult: ResearchConditionSearchResult,
@@ -641,16 +671,22 @@ public sealed partial class StrategyAuthoringViewModel
                 : PendingResearchIndicatorBindings.ToArray());
 
         _researchAnalysisReferences[reference.ReferenceId] = reference;
-        NotifyResearchReferencesChanged();
-        Status = $"Saved research reference {reference.ReferenceId} in-app (no file upload) · {reference.SummaryText}";
+        NotifyResearchFindingsChanged();
+        var ordinal = ResearchFindingOrdinal(reference.ReferenceId);
+        Status = ordinal > 0
+            ? $"Saved research finding {ordinal} in-app (no file upload) · {reference.SummaryText}"
+            : $"Saved research finding {displayLabel} in-app (no file upload) · {reference.SummaryText}";
         Save();
     }
 
-    private void RestoreResearchReference(string label)
+    private void RestoreResearchFindingSlot(string slot)
     {
-        if (!_researchAnalysisReferences.TryGetValue(label, out var reference))
+        var referenceId = NormalizeResearchFindingSlot(slot);
+        if (!_researchAnalysisReferences.TryGetValue(referenceId, out var reference) &&
+            !_researchAnalysisReferences.TryGetValue(slot.Trim(), out reference))
         {
-            Status = $"Research reference {label} is empty.";
+            var emptyLabel = ResearchFindingDisplayLabel(referenceId);
+            Status = $"{emptyLabel} is empty.";
             return;
         }
 
@@ -669,15 +705,18 @@ public sealed partial class StrategyAuthoringViewModel
             ? OverlayIdsFromBindings(PendingResearchIndicatorBindings)
             : Array.Empty<string>();
         EnterResearchWorkspace();
-        Status = $"Restored reference {reference.ReferenceId} · {reference.SummaryText}";
+        var ordinal = ResearchFindingOrdinal(reference.ReferenceId);
+        Status = ordinal > 0
+            ? $"Restored finding {ordinal} · {reference.SummaryText}"
+            : $"Restored {ResearchFindingDisplayLabel(reference.ReferenceId)} · {reference.SummaryText}";
         SearchResearchConditionLocalCommand.NotifyCanExecuteChanged();
         SearchResearchConditionTsdCommand.NotifyCanExecuteChanged();
         BindResearchConditionToDraftCommand.NotifyCanExecuteChanged();
-        SaveResearchReferenceACommand.NotifyCanExecuteChanged();
-        SaveResearchReferenceBCommand.NotifyCanExecuteChanged();
+        SaveResearchFinding1Command.NotifyCanExecuteChanged();
+        SaveResearchFinding2Command.NotifyCanExecuteChanged();
         Save();
 
-        // Drive the shared Research chart so Restore A/B is not authoring-only.
+        // Drive the shared Research chart so Restore finding 1/2 is not authoring-only.
         if (reference.Selection is { } selection)
         {
             HostChartOverlayPreviewRequested?.Invoke(
@@ -695,18 +734,18 @@ public sealed partial class StrategyAuthoringViewModel
         }
     }
 
-    private void NotifyResearchReferencesChanged()
+    private void NotifyResearchFindingsChanged()
     {
-        OnPropertyChanged(nameof(HasResearchReferenceA));
-        OnPropertyChanged(nameof(HasResearchReferenceB));
-        OnPropertyChanged(nameof(ResearchReferenceAText));
-        OnPropertyChanged(nameof(ResearchReferenceBText));
-        OnPropertyChanged(nameof(CanSaveResearchReference));
+        OnPropertyChanged(nameof(HasResearchFinding1));
+        OnPropertyChanged(nameof(HasResearchFinding2));
+        OnPropertyChanged(nameof(ResearchFinding1Text));
+        OnPropertyChanged(nameof(ResearchFinding2Text));
+        OnPropertyChanged(nameof(CanSaveResearchFinding));
         OnPropertyChanged(nameof(CanUseObservationInDesign));
-        RestoreResearchReferenceACommand.NotifyCanExecuteChanged();
-        RestoreResearchReferenceBCommand.NotifyCanExecuteChanged();
-        SaveResearchReferenceACommand.NotifyCanExecuteChanged();
-        SaveResearchReferenceBCommand.NotifyCanExecuteChanged();
+        RestoreResearchFinding1Command.NotifyCanExecuteChanged();
+        RestoreResearchFinding2Command.NotifyCanExecuteChanged();
+        SaveResearchFinding1Command.NotifyCanExecuteChanged();
+        SaveResearchFinding2Command.NotifyCanExecuteChanged();
         UseObservationInDesignCommand.NotifyCanExecuteChanged();
     }
 
@@ -1211,7 +1250,7 @@ public sealed partial class StrategyAuthoringViewModel
         PendingResearchCondition = null;
         ResearchConditionSearchResult = null;
         _researchAnalysisReferences.Clear();
-        NotifyResearchReferencesChanged();
+        NotifyResearchFindingsChanged();
         if (string.IsNullOrWhiteSpace(session.ResearchDatasetJson))
         {
             RestoreResearchConditionState(session, ref restoreWarning);
@@ -1269,9 +1308,9 @@ public sealed partial class StrategyAuthoringViewModel
         SearchResearchConditionTsdCommand.NotifyCanExecuteChanged();
         BindResearchConditionToDraftCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(ResearchConditionValidityBadgeText));
-        OnPropertyChanged(nameof(CanSaveResearchReference));
-        SaveResearchReferenceACommand.NotifyCanExecuteChanged();
-        SaveResearchReferenceBCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanSaveResearchFinding));
+        SaveResearchFinding1Command.NotifyCanExecuteChanged();
+        SaveResearchFinding2Command.NotifyCanExecuteChanged();
 
         if (!string.IsNullOrWhiteSpace(session.ResearchAnalysisReferencesJson))
         {
@@ -1281,16 +1320,19 @@ public sealed partial class StrategyAuthoringViewModel
                 foreach (var reference in ResearchAnalysisReferenceCanonicalJsonV1.DeserializeMany(
                              session.ResearchAnalysisReferencesJson))
                 {
-                    _researchAnalysisReferences[reference.ReferenceId] = reference;
+                    var slot = NormalizeResearchFindingSlot(reference.ReferenceId);
+                    _researchAnalysisReferences[slot] = reference.ReferenceId == slot
+                        ? reference
+                        : reference with { ReferenceId = slot };
                 }
 
-                NotifyResearchReferencesChanged();
+                NotifyResearchFindingsChanged();
             }
             catch (Exception exception) when (exception is ArgumentException or System.Text.Json.JsonException)
             {
-                _logger.LogWarning(exception, "Could not restore research references for {Id}", session.StrategyId);
+                _logger.LogWarning(exception, "Could not restore research findings for {Id}", session.StrategyId);
                 _researchAnalysisReferences.Clear();
-                NotifyResearchReferencesChanged();
+                NotifyResearchFindingsChanged();
             }
         }
 
@@ -1432,14 +1474,14 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(HasPendingResearchCondition));
         OnPropertyChanged(nameof(CanSearchResearchCondition));
         OnPropertyChanged(nameof(CanBindResearchConditionToDraft));
-        OnPropertyChanged(nameof(CanSaveResearchReference));
+        OnPropertyChanged(nameof(CanSaveResearchFinding));
         OnPropertyChanged(nameof(ResearchConditionValidityBadgeText));
         OnPropertyChanged(nameof(CanUseObservationInDesign));
         SearchResearchConditionLocalCommand.NotifyCanExecuteChanged();
         SearchResearchConditionTsdCommand.NotifyCanExecuteChanged();
         BindResearchConditionToDraftCommand.NotifyCanExecuteChanged();
-        SaveResearchReferenceACommand.NotifyCanExecuteChanged();
-        SaveResearchReferenceBCommand.NotifyCanExecuteChanged();
+        SaveResearchFinding1Command.NotifyCanExecuteChanged();
+        SaveResearchFinding2Command.NotifyCanExecuteChanged();
         UseObservationInDesignCommand.NotifyCanExecuteChanged();
     }
 

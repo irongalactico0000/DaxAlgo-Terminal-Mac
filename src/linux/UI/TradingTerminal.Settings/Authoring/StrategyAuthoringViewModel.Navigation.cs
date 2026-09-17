@@ -352,9 +352,9 @@ public sealed partial class StrategyAuthoringViewModel
                 StrategyAuthoringScreen.Brief =>
                     "Editable project description. Use Research Studio for charts and investigation.",
                 StrategyAuthoringScreen.Research =>
-                    "Open Research Studio for chart-first investigation. Strategy stages stay in Builder.",
+                    "Chart-first investigation. Findings hand off into Design — Research is not a Builder stage.",
                 StrategyAuthoringScreen.Design =>
-                    "Turn observations into explicit entry, exit, sizing, and risk rules.",
+                    "Edit entry, exit, sizing, risk, and order rules. Research Studio is optional chrome.",
                 StrategyAuthoringScreen.Build when ShowNativeStrategyRunPanel =>
                     "Inspect a retained native research → compare run.",
                 StrategyAuthoringScreen.Build =>

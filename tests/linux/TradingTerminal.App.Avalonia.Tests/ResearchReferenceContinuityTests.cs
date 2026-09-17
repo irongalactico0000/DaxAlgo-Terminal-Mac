@@ -14,7 +14,7 @@ using Xunit;
 namespace TradingTerminal.App.Avalonia.Tests;
 
 /// <summary>
-/// Step 4 / V04: selection → condition → named refs A/B survive session JSON round-trip
+/// Step 4 / V04: selection → condition → named findings 1/2 survive session JSON round-trip
 /// (quit/reopen stand-in) without chart re-upload.
 /// </summary>
 public sealed class ResearchReferenceContinuityTests
@@ -26,7 +26,7 @@ public sealed class ResearchReferenceContinuityTests
     };
 
     [Fact]
-    public void Selection_condition_and_refs_A_B_restore_after_session_reload()
+    public void Selection_condition_and_findings_1_2_restore_after_session_reload()
     {
         var repository = new MemorySessionRepository();
         var selectionA = Selection("BTC-USD", minutesOffset: 0);
@@ -40,17 +40,17 @@ public sealed class ResearchReferenceContinuityTests
             viewModel.PendingConditionMultipleText = "2";
             viewModel.PendingConditionLookbackText = "20";
             viewModel.ApplyPendingResearchConditionCommand.Execute(null);
-            viewModel.SaveResearchReferenceACommand.Execute(null);
+            viewModel.SaveResearchFinding1Command.Execute(null);
 
             viewModel.SetResearchChartSelection(
                 selectionB,
                 indicatorBindings: [new ResearchIndicatorBindingV1("ema-50", "ema", 50)]);
             viewModel.PendingConditionMultipleText = "3";
             viewModel.ApplyPendingResearchConditionCommand.Execute(null);
-            viewModel.SaveResearchReferenceBCommand.Execute(null);
+            viewModel.SaveResearchFinding2Command.Execute(null);
 
-            viewModel.HasResearchReferenceA.Should().BeTrue();
-            viewModel.HasResearchReferenceB.Should().BeTrue();
+            viewModel.HasResearchFinding1.Should().BeTrue();
+            viewModel.HasResearchFinding2.Should().BeTrue();
             repository.Saved.Should().NotBeNull();
             repository.Saved!.ResearchAnalysisReferencesJson.Should().NotBeNullOrWhiteSpace();
             repository.Saved.ResearchChartSelectionJson.Should().NotBeNullOrWhiteSpace();
@@ -66,20 +66,20 @@ public sealed class ResearchReferenceContinuityTests
 
         using var restored = Create(repository);
         restored.SelectedSavedSession = repository.Saved;
-        restored.HasResearchReferenceA.Should().BeTrue();
-        restored.HasResearchReferenceB.Should().BeTrue();
+        restored.HasResearchFinding1.Should().BeTrue();
+        restored.HasResearchFinding2.Should().BeTrue();
         restored.HasResearchChartSelection.Should().BeTrue(
             "pending brush must restore without re-selecting on the chart");
         restored.PendingResearchChartSelection!.CanonicalSymbol.Should().Be("ETH-USD");
         restored.PendingResearchIndicatorBindings.Should().ContainSingle(b => b.Period == 50);
         restored.PendingResearchCondition!.Threshold.Should().Be(3);
 
-        restored.RestoreResearchReferenceACommand.Execute(null);
+        restored.RestoreResearchFinding1Command.Execute(null);
         restored.PendingResearchCondition!.Threshold.Should().Be(2);
         restored.PendingResearchChartSelection!.CanonicalSymbol.Should().Be("BTC-USD");
         restored.PendingResearchIndicatorBindings.Should().ContainSingle(b => b.Period == 21);
 
-        restored.RestoreResearchReferenceBCommand.Execute(null);
+        restored.RestoreResearchFinding2Command.Execute(null);
         restored.PendingResearchCondition!.Threshold.Should().Be(3);
         restored.PendingResearchChartSelection!.CanonicalSymbol.Should().Be("ETH-USD");
         restored.PendingResearchIndicatorBindings.Should().ContainSingle(b => b.Period == 50);

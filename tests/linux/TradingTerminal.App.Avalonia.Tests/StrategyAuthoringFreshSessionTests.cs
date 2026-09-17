@@ -454,7 +454,7 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.PendingConditionMultipleText = "2";
         viewModel.PendingConditionLookbackText = "20";
         viewModel.ApplyPendingResearchConditionCommand.Execute(null);
-        viewModel.SaveResearchReferenceACommand.Execute(null);
+        viewModel.SaveResearchFinding1Command.Execute(null);
 
         viewModel.AuthoredUnitSpecification.Should().BeNull(
             "saving a research observation must not freeze a visualizer or strategy specification");

@@ -200,4 +200,4 @@ Reply with **yes** / deltas:
 
 So: **approve the flow.** Stage-unify (item #2) is implemented: Builder rail is Design→Build→Validate→Run; Research is a de-numbered chrome link; FreshSession/UX contract lock the new model; B/C/N are optional (ghost).
 
-**Remaining:** finding rename sweep (`ReferenceA` → Finding1 internals), layout dedupe of duplicate Research CTAs.
+**Shipped (2026-09-17):** stage-unify + Finding 1/2 API + single Research chrome CTA. Remaining: optional layout polish only.
