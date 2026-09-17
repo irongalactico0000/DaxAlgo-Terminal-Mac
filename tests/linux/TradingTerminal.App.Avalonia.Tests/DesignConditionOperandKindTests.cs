@@ -14,6 +14,7 @@ public sealed class DesignConditionOperandKindTests
             LeftKind = DesignConditionRow.KindPrice,
             OperatorKey = "is above",
             RightKind = DesignConditionRow.KindConstant,
+            RightConstantParameter = DesignConditionRow.ConstantParameterPrice,
             RightConstantText = "100",
         };
 
@@ -21,6 +22,37 @@ public sealed class DesignConditionOperandKindTests
         Assert.Equal("100", row.RightOperand);
         Assert.True(row.IsComplete);
         Assert.Equal("close is above 100", row.SummaryText);
+        Assert.Contains("Absolute market price", row.RightConstantHint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Constant_rejects_non_numeric_value()
+    {
+        var row = new DesignConditionRow
+        {
+            LeftKind = DesignConditionRow.KindPrice,
+            OperatorKey = "is above",
+            RightKind = DesignConditionRow.KindConstant,
+            RightConstantParameter = DesignConditionRow.ConstantParameterNumber,
+            RightConstantText = "not-a-number",
+        };
+
+        Assert.Equal("", row.RightOperand);
+        Assert.False(row.IsComplete);
+    }
+
+    [Fact]
+    public void Constant_number_parameter_hint_is_unitless()
+    {
+        var row = new DesignConditionRow
+        {
+            RightKind = DesignConditionRow.KindConstant,
+            RightConstantParameter = DesignConditionRow.ConstantParameterNumber,
+            RightConstantText = "70",
+        };
+
+        Assert.Contains("Unitless threshold", row.RightConstantHint, StringComparison.Ordinal);
+        Assert.Equal("70", row.RightOperand);
     }
 
     [Fact]

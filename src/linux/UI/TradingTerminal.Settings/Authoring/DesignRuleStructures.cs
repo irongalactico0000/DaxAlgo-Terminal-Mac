@@ -149,6 +149,7 @@ public sealed record DesignIndicatorSessionV1(
 /// Structured entry/exit condition. "Crosses above" is distinct from "is above".
 /// Operand kinds drive the editors; <see cref="LeftOperand"/> / <see cref="RightOperand"/> stay the
 /// canonical tokens used by preview/eval and summaries.
+/// Constant uses a parameter pick (Price / Number) plus a typed numeric value — not freeform text.
 /// </summary>
 public sealed partial class DesignConditionRow : ObservableObject
 {
@@ -157,6 +158,11 @@ public sealed partial class DesignConditionRow : ObservableObject
     public const string KindSignal = "Saved signal";
     public const string KindConstant = "Constant";
     public const string KindExpression = "Advanced expression";
+
+    /// <summary>Absolute market price level (e.g. 5200).</summary>
+    public const string ConstantParameterPrice = "Price";
+    /// <summary>Unitless threshold (e.g. RSI 70, ratio 0.5).</summary>
+    public const string ConstantParameterNumber = "Number";
 
     public static IReadOnlyList<string> OperatorOptions { get; } =
     [
@@ -176,10 +182,18 @@ public sealed partial class DesignConditionRow : ObservableObject
         KindExpression,
     ];
 
+    public static IReadOnlyList<string> ConstantParameterOptions { get; } =
+    [
+        ConstantParameterPrice,
+        ConstantParameterNumber,
+    ];
+
     [ObservableProperty] private string _leftKind = KindIndicator;
     [ObservableProperty] private string _rightKind = KindIndicator;
     [ObservableProperty] private string _leftIndicatorLabel = "";
     [ObservableProperty] private string _rightIndicatorLabel = "";
+    [ObservableProperty] private string _leftConstantParameter = ConstantParameterNumber;
+    [ObservableProperty] private string _rightConstantParameter = ConstantParameterNumber;
     [ObservableProperty] private string _leftConstantText = "";
     [ObservableProperty] private string _rightConstantText = "";
     [ObservableProperty] private string _leftExpressionText = "";
@@ -194,9 +208,9 @@ public sealed partial class DesignConditionRow : ObservableObject
     private bool _rebuildingOperands;
 
     public bool IsComplete =>
-        !string.IsNullOrWhiteSpace(LeftOperand) &&
+        IsOperandReady(LeftKind, LeftOperand, LeftConstantText) &&
         !string.IsNullOrWhiteSpace(OperatorKey) &&
-        !string.IsNullOrWhiteSpace(RightOperand);
+        IsOperandReady(RightKind, RightOperand, RightConstantText);
 
     public string SummaryText =>
         IsComplete
@@ -227,6 +241,11 @@ public sealed partial class DesignConditionRow : ObservableObject
     public bool ShowRightPriceHint =>
         string.Equals(RightKind, KindPrice, StringComparison.Ordinal);
 
+    public string LeftConstantHint => ConstantParameterHint(LeftConstantParameter);
+    public string RightConstantHint => ConstantParameterHint(RightConstantParameter);
+    public string LeftConstantWatermark => ConstantParameterWatermark(LeftConstantParameter);
+    public string RightConstantWatermark => ConstantParameterWatermark(RightConstantParameter);
+
     public string LeftSignalEmptyHint =>
         "No saved signals in this draft yet — Research/Hyperion signals land here later.";
     public string RightSignalEmptyHint => LeftSignalEmptyHint;
@@ -253,6 +272,22 @@ public sealed partial class DesignConditionRow : ObservableObject
 
     partial void OnRightIndicatorLabelChanged(string value)
     {
+        if (!_rebuildingOperands)
+            RebuildRightOperandFromKind();
+    }
+
+    partial void OnLeftConstantParameterChanged(string value)
+    {
+        OnPropertyChanged(nameof(LeftConstantHint));
+        OnPropertyChanged(nameof(LeftConstantWatermark));
+        if (!_rebuildingOperands)
+            RebuildLeftOperandFromKind();
+    }
+
+    partial void OnRightConstantParameterChanged(string value)
+    {
+        OnPropertyChanged(nameof(RightConstantHint));
+        OnPropertyChanged(nameof(RightConstantWatermark));
         if (!_rebuildingOperands)
             RebuildRightOperandFromKind();
     }
@@ -352,7 +387,7 @@ public sealed partial class DesignConditionRow : ObservableObject
         {
             KindPrice => "close",
             KindIndicator => indicatorLabel.Trim(),
-            KindConstant => constantText.Trim(),
+            KindConstant => TryNormalizeConstantNumber(constantText, out var normalized) ? normalized : "",
             KindExpression => expressionText.Trim(),
             KindSignal => string.IsNullOrWhiteSpace(signalId) ? "" : signalId.Trim(),
             _ => expressionText.Trim(),
@@ -368,8 +403,7 @@ public sealed partial class DesignConditionRow : ObservableObject
         if (string.Equals(token, "close", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(token, "price", StringComparison.OrdinalIgnoreCase))
             kind = KindPrice;
-        else if (double.TryParse(token, System.Globalization.NumberStyles.Float,
-                     System.Globalization.CultureInfo.InvariantCulture, out _))
+        else if (TryNormalizeConstantNumber(token, out _))
             kind = KindConstant;
         else if (DesignConditionChartPreviewEvaluatorV1.TryParseSeriesOperand(token, out _, out _))
             kind = KindIndicator;
@@ -388,7 +422,11 @@ public sealed partial class DesignConditionRow : ObservableObject
                         LeftIndicatorLabel = token;
                         break;
                     case KindConstant:
-                        LeftConstantText = token;
+                        if (TryNormalizeConstantNumber(token, out var leftNum))
+                            LeftConstantText = leftNum;
+                        // Keep existing parameter (Price vs Number); default Number on blank.
+                        if (string.IsNullOrWhiteSpace(LeftConstantParameter))
+                            LeftConstantParameter = ConstantParameterNumber;
                         break;
                     case KindExpression:
                         LeftExpressionText = token;
@@ -404,7 +442,10 @@ public sealed partial class DesignConditionRow : ObservableObject
                         RightIndicatorLabel = token;
                         break;
                     case KindConstant:
-                        RightConstantText = token;
+                        if (TryNormalizeConstantNumber(token, out var rightNum))
+                            RightConstantText = rightNum;
+                        if (string.IsNullOrWhiteSpace(RightConstantParameter))
+                            RightConstantParameter = ConstantParameterNumber;
                         break;
                     case KindExpression:
                         RightExpressionText = token;
@@ -427,11 +468,15 @@ public sealed partial class DesignConditionRow : ObservableObject
         OnPropertyChanged(nameof(ShowLeftExpression));
         OnPropertyChanged(nameof(ShowLeftSignalPicker));
         OnPropertyChanged(nameof(ShowLeftPriceHint));
+        OnPropertyChanged(nameof(LeftConstantHint));
+        OnPropertyChanged(nameof(LeftConstantWatermark));
         OnPropertyChanged(nameof(ShowRightIndicatorPicker));
         OnPropertyChanged(nameof(ShowRightConstant));
         OnPropertyChanged(nameof(ShowRightExpression));
         OnPropertyChanged(nameof(ShowRightSignalPicker));
         OnPropertyChanged(nameof(ShowRightPriceHint));
+        OnPropertyChanged(nameof(RightConstantHint));
+        OnPropertyChanged(nameof(RightConstantWatermark));
     }
 
     private void NotifyShape()
@@ -439,6 +484,41 @@ public sealed partial class DesignConditionRow : ObservableObject
         OnPropertyChanged(nameof(IsComplete));
         OnPropertyChanged(nameof(SummaryText));
     }
+
+    private static bool IsOperandReady(string kind, string operand, string constantText)
+    {
+        if (string.Equals(kind, KindConstant, StringComparison.Ordinal))
+            return TryNormalizeConstantNumber(constantText, out _);
+        return !string.IsNullOrWhiteSpace(operand);
+    }
+
+    /// <summary>Accepts a real number; stores invariant form for the rule token.</summary>
+    public static bool TryNormalizeConstantNumber(string? text, out string normalized)
+    {
+        normalized = "";
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+        if (!double.TryParse(
+                text.Trim(),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var value) ||
+            double.IsNaN(value) ||
+            double.IsInfinity(value))
+            return false;
+        normalized = value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return true;
+    }
+
+    private static string ConstantParameterHint(string parameter) =>
+        string.Equals(parameter, ConstantParameterPrice, StringComparison.Ordinal)
+            ? "Absolute market price (e.g. close crosses above 5200)."
+            : "Unitless threshold (e.g. RSI is above 70, or ratio 0.5).";
+
+    private static string ConstantParameterWatermark(string parameter) =>
+        string.Equals(parameter, ConstantParameterPrice, StringComparison.Ordinal)
+            ? "price e.g. 5200"
+            : "number e.g. 70";
 
     public void Clear()
     {
@@ -449,6 +529,8 @@ public sealed partial class DesignConditionRow : ObservableObject
             RightKind = KindIndicator;
             LeftIndicatorLabel = "";
             RightIndicatorLabel = "";
+            LeftConstantParameter = ConstantParameterNumber;
+            RightConstantParameter = ConstantParameterNumber;
             LeftConstantText = "";
             RightConstantText = "";
             LeftExpressionText = "";

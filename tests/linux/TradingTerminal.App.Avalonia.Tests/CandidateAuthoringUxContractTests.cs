@@ -321,7 +321,13 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("Design instrument venue");
         root.ToString().Should().Contain("Design instrument picker status");
         root.ToString().Should().Contain("DesignOperandKindOptions");
+        root.ToString().Should().Contain("DesignConstantParameterOptions");
         root.ToString().Should().Contain("Design entry left operand kind");
+        root.ToString().Should().Contain("Design entry left constant parameter");
+        root.ToString().Should().Contain("Design entry left constant value");
+        root.ToString().Should().Contain("Design entry right constant parameter");
+        root.ToString().Should().Contain("Design entry right constant value");
+        root.ToString().Should().NotContain("Watermark=\"constant\"");
         root.ToString().Should().Contain("Design entry summary");
         root.ToString().Should().Contain("Design entry notes");
         root.ToString().Should().Contain("Design composer draft attachment");

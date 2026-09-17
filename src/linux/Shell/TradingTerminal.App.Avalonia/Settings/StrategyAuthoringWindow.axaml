@@ -2357,9 +2357,21 @@
                                         PlaceholderText="Pick saved indicator…"
                                         MinWidth="120"
                                         AutomationProperties.Name="Design entry left indicator" />
-                              <TextBox Text="{Binding DesignEntryCondition.LeftConstantText, Mode=TwoWay}"
-                                       Watermark="constant" IsVisible="{Binding DesignEntryCondition.ShowLeftConstant}"
-                                       AutomationProperties.Name="Design entry left constant" />
+                              <StackPanel IsVisible="{Binding DesignEntryCondition.ShowLeftConstant}" Spacing="2">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                  <ComboBox ItemsSource="{Binding DesignConstantParameterOptions}"
+                                            SelectedItem="{Binding DesignEntryCondition.LeftConstantParameter, Mode=TwoWay}"
+                                            MinWidth="88" HorizontalAlignment="Left"
+                                            AutomationProperties.Name="Design entry left constant parameter" />
+                                  <TextBox Text="{Binding DesignEntryCondition.LeftConstantText, Mode=TwoWay}"
+                                           Watermark="{Binding DesignEntryCondition.LeftConstantWatermark}"
+                                           Width="110"
+                                           AutomationProperties.Name="Design entry left constant value" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding DesignEntryCondition.LeftConstantHint}" Classes="caption"
+                                           TextWrapping="Wrap"
+                                           AutomationProperties.Name="Design entry left constant hint" />
+                              </StackPanel>
                               <TextBox Text="{Binding DesignEntryCondition.LeftExpressionText, Mode=TwoWay}"
                                        Watermark="advanced expression"
                                        IsVisible="{Binding DesignEntryCondition.ShowLeftExpression}"
@@ -2384,9 +2396,21 @@
                                         PlaceholderText="Pick saved indicator…"
                                         MinWidth="120"
                                         AutomationProperties.Name="Design entry right indicator" />
-                              <TextBox Text="{Binding DesignEntryCondition.RightConstantText, Mode=TwoWay}"
-                                       Watermark="constant" IsVisible="{Binding DesignEntryCondition.ShowRightConstant}"
-                                       AutomationProperties.Name="Design entry right constant" />
+                              <StackPanel IsVisible="{Binding DesignEntryCondition.ShowRightConstant}" Spacing="2">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                  <ComboBox ItemsSource="{Binding DesignConstantParameterOptions}"
+                                            SelectedItem="{Binding DesignEntryCondition.RightConstantParameter, Mode=TwoWay}"
+                                            MinWidth="88" HorizontalAlignment="Left"
+                                            AutomationProperties.Name="Design entry right constant parameter" />
+                                  <TextBox Text="{Binding DesignEntryCondition.RightConstantText, Mode=TwoWay}"
+                                           Watermark="{Binding DesignEntryCondition.RightConstantWatermark}"
+                                           Width="110"
+                                           AutomationProperties.Name="Design entry right constant value" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding DesignEntryCondition.RightConstantHint}" Classes="caption"
+                                           TextWrapping="Wrap"
+                                           AutomationProperties.Name="Design entry right constant hint" />
+                              </StackPanel>
                               <TextBox Text="{Binding DesignEntryCondition.RightExpressionText, Mode=TwoWay}"
                                        Watermark="advanced expression"
                                        IsVisible="{Binding DesignEntryCondition.ShowRightExpression}"
@@ -2460,9 +2484,21 @@
                                         PlaceholderText="Pick saved indicator…"
                                         MinWidth="120"
                                         AutomationProperties.Name="Design exit left indicator" />
-                              <TextBox Text="{Binding DesignExitCondition.LeftConstantText, Mode=TwoWay}"
-                                       Watermark="constant" IsVisible="{Binding DesignExitCondition.ShowLeftConstant}"
-                                       AutomationProperties.Name="Design exit left constant" />
+                              <StackPanel IsVisible="{Binding DesignExitCondition.ShowLeftConstant}" Spacing="2">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                  <ComboBox ItemsSource="{Binding DesignConstantParameterOptions}"
+                                            SelectedItem="{Binding DesignExitCondition.LeftConstantParameter, Mode=TwoWay}"
+                                            MinWidth="88" HorizontalAlignment="Left"
+                                            AutomationProperties.Name="Design exit left constant parameter" />
+                                  <TextBox Text="{Binding DesignExitCondition.LeftConstantText, Mode=TwoWay}"
+                                           Watermark="{Binding DesignExitCondition.LeftConstantWatermark}"
+                                           Width="110"
+                                           AutomationProperties.Name="Design exit left constant value" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding DesignExitCondition.LeftConstantHint}" Classes="caption"
+                                           TextWrapping="Wrap"
+                                           AutomationProperties.Name="Design exit left constant hint" />
+                              </StackPanel>
                               <TextBox Text="{Binding DesignExitCondition.LeftExpressionText, Mode=TwoWay}"
                                        Watermark="advanced expression"
                                        IsVisible="{Binding DesignExitCondition.ShowLeftExpression}"
@@ -2487,9 +2523,21 @@
                                         PlaceholderText="Pick saved indicator…"
                                         MinWidth="120"
                                         AutomationProperties.Name="Design exit right indicator" />
-                              <TextBox Text="{Binding DesignExitCondition.RightConstantText, Mode=TwoWay}"
-                                       Watermark="constant" IsVisible="{Binding DesignExitCondition.ShowRightConstant}"
-                                       AutomationProperties.Name="Design exit right constant" />
+                              <StackPanel IsVisible="{Binding DesignExitCondition.ShowRightConstant}" Spacing="2">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                  <ComboBox ItemsSource="{Binding DesignConstantParameterOptions}"
+                                            SelectedItem="{Binding DesignExitCondition.RightConstantParameter, Mode=TwoWay}"
+                                            MinWidth="88" HorizontalAlignment="Left"
+                                            AutomationProperties.Name="Design exit right constant parameter" />
+                                  <TextBox Text="{Binding DesignExitCondition.RightConstantText, Mode=TwoWay}"
+                                           Watermark="{Binding DesignExitCondition.RightConstantWatermark}"
+                                           Width="110"
+                                           AutomationProperties.Name="Design exit right constant value" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding DesignExitCondition.RightConstantHint}" Classes="caption"
+                                           TextWrapping="Wrap"
+                                           AutomationProperties.Name="Design exit right constant hint" />
+                              </StackPanel>
                               <TextBox Text="{Binding DesignExitCondition.RightExpressionText, Mode=TwoWay}"
                                        Watermark="advanced expression"
                                        IsVisible="{Binding DesignExitCondition.ShowRightExpression}"

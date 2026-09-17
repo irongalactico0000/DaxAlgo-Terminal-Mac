@@ -102,6 +102,9 @@ public sealed partial class StrategyAuthoringViewModel
     public IReadOnlyList<string> DesignOperandKindOptions =>
         DesignConditionRow.OperandKindOptions;
 
+    public IReadOnlyList<string> DesignConstantParameterOptions =>
+        DesignConditionRow.ConstantParameterOptions;
+
     /// <summary>Labels from DesignIndicators for Saved-indicator operand pickers.</summary>
     public IReadOnlyList<string> DesignIndicatorLabelOptions =>
         DesignIndicators.Select(static i => i.DisplayLabel).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
