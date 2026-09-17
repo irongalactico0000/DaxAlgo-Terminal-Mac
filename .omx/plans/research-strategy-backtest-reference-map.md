@@ -133,8 +133,10 @@ Chosen explicitly on Validate/Paper. Research **saved findings** stay about sign
 1. Research on the open chart → save a **finding**.  
 2. Optionally save a second finding as contrast; restore the first.  
 3. Strategy Builder from that finding → bind condition → exits/size.  
-4. Validate with **L1 disclosed** until a richer fill model is selectable and proven.  
+4. Validate with **L1 disclosed** (optional capped partials + latency). Nautilus-class queue/L2 is a **later fill-fidelity target**, not claimed when Validate runs L1.  
 5. Paper: same strategy version, one book, one owner.
+
+**Design → TradeIR honesty:** Design “Use rules as request” only fills the composer. TradeIR requires Build/confirm — no silent IR from rule text.
 
 ---
 

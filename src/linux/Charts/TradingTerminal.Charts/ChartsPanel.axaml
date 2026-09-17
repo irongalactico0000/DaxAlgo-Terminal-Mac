@@ -275,12 +275,34 @@
 
             <StackPanel x:Name="IndicatorsPanel" Spacing="5">
               <TextBlock Text="INDICATORS" FontSize="10" FontWeight="SemiBold" Foreground="#787B86" />
-              <CheckBox Content="SMA (20)" IsChecked="{Binding ShowSma}" />
-              <CheckBox IsChecked="{Binding ShowEma}">
+              <CheckBox IsChecked="{Binding ShowSma}">
                 <TextBlock FontSize="12">
-                  <Run Text="EMA (" /><Run Text="{Binding EmaPeriod}" /><Run Text=")" />
+                  <Run Text="SMA" />
                 </TextBlock>
               </CheckBox>
+              <StackPanel Orientation="Horizontal" Spacing="4" Margin="20,0,0,4"
+                          IsVisible="{Binding ShowSma}">
+                <TextBlock Text="Period" FontSize="11" VerticalAlignment="Center" Foreground="#787B86" />
+                <NumericUpDown Width="72" Minimum="2" Maximum="500" Increment="1"
+                               Value="{Binding SmaPeriod}"
+                               FormatString="0"
+                               ToolTip.Tip="SMA period — changes reload the series and sync into Research findings when saved."
+                               AutomationProperties.Name="SMA period" />
+              </StackPanel>
+              <CheckBox IsChecked="{Binding ShowEma}">
+                <TextBlock FontSize="12">
+                  <Run Text="EMA" />
+                </TextBlock>
+              </CheckBox>
+              <StackPanel Orientation="Horizontal" Spacing="4" Margin="20,0,0,4"
+                          IsVisible="{Binding ShowEma}">
+                <TextBlock Text="Period" FontSize="11" VerticalAlignment="Center" Foreground="#787B86" />
+                <NumericUpDown Width="72" Minimum="2" Maximum="500" Increment="1"
+                               Value="{Binding EmaPeriod}"
+                               FormatString="0"
+                               ToolTip.Tip="EMA period — changes reload the series and sync into Research findings when saved."
+                               AutomationProperties.Name="EMA period" />
+              </StackPanel>
               <CheckBox Content="RSI (14)" IsChecked="{Binding ShowRsi}" />
               <CheckBox Content="MACD (12·26·9)" IsChecked="{Binding ShowMacd}" />
               <CheckBox Content="Bollinger (20,2)" IsChecked="{Binding ShowBollinger}" />

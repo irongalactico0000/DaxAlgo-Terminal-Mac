@@ -64,7 +64,7 @@ Selecting an observation **only narrows the period**. It must **not** invent an 
 | **Visible result** | Named definition + calculated series on the chart |
 | **Saved state** | Indicator definition version (kind, params, inputs) — reusable in a saved finding |
 | **Next** | Compare · Save finding · Use in Strategy Builder (defines **condition**, not the whole strategy) |
-| **Local now** | Built-in overlays + inspect text; full custom indicator editor still thin |
+| **Local now** | Editable SMA/EMA periods on the chart rail → live series reload → exact periods in finding bindings |
 
 ### 1.4 Compare cases
 
@@ -75,7 +75,7 @@ Selecting an observation **only narrows the period**. It must **not** invent an 
 | **Visible result** | Multiple charts **and** calculated similarities/differences Hyperion can cite |
 | **Saved state** | Comparison set id (optional) or notes on a saved finding |
 | **Next** | Save finding(s) · Develop indicator |
-| **Local now** | Compare mode: multi-select ranked rows → numeric strip (return %, vol÷avg, EMA20 slope) + one focus chart. **Not** yet real multi-chart tiles. |
+| **Local now** | Compare mode: multi-select ranked rows → numeric strip + **up to 3 live chart tiles** (same window / indicators). Open a ranked tile to focus the single chart. |
 
 ### 1.5 Find similar observations
 
@@ -119,10 +119,10 @@ Selecting an observation **only narrows the period**. It must **not** invent an 
 
 | Activity | Visible | Produces |
 |----------|---------|----------|
-| **Design** | Instruments, data inputs, **entry**, **exit**, **sizing**, **risk**, **order instructions** — editable immediately | Draft rules (may cite indicator defs from a finding) |
+| **Design** | Instruments, data inputs, **entry**, **exit**, **sizing**, **risk**, **order instructions** — editable immediately; **Use rules as request** → composer only (Build still required) | Draft rules (may cite indicator defs from a finding) |
 | **Review research inputs** | Linked saved findings; exact indicator definitions/settings used by rules | Explicit link; stale if research indicator version changes until user updates |
 | **Build** | Generated implementation, compile results, errors tied to rules | Artifact / strategy version hash |
-| **Validate** | Period, costs, **execution assumptions** (honest L1 today), trades, performance; trade → chart | Validation evidence bound to version |
+| **Validate** | Period, costs, **L1 fill model disclosed** (optional capped partials + latency); queue/L2 = Nautilus-class later | Validation evidence bound to version |
 | **Run** | Mode, account/book, active version, orders, positions, start/stop | Live/Paper run under ownership rules |
 
 ### 2.3 Indicator connection (concrete)
@@ -158,6 +158,6 @@ On small Mac windows: collapse/reflow panels; keep the **current task** usable.
 ## 4. Implementation priority (from this map)
 
 1. **Builder Design** = rule editor first (**shipped MVP**: entry/exit/sizing/risk/orders fields; templates demoted).  
-2. **Research compare** = real multi-chart tiles (MVP shipped: numeric strip + focus chart).  
+2. **Research compare** = real multi-chart tiles (up to 3 hosts) + numeric strip + focus chart.  
 3. **Indicator develop** = editable params → live series → versioned definition for findings.  
 4. **Validate** = L1 + optional capped partials + latency applied; Nautilus-class queue/L2 remain a separate engine lane.

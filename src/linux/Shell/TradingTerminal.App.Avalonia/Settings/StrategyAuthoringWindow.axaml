@@ -156,9 +156,9 @@
               </StackPanel>
             </Border>
           </StackPanel>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
-                      HorizontalAlignment="Right"
-                      IsVisible="{Binding ShowScreenNavigation}">
+          <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                     HorizontalAlignment="Right"
+                     IsVisible="{Binding ShowScreenNavigation}">
             <!-- Research is a place (Studio), not a numbered Builder stage -->
             <Button Classes="ghost" Content="Research Studio"
                     Command="{Binding OpenResearchScreenCommand}"
@@ -201,7 +201,7 @@
                       ToolTip.Tip="Paper or Live book, limits, start/stop, monitor fills." />
               <TextBlock Text="{Binding PaperStageState}" Classes="eyebrow" HorizontalAlignment="Center" />
             </StackPanel>
-          </StackPanel>
+          </WrapPanel>
         </Grid>
       </Border>
       <Border IsVisible="{Binding IsValidateStage}"
@@ -2025,6 +2025,12 @@
                                AutomationProperties.Name="Design order instructions" />
                       <TextBlock Text="{Binding CandidateEmptyText}" Classes="caption" TextWrapping="Wrap"
                                  Opacity="0.9" />
+                      <Button Classes="aiAction" Content="Use rules as request"
+                              Command="{Binding PromoteDesignRulesToRequestCommand}"
+                              IsEnabled="{Binding CanPromoteDesignRulesToRequest}"
+                              HorizontalAlignment="Left"
+                              ToolTip.Tip="Copy entry/exit/sizing/risk/orders into the Hyperion request composer. Still requires Build — does not invent TradeIR."
+                              AutomationProperties.Name="Promote design rules to request" />
                     </StackPanel>
                   </ScrollViewer>
                   <StackPanel IsVisible="{Binding !ShowDesignRuleEditor}"

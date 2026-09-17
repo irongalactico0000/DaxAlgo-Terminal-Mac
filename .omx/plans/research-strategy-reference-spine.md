@@ -67,9 +67,10 @@ Restore must reopen that package without re-uploading files.
 - Do not gate Order book / Footprint / Bookmap on Rank.
 - Do not open another session’s Studio from Builder.
 - Do not invent outcome intervals or declare Depth/Tape when the chart only used bars.
-- Do not pretend “Chart grid” is multi-chart until real tiles exist (Compare MVP = numeric strip + focus chart).
+- Do not pretend “Chart grid” is multi-chart until real tiles exist — Compare now hosts up to 3 live tiles + strip.
 - Do not add Rank-adjacent tool buttons; put chart tools on the chart.
 - Do not say “Reference A/B” in user-facing copy.
+- Design → TradeIR: **Use rules as request** copies rules into the composer only — Build still required; no invented TradeIR.
 
 ## Code anchors
 

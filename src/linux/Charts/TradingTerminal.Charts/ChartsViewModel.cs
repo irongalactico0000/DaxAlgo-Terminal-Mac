@@ -136,6 +136,7 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private bool _showVwap;
     [ObservableProperty] private bool _showAdx;
     [ObservableProperty] private int _emaPeriod = 50;
+    [ObservableProperty] private int _smaPeriod = 20;
     [ObservableProperty] private string _status = "Loading instruments…";
     [ObservableProperty] private string _userIndicatorsPath = string.Empty;
 
@@ -147,8 +148,8 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
     /// visualizer codegen. Unknown ids are ignored; candles-only clears indicator overlays.
     /// By default existing toggles stay on (additive OR). Pass <paramref name="replaceExisting"/>
     /// when Research space handoff must match the kept indicator set exactly.
-    /// <see cref="EmaPeriod"/> is only written when EMA was previously off (or replace mode) so
-    /// casual previews do not retune an operator's period.
+    /// <see cref="EmaPeriod"/> / <see cref="SmaPeriod"/> are only written when the series was previously
+    /// off (or replace mode) so casual previews do not retune an operator's period.
     /// </summary>
     public void ApplyHostOverlayIds(IEnumerable<string> overlayIds, bool replaceExisting = false)
     {
@@ -178,6 +179,7 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
         var state = TradingTerminal.Core.Strategies.Generation.NativeChartOverlaySelectionV1
             .FromHostOverlayIds(idList);
         var emaWasOff = !ShowEma;
+        var smaWasOff = !ShowSma;
         if (replaceExisting)
         {
             ShowSma = state.ShowSma;
@@ -191,6 +193,8 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
             ShowAdx = state.ShowAdx;
             if (state.ShowEma && state.EmaPeriod > 0)
                 EmaPeriod = state.EmaPeriod;
+            if (state.ShowSma && state.SmaPeriod > 0)
+                SmaPeriod = state.SmaPeriod;
             foreach (var user in UserIndicators)
             {
                 user.IsEnabled = idSet.Contains(user.Definition.Id) ||
@@ -210,6 +214,8 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
             ShowAdx = ShowAdx || state.ShowAdx;
             if (emaWasOff && state.ShowEma && state.EmaPeriod > 0)
                 EmaPeriod = state.EmaPeriod;
+            if (smaWasOff && state.ShowSma && state.SmaPeriod > 0)
+                SmaPeriod = state.SmaPeriod;
 
             foreach (var user in UserIndicators)
             {
@@ -278,7 +284,7 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
     {
         var list = new List<ResearchIndicatorBindingV1>();
         if (ShowSma)
-            list.Add(new("host.sma", "sma", 20));
+            list.Add(new("host.sma", "sma", SmaPeriod <= 0 ? 20 : SmaPeriod));
         if (ShowEma)
             list.Add(new("host.ema", "ema", EmaPeriod <= 0 ? 50 : EmaPeriod));
         if (ShowRsi)
@@ -329,7 +335,7 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
 
             ids.Add(b.Kind switch
             {
-                "sma" => "sma-20",
+                "sma" => b.Period == 20 ? "sma-20" : $"sma-{Math.Max(2, b.Period)}",
                 "ema" => b.Period <= 20 ? "ema-20" : b.Period == 50 ? "ema-50" : $"ema-{b.Period}",
                 "rsi" => "rsi-14",
                 "macd" => "macd-12-26-9",
@@ -575,6 +581,11 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
         QueueReload();
         NotifyResearchSpaceChanged();
     }
+    partial void OnSmaPeriodChanged(int value)
+    {
+        QueueReload();
+        NotifyResearchSpaceChanged();
+    }
 
     partial void OnIsPausedChanged(bool value)
     {
@@ -730,7 +741,7 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
                 ChartType: SelectedChartType,
                 Candles: candles,
                 Volume: volume,
-                Sma: ShowSma ? Sma(bars, 20) : null,
+                Sma: ShowSma ? Sma(bars, SmaPeriod <= 0 ? 20 : SmaPeriod) : null,
                 Ema: ShowEma ? Ema(bars, EmaPeriod <= 0 ? 50 : EmaPeriod) : null,
                 Rsi: ShowRsi ? Rsi(bars, 14) : null,
                 Macd: ShowMacd ? Macd(bars, 12, 26, 9) : null,
@@ -816,7 +827,7 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
         if (name.Length == 0) return;
         _presetStore.Save(name, new ChartsPreset(
             SelectedInstrument?.Contract.Symbol, SelectedTimeframe?.Label, SelectedChartType,
-            ShowSma, ShowEma, ShowRsi, ShowMacd, ShowBollinger, EmaPeriod));
+            ShowSma, ShowEma, ShowRsi, ShowMacd, ShowBollinger, EmaPeriod, SmaPeriod));
         RefreshPresetNames(selected: name);
         _logger.LogInformation("Charts: preset '{Name}' saved", name);
     }
@@ -855,6 +866,8 @@ public sealed partial class ChartsViewModel : ViewModelBase, IDisposable
             ShowBollinger = preset.ShowBollinger;
             if (preset.EmaPeriod > 0)
                 EmaPeriod = preset.EmaPeriod;
+            if (preset.SmaPeriod > 0)
+                SmaPeriod = preset.SmaPeriod;
         }
         finally
         {
@@ -1224,7 +1237,8 @@ public sealed record ChartsPreset(
     bool ShowRsi,
     bool ShowMacd,
     bool ShowBollinger = false,
-    int EmaPeriod = 50);
+    int EmaPeriod = 50,
+    int SmaPeriod = 20);
 
 // ── JSON bridge DTOs (camelCase via the window's serializer) → Lightweight Charts shapes ─────────
 public sealed record ChartCandle(long Time, double Open, double High, double Low, double Close);

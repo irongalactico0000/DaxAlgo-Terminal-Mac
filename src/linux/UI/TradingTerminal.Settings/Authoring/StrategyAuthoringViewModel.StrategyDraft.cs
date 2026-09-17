@@ -33,11 +33,77 @@ public sealed partial class StrategyAuthoringViewModel
             ? "Linked Research finding is in the composer — turn it into explicit rules below."
             : "Start from rules here, or use Research Studio in the top chrome for chart evidence. Templates remain optional in the left pane.";
 
-    partial void OnDesignEntryRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));
-    partial void OnDesignExitRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));
-    partial void OnDesignSizingRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));
-    partial void OnDesignRiskRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));
-    partial void OnDesignOrderRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));
+    public bool CanPromoteDesignRulesToRequest => HasDesignRuleDraft && !IsGenerating;
+
+    partial void OnDesignEntryRuleTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasDesignRuleDraft));
+        OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
+        PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
+        NotifyWorkingFlowMapChanged();
+    }
+
+    partial void OnDesignExitRuleTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasDesignRuleDraft));
+        OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
+        PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
+        NotifyWorkingFlowMapChanged();
+    }
+
+    partial void OnDesignSizingRuleTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasDesignRuleDraft));
+        OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
+        PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
+        NotifyWorkingFlowMapChanged();
+    }
+
+    partial void OnDesignRiskRuleTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasDesignRuleDraft));
+        OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
+        PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
+        NotifyWorkingFlowMapChanged();
+    }
+
+    partial void OnDesignOrderRuleTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasDesignRuleDraft));
+        OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
+        PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
+        NotifyWorkingFlowMapChanged();
+    }
+
+    /// <summary>
+    /// Honest Design → request handoff: fills the composer with explicit rules.
+    /// Does not synthesize TradeIR or skip Build — user still confirms and builds.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanPromoteDesignRulesToRequest))]
+    private void PromoteDesignRulesToRequest()
+    {
+        if (!HasDesignRuleDraft) return;
+        static string Line(string key, string value) =>
+            string.IsNullOrWhiteSpace(value) ? "" : $"{key}: {value.Trim()}";
+
+        var body = string.Join('\n', new[]
+        {
+            "Design rules draft (explicit — not compiled TradeIR yet):",
+            Line("ENTRY", DesignEntryRuleText),
+            Line("EXIT", DesignExitRuleText),
+            Line("SIZING", DesignSizingRuleText),
+            Line("RISK", DesignRiskRuleText),
+            Line("ORDERS", DesignOrderRuleText),
+            "",
+            "Next: confirm meaning in Request, then Build to generate/compile. Validate uses that revision hash.",
+        }.Where(static s => s.Length == 0 || !string.IsNullOrWhiteSpace(s)));
+
+        Composer = body;
+        Status =
+            "Design rules copied into the request composer. Confirm the request, then Build — " +
+            "this does not create TradeIR by itself.";
+        NotifyWorkingFlowMapChanged();
+    }
 
     public bool HasStrategyDraft => PendingStrategyDraft is not null;
 

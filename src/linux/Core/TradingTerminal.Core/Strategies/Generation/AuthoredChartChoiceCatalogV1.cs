@@ -134,7 +134,8 @@ public readonly record struct NativeChartOverlaySelectionV1(
     bool ShowStochastic = false,
     bool ShowAtr = false,
     bool ShowVwap = false,
-    bool ShowAdx = false)
+    bool ShowAdx = false,
+    int SmaPeriod = 20)
 {
     public static NativeChartOverlaySelectionV1 FromHostOverlayIds(IEnumerable<string> overlayIds)
     {
@@ -142,20 +143,35 @@ public readonly record struct NativeChartOverlaySelectionV1(
         var ids = overlayIds
             .Where(static id => !string.IsNullOrWhiteSpace(id))
             .Select(static id => id.Trim())
-            .ToHashSet(StringComparer.Ordinal);
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         if (ids.Count == 0 || (ids.Count == 1 && ids.Contains("candles")))
             return new(false, false, 50, false, false, false);
 
         var showEma20 = ids.Contains("ema-20");
         var showEma50 = ids.Contains("ema-50");
-        var showEma = showEma20 || showEma50 || ids.Contains("ema");
-        // Prefer 20 when explicitly requested; otherwise 50. Callers that merge onto an existing
-        // chart should pass current EmaPeriod through ApplyHostOverlayIds (additive).
-        var emaPeriod = showEma20 && !showEma50 ? 20 : 50;
+        var emaFromSuffix = TryParsePeriodId(ids, "ema-", out var emaParsed);
+        var showEma = showEma20 || showEma50 || ids.Contains("ema") || emaFromSuffix;
+        // Prefer explicit 20/50 catalog ids; otherwise use ema-{n} or default 50.
+        var emaPeriod = showEma20 && !showEma50
+            ? 20
+            : showEma50
+                ? 50
+                : emaFromSuffix
+                    ? emaParsed
+                    : 50;
+
+        var showSma20 = ids.Contains("sma-20");
+        var smaFromSuffix = TryParsePeriodId(ids, "sma-", out var smaParsed);
+        var showSma = showSma20 || ids.Contains("sma") || smaFromSuffix;
+        var smaPeriod = showSma20
+            ? 20
+            : smaFromSuffix
+                ? smaParsed
+                : 20;
 
         return new(
-            ShowSma: ids.Contains("sma-20") || ids.Contains("sma"),
+            ShowSma: showSma,
             ShowEma: showEma,
             EmaPeriod: emaPeriod,
             ShowRsi: ids.Contains("rsi-14") || ids.Contains("rsi"),
@@ -164,7 +180,25 @@ public readonly record struct NativeChartOverlaySelectionV1(
             ShowStochastic: ids.Contains("stochastic-14-3-3") || ids.Contains("stochastic") || ids.Contains("stoch"),
             ShowAtr: ids.Contains("atr-14") || ids.Contains("atr"),
             ShowVwap: ids.Contains("vwap") || ids.Contains("vwap-session"),
-            ShowAdx: ids.Contains("adx-14") || ids.Contains("adx"));
+            ShowAdx: ids.Contains("adx-14") || ids.Contains("adx"),
+            SmaPeriod: smaPeriod);
+    }
+
+    private static bool TryParsePeriodId(HashSet<string> ids, string prefix, out int period)
+    {
+        foreach (var id in ids)
+        {
+            if (!id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var rest = id[prefix.Length..];
+            if (int.TryParse(rest, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out period) &&
+                period is >= 2 and <= 500)
+                return true;
+        }
+
+        period = 0;
+        return false;
     }
 
     /// <summary>
@@ -174,8 +208,10 @@ public readonly record struct NativeChartOverlaySelectionV1(
     public IReadOnlyList<string> ToHostOverlayIds()
     {
         var ids = new List<string>();
-        if (ShowSma) ids.Add("sma-20");
-        if (ShowEma) ids.Add(EmaPeriod <= 20 ? "ema-20" : "ema-50");
+        if (ShowSma)
+            ids.Add(SmaPeriod == 20 ? "sma-20" : $"sma-{Math.Max(2, SmaPeriod)}");
+        if (ShowEma)
+            ids.Add(EmaPeriod <= 20 ? "ema-20" : EmaPeriod == 50 ? "ema-50" : $"ema-{EmaPeriod}");
         if (ShowRsi) ids.Add("rsi-14");
         if (ShowMacd) ids.Add("macd-12-26-9");
         if (ShowBollinger) ids.Add("bollinger-20");

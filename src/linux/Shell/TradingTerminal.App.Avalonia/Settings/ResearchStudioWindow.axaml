@@ -440,6 +440,10 @@
               </Border>
 
               <Grid>
+                <!-- Compare: up to 3 live chart tiles (selected ranked rows). -->
+                <UniformGrid x:Name="CompareChartTilesHost"
+                             IsVisible="False"
+                             Rows="1" />
                 <ContentControl x:Name="ResearchChartHost"
                                 HorizontalContentAlignment="Stretch"
                                 VerticalContentAlignment="Stretch" />

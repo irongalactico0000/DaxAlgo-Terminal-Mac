@@ -42,9 +42,11 @@ public sealed partial class StrategyAuthoringViewModel
     public bool ExecutionPartialsAndLatencyAvailable => true;
 
     public string ExecutionUnsupportedOptionsExplanation =>
-        "Still unavailable: L2/L3 books, liquidity walk, queue position. " +
-        "Applied when enabled: quantity-capped partials (max " + AppliedPartialFillMaxPerTouch +
-        " per touch) and execution latency ms on the L1 book.";
+        "Applied today: L1 touch ± slippage; optional capped partials (max " +
+        AppliedPartialFillMaxPerTouch +
+        " per touch) and latency ms. " +
+        "Not claimed: L2/L3 books, queue position, liquidity walk — those are a later Nautilus-class " +
+        "fill-fidelity target, not this Validate lane.";
 
     public string ExecutionPartialsTip =>
         $"When checked, each L1 touch fills at most {AppliedPartialFillMaxPerTouch} units so orders can PartiallyFilled → Filled/Cancelled.";

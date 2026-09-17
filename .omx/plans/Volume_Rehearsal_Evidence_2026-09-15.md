@@ -27,7 +27,7 @@ Same endpoints `ResearchConditionSearchV1` / bridge use:
 
 **Trace claim:** Sidecar compute path is live. Avalonia click→UI paint still needs a human/UI run for full V05 UX proof.
 
-## V04 — Reference A/B + session continuity (Step 4)
+## V04 — Saved findings + session continuity (Step 4)
 
 **Canonical JSON (headless):** `ResearchAnalysisReferenceV1Tests` — A (k=2, BTCUSDT 1m) ≠ B (k=3, ETHUSDT 5m); selections + bindings round-trip.
 
@@ -62,7 +62,7 @@ Do **not** force-wire visualizer to TSD until U01 shared market context is desig
 | Installed? | **`nautilus_trader` not in local `.venv`** |
 | Wired into paper path? | **No** — no imports from `api/`, `toms/` paper gateway, or `try_create_paper_executors` |
 | Role vs MS | Candidate **extra execution backend** behind TOMS `OrderExecutor`, not a replacement for MDMS/TSMS/PPMS/DBMS |
-| vs Model A / S06 | DaxAlgo owns Alpaca OMS; Nautilus = optional S06-B verb surface **behind** S06-A mediator — never AI→venue |
+| Role vs Mac Validate | **Not** the Mac Validate fill model. Mac Validate = **L1 touch ± slippage** (+ optional capped partials/latency). Nautilus-class queue/L2 = later target only. |
 
 **Decision:** Canon **S06-A**. Keep Nautilus optional Stage-later. Do not block Dolpago research or Model A on installing it.
 

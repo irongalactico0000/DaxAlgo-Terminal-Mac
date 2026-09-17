@@ -28,6 +28,9 @@ public sealed partial class StrategyAuthoringViewModel
     public ObservableCollection<ResearchMarketScreenRowV1> ResearchScreenRows { get; } = [];
     public ObservableCollection<ResearchMarketScreenRowV1> ResearchScreenSelectedRows { get; } = [];
 
+    /// <summary>Selected ranked rows for Compare tiles (capped at 3 hosts in Studio).</summary>
+    public int ResearchScreenSelectedCount => ResearchScreenSelectedRows.Count;
+
     public bool HasResearchMarketScreenResult => ResearchMarketScreenResult is not null;
     public bool HasResearchScreenRows => ResearchScreenRows.Count > 0;
     public bool CanRunResearchScreen => _researchMarketScreener is not null && !IsResearchScreening;
@@ -246,6 +249,7 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(CanOpenResearchMarketStructure));
         OnPropertyChanged(nameof(ResearchIndicatorCompareText));
         OnPropertyChanged(nameof(HasResearchIndicatorCompare));
+        OnPropertyChanged(nameof(ResearchScreenSelectedCount));
         OpenSelectedScreenChartsCommand.NotifyCanExecuteChanged();
         OpenResearchOrderBookCommand.NotifyCanExecuteChanged();
         OpenResearchVolumeFootprintCommand.NotifyCanExecuteChanged();
@@ -331,21 +335,24 @@ public sealed partial class StrategyAuthoringViewModel
                 ResearchScreenViewMode = "Table";
                 Status =
                     "Compare needs at least two selected ranked instruments (use Select on tiles). " +
-                    "Then tap Compare for the numeric strip; open a tile to focus the live chart.";
+                    "Then tap Compare for the numeric strip and multi-chart tiles.";
                 return;
             }
 
             ResearchScreenViewMode = "Grid";
             Status =
-                $"Compare strip for {ResearchScreenSelectedRows.Count} cases — " +
-                "return %, vol÷avg, EMA(20) slope. Open a tile to focus the chart.";
+                $"Compare: strip + {Math.Min(3, ResearchScreenSelectedRows.Count)} chart tiles " +
+                $"(of {ResearchScreenSelectedRows.Count} selected) — return %, vol÷avg, EMA(20) slope. " +
+                "Open a ranked tile to focus the single chart.";
             OnPropertyChanged(nameof(IsResearchCompareView));
             OnPropertyChanged(nameof(ResearchIndicatorCompareText));
+            OnPropertyChanged(nameof(ResearchScreenSelectedCount));
             return;
         }
 
         ResearchScreenViewMode = normalized;
         OnPropertyChanged(nameof(IsResearchCompareView));
+        OnPropertyChanged(nameof(ResearchScreenSelectedCount));
     }
 
     partial void OnResearchScreenViewModeChanged(string value) =>

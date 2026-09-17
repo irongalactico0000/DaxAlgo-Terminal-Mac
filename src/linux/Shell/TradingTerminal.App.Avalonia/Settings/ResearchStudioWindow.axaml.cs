@@ -1,10 +1,14 @@
 using System.Collections.Specialized;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using TradingTerminal.App.Authoring;
 using TradingTerminal.Charts;
+using TradingTerminal.Core.Domain;
 
 namespace TradingTerminal.App.Avalonia.Settings;
 
@@ -17,6 +21,7 @@ public partial class ResearchStudioWindow : Window
     private INotifyCollectionChanged? _messages;
     private ChartsPanel? _researchChartPanel;
     private StrategyAuthoringViewModel? _layoutViewModel;
+    private readonly List<(Border Frame, ChartsViewModel Vm)> _compareTiles = [];
 
     public event EventHandler? ResearchChartRequested;
     public event EventHandler? DetachResearchChartRequested;
@@ -62,6 +67,7 @@ public partial class ResearchStudioWindow : Window
         }
 
         ApplyWorkspaceColumns();
+        SyncCompareChartTiles();
     }
 
     private void OnResearchChartsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -70,6 +76,7 @@ public partial class ResearchStudioWindow : Window
             nameof(ChartsViewModel.ShowSma) or
             nameof(ChartsViewModel.ShowEma) or
             nameof(ChartsViewModel.EmaPeriod) or
+            nameof(ChartsViewModel.SmaPeriod) or
             null)
         {
             if (sender is ChartsViewModel charts)
@@ -116,6 +123,107 @@ public partial class ResearchStudioWindow : Window
         ApplyWorkspaceColumns();
     }
 
+    /// <summary>
+    /// Compare mode: host up to three transient chart VMs for selected ranked rows.
+    /// Focus <see cref="ResearchChartsViewModel"/> stays the single-chart Research surface.
+    /// </summary>
+    public void SyncCompareChartTiles()
+    {
+        if (CompareChartTilesHost is null || ResearchChartHost is null)
+            return;
+
+        ClearCompareChartTiles();
+
+        if (DataContext is not StrategyAuthoringViewModel authoring ||
+            !authoring.IsResearchCompareView ||
+            authoring.ResearchScreenSelectedRows.Count < 2)
+        {
+            CompareChartTilesHost.IsVisible = false;
+            ResearchChartHost.IsVisible = true;
+            if (ResearchChartPlaceholder is not null)
+                ResearchChartPlaceholder.IsVisible = ResearchChartHost.Content is null;
+            return;
+        }
+
+        if ((Application.Current as App)?.Services is not { } services)
+        {
+            CompareChartTilesHost.IsVisible = false;
+            ResearchChartHost.IsVisible = true;
+            return;
+        }
+
+        ResearchChartHost.IsVisible = false;
+        if (ResearchChartPlaceholder is not null)
+            ResearchChartPlaceholder.IsVisible = false;
+        CompareChartTilesHost.IsVisible = true;
+
+        var rows = authoring.ResearchScreenSelectedRows.Take(3).ToList();
+        CompareChartTilesHost.Columns = Math.Max(1, rows.Count);
+        CompareChartTilesHost.Rows = 1;
+
+        var barSize = BarSizeExtensions.ParseOrDefault(
+            authoring.ResearchScreenBarSizeChoice,
+            BarSize.OneHour);
+        IReadOnlyList<string> overlays = authoring.PendingResearchOverlayIds is { Count: > 0 } pending
+            ? pending
+            : ResearchChartsViewModel?.CaptureActiveOverlayIds() ?? Array.Empty<string>();
+
+        foreach (var row in rows)
+        {
+            var vm = services.GetRequiredService<ChartsViewModel>();
+            if (overlays.Count > 0)
+                vm.ApplyHostOverlayIds(overlays, replaceExisting: true);
+            vm.ApplyHostHistoryWindow(
+                row.CanonicalSymbol,
+                barSize,
+                row.WindowFromUtc,
+                row.WindowToUtcExclusive);
+
+            var panel = new ChartsPanel
+            {
+                Features = ChartsPanelFeatures.Embedded,
+                DataContext = vm,
+            };
+            var header = new TextBlock
+            {
+                Text = $"#{row.Rank}  {row.CanonicalSymbol}",
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(4, 2, 4, 4),
+            };
+            var dock = new DockPanel { LastChildFill = true };
+            DockPanel.SetDock(header, Dock.Top);
+            dock.Children.Add(header);
+            dock.Children.Add(panel);
+            var frame = new Border
+            {
+                Margin = new Thickness(2),
+                Padding = new Thickness(4),
+                BorderThickness = new Thickness(1),
+                Child = dock,
+            };
+            CompareChartTilesHost.Children.Add(frame);
+            _compareTiles.Add((frame, vm));
+        }
+    }
+
+    private void ClearCompareChartTiles()
+    {
+        foreach (var (_, vm) in _compareTiles)
+        {
+            try
+            {
+                vm.Dispose();
+            }
+            catch
+            {
+                // Best-effort teardown for transient compare hosts.
+            }
+        }
+
+        _compareTiles.Clear();
+        CompareChartTilesHost?.Children.Clear();
+    }
+
     private void OnActivatedAsStudio(object? sender, EventArgs e)
     {
         if (DataContext is StrategyAuthoringViewModel viewModel)
@@ -133,11 +241,13 @@ public partial class ResearchStudioWindow : Window
             _messages.CollectionChanged += OnMessagesChanged;
             _layoutViewModel = viewModel;
             _layoutViewModel.PropertyChanged += OnLayoutViewModelPropertyChanged;
+            viewModel.ResearchScreenSelectedRows.CollectionChanged += OnResearchScreenSelectionChanged;
             ScrollTranscriptToEnd();
             ApplyWorkspaceColumns();
             Title = "DaxAlgo — Research Studio";
             if (ResearchChartsViewModel is not null)
                 SyncBoundInstrumentFromChart(ResearchChartsViewModel);
+            SyncCompareChartTiles();
         }
     }
 
@@ -145,6 +255,7 @@ public partial class ResearchStudioWindow : Window
     {
         DetachMessages();
         DetachLayoutViewModel();
+        ClearCompareChartTiles();
         ClearResearchChartEmbed(keepViewModel: false);
         DataContextChanged -= OnDataContextChanged;
         Activated -= OnActivatedAsStudio;
@@ -161,9 +272,16 @@ public partial class ResearchStudioWindow : Window
     private void DetachLayoutViewModel()
     {
         if (_layoutViewModel is not null)
+        {
             _layoutViewModel.PropertyChanged -= OnLayoutViewModelPropertyChanged;
+            _layoutViewModel.ResearchScreenSelectedRows.CollectionChanged -= OnResearchScreenSelectionChanged;
+        }
+
         _layoutViewModel = null;
     }
+
+    private void OnResearchScreenSelectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        SyncCompareChartTiles();
 
     private void OnLayoutViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -172,6 +290,13 @@ public partial class ResearchStudioWindow : Window
             or nameof(StrategyAuthoringViewModel.HyperionCollapsed)
             or null)
             ApplyWorkspaceColumns();
+
+        if (e.PropertyName is nameof(StrategyAuthoringViewModel.IsResearchCompareView)
+            or nameof(StrategyAuthoringViewModel.ResearchScreenViewMode)
+            or nameof(StrategyAuthoringViewModel.ResearchScreenSelectedCount)
+            or nameof(StrategyAuthoringViewModel.ResearchScreenBarSizeChoice)
+            or null)
+            SyncCompareChartTiles();
     }
 
     private void ApplyWorkspaceColumns()

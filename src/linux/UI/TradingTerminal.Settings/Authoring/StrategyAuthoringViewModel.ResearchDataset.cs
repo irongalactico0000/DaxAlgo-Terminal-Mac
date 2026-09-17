@@ -267,7 +267,7 @@ public sealed partial class StrategyAuthoringViewModel
 
             ids.Add(b.Kind switch
             {
-                "sma" => "sma-20",
+                "sma" => b.Period == 20 ? "sma-20" : $"sma-{Math.Max(2, b.Period)}",
                 "ema" => b.Period <= 20 ? "ema-20" : b.Period == 50 ? "ema-50" : $"ema-{b.Period}",
                 "rsi" => "rsi-14",
                 "macd" => "macd-12-26-9",

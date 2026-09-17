@@ -35,7 +35,7 @@ Include **keyboard** pass where marked [a11y].
 | B2 | Open Compare | Numeric strip (return %, vol÷avg, EMA20 slope) for each selected case; open a tile to focus the live chart | |
 | B3 | Ask Hyperion what changed in volume/EMA before breakouts | Answer cites the visible comparison numbers/focus chart | |
 
-Real multi-chart tiles remain a later target; if B2 only shows the strip + one chart, mark **PASS (MVP)** — not blocked.
+Real multi-chart tiles: Compare hosts up to **3 live chart tiles** + numeric strip; open a ranked tile for the single focus chart. If tiles fail to load, strip + focus chart alone is still **PASS (MVP)**.
 
 ---
 
@@ -89,4 +89,4 @@ Real multi-chart tiles remain a later target; if B2 only shows the strip + one c
 | E (Direct rules) | PASS / FAIL |
 | Notes | |
 
-**Done means:** A + C + D pass on Mac with notes. B MVP (numeric strip + focus chart) should pass; real multi-chart tiles may remain later. E must pass so known-rules users are not forced through Research.
+**Done means:** A + C + D pass on Mac with notes. B = strip + up to 3 compare chart tiles (focus chart still available). E must pass so known-rules users are not forced through Research.
