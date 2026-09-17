@@ -194,8 +194,12 @@ public sealed class NativeStrategyRunAuthoringTests
         surface.Descendants(Avalonia + "TextBlock")
             .Select(element => (string?)element.Attribute("Text"))
             .Where(text => text is not null)
+            .Should().Contain(text => text == "SAVED RESULTS FOR THIS STRATEGY");
+        surface.Descendants(Avalonia + "TextBlock")
+            .Select(element => (string?)element.Attribute("Text"))
+            .Where(text => text is not null)
             .Should().Contain(text => text!.Contains(
-                "Chart selection, frozen-context research chat, and user confirmation are not connected",
+                "COMPARE · LOAD SAVED RUN OR ADVANCED ID",
                 StringComparison.Ordinal));
         surface.Descendants(Avalonia + "Button").Select(element =>
                 (string?)element.Attribute("Command"))
@@ -215,6 +219,9 @@ public sealed class NativeStrategyRunAuthoringTests
                 "Research session restart fallback" &&
             (string?)element.Attribute("IsVisible") ==
                 "{Binding NativeResearchSessionUnavailable}");
+        surface.Descendants(Avalonia + "Border").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") ==
+                "Strategy version results");
 
         var legacyNotice = root.Descendants(Avalonia + "Border").Single(element =>
             (string?)element.Attribute("IsVisible") == "{Binding ShowLegacyCandidateBoundary}");

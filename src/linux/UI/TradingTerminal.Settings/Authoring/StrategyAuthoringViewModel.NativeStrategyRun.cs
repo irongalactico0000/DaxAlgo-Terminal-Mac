@@ -22,10 +22,14 @@ public sealed partial class StrategyAuthoringViewModel
 
     public ObservableCollection<NativeStrategyEvidencePanel> NativeStrategyEvidencePanels { get; } =
     [
-        new("research", "Research", "Retained QueryEngine session events · non-executable"),
-        new("vibequant", "VibeQuant / AKQuant", "transcend-0/VibeQuant → AKQuant native result"),
-        new("csp", "Point72 CSP", "Point72 CSP native graph result · not a trading backtest"),
-        new("comparison", "Compare", "Retained DaxAlgo comparison report · no inferred metrics"),
+        new("research", "Research (analysis)",
+            "Task: research evidence · QueryEngine session events · not fills or broker orders"),
+        new("vibequant", "VibeQuant / AKQuant (research BT)",
+            "Task: research experiment / AKQuant backtest · scheduled signals · not Nautilus execution"),
+        new("csp", "Point72 CSP (indicators)",
+            "Task: event-driven indicator/signal graph · not a trading backtest or fill model"),
+        new("comparison", "Native compare report",
+            "Task: retained native comparison JSON · not L1/Nautilus execution Validate"),
     ];
 
     public bool IsNativeStrategyAgentWired => _strategyAgentClient is not null;

@@ -101,6 +101,16 @@ public sealed partial class StrategyAuthoringViewModel
                 if (OpenBuildScreenCommand.CanExecute(null))
                     OpenBuildScreenCommand.Execute(null);
                 break;
+
+            case StrategyVersionResultKind.ExecutionLifecycle:
+                Status =
+                    $"Reopened execution report · {item.Title} · {item.Summary}. " +
+                    "L1TouchFillModel only — queue/liquidity/Nautilus matching are not claimed.";
+                if (OpenValidateScreenCommand.CanExecute(null))
+                    OpenValidateScreenCommand.Execute(null);
+                else
+                    ActiveScreen = StrategyAuthoringScreen.Validate;
+                break;
         }
 
         NotifyWorkingFlowMapChanged();
@@ -133,6 +143,30 @@ public sealed partial class StrategyAuthoringViewModel
             HistoricalValidationEvidenceCanonicalJsonV1.Serialize(evidence),
             null,
             null));
+    }
+
+    /// <summary>
+    /// Attach a first-party L1 execution lifecycle report (target vs fills/cancel).
+    /// Does not claim Nautilus queue or liquidity matching.
+    /// </summary>
+    public void UpsertExecutionLifecycleResult(
+        string reportId,
+        string summary,
+        string evidenceJson,
+        string? buildArtifactHashSha256 = null)
+    {
+        UpsertResult(new StrategyVersionResultItem(
+            StrategyVersionResultKind.ExecutionLifecycle,
+            "exec:" + reportId,
+            $"{DisplayName} · L1 execution",
+            "completed",
+            summary,
+            DateTime.UtcNow,
+            buildArtifactHashSha256 ?? StrategyWorkspace.Bindings.BuildArtifactHashSha256,
+            evidenceJson,
+            null,
+            null));
+        Save();
     }
 
     internal void UpsertNativeCompareResult(string runId, string sessionId, string status, string summary)
@@ -240,6 +274,8 @@ public enum StrategyVersionResultKind
 {
     HistoricalValidate,
     NativeCompare,
+    /// <summary>First-party L1 execution fixture / Validate backend report — not Nautilus.</summary>
+    ExecutionLifecycle,
 }
 
 public sealed class StrategyVersionResultItem
@@ -282,7 +318,8 @@ public sealed class StrategyVersionResultItem
     public string KindLabel => Kind switch
     {
         StrategyVersionResultKind.HistoricalValidate => "Validate",
-        StrategyVersionResultKind.NativeCompare => "Compare",
+        StrategyVersionResultKind.NativeCompare => "Research compare",
+        StrategyVersionResultKind.ExecutionLifecycle => "Execution",
         _ => Kind.ToString(),
     };
 
