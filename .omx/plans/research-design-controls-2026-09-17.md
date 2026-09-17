@@ -16,7 +16,7 @@
 | Control | Acts on | Takes user | Mutates? |
 |---------|---------|------------|----------|
 | **Use template** | Starter catalog → Design fields | Stays on Design rule editor | **Yes** — seeds instrument/rules |
-| **Investigate in Research Studio** | Opens Studio with `ResearchOpenedFromBuilder` | Research Studio | **No** |
+| **Investigate in Research Studio** | Opens Studio with `ResearchOpenedFromBuilder`; may set Composer to a research question | Research Studio | **No** Design fields (Composer prompt only) |
 | **Ask Hyperion from these rules** | Copies Design → composer prompt | Stays on Design | **No** (prompt only) |
 | **Stage last Hyperion reply** | Last assistant message → pending proposal | Design review panel | **No** until Accept |
 | **Accept into Design fields** | Pending Hyperion proposal → Design fields | Stays on Design | **Yes** |
@@ -40,17 +40,18 @@
 ### A — Design → Investigate → Back
 
 1. Design: edit Momentum entry rule.  
-2. **Investigate in Research Studio**.  
+2. **Investigate in Research Studio** (Design button — not chrome Research pill alone).  
 3. Optionally explore chart; do **not** Confirm link.  
 4. **← Back to Momentum**.  
-5. **Expect:** same entry rule; no linked finding; no composer evidence append.
+5. **Expect:** same entry rule; no linked finding; no finding-link evidence in composer.  
+   Note: Investigate may set Composer to a research question / Design review text — that is not a finding link.
 
 ### B — Research → Save → Add → Confirm
 
 1. From Builder or Studio: apply condition, **Save finding 1**.  
 2. **Add finding to {strategy}** → review panel.  
 3. **Confirm link to Design**.  
-4. **Expect:** Design open; linked research; evidence in composer; prior Design fields preserved unless user edits.
+4. **Expect:** Design open; `LinkedResearchSummaryText` shows finding linked; evidence in composer; Design rule fields unchanged until the operator edits them.
 
 ## Shipped code map
 

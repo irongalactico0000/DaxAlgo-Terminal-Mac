@@ -359,7 +359,7 @@ public sealed class StrategyAuthoringFreshSessionTests
     }
 
     [Fact]
-    public void Research_Back_returns_to_strategy_without_finding_and_preserves_design_edits()
+    public void JourneyA_Investigate_then_Back_preserves_Design_without_finding()
     {
         using var viewModelA = new StrategyAuthoringViewModel(
             new StubCompiler(),
@@ -367,23 +367,33 @@ public sealed class StrategyAuthoringFreshSessionTests
             NullLogger<StrategyAuthoringViewModel>.Instance,
             sessionRepository: new MemoryAuthoringSessionRepository());
 
-        viewModelA.DisplayName = "Strategy A";
+        viewModelA.DisplayName = "Momentum";
         viewModelA.DesignEntryRuleText = "A entry: EMA 20 cross";
         viewModelA.OpenDesignScreenCommand.Execute(null);
         viewModelA.IsChartDesignStage.Should().BeTrue();
+        viewModelA.CanInvestigateInResearchStudio.Should().BeTrue();
 
         var handoffCount = 0;
         viewModelA.StrategyBuilderHandoffRequested += (_, _) => handoffCount++;
+        var studioRequested = 0;
+        viewModelA.ResearchStudioRequested += (_, _) => studioRequested++;
 
-        viewModelA.OpenResearchScreenCommand.Execute(null);
+        // Plan Journey A uses Design → Investigate (not the chrome Research Studio pill alone).
+        viewModelA.InvestigateInResearchStudioCommand.Execute(null);
+        studioRequested.Should().Be(1);
         viewModelA.ResearchOpenedFromBuilder.Should().BeTrue();
+        viewModelA.Composer.Should().Contain("Investigate the working Design draft");
+        viewModelA.Composer.Should().Contain("A entry: EMA 20 cross");
+        viewModelA.Composer.Should().NotContain(
+            "Add this saved Research finding",
+            "Investigate must not attach finding-link evidence");
         viewModelA.IsResearchStudioShell = true;
         viewModelA.CanReturnToStrategyBuilder.Should().BeTrue(
             "Back must work without selecting a chart period or saving an observation");
         viewModelA.CanUseObservationInDesign.Should().BeFalse(
             "Add finding stays disabled until there is something to transfer");
-        viewModelA.ReturnToStrategyBuilderText.Should().Contain("Strategy A");
-        viewModelA.UseInStrategyBuilderText.Should().Contain("Add finding to Strategy A");
+        viewModelA.ReturnToStrategyBuilderText.Should().Contain("Momentum");
+        viewModelA.UseInStrategyBuilderText.Should().Contain("Add finding to Momentum");
         viewModelA.HasResearchDesignHandoff.Should().BeFalse();
 
         viewModelA.ReturnToStrategyBuilderCommand.Execute(null);
@@ -392,9 +402,10 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModelA.DesignEntryRuleText.Should().Be("A entry: EMA 20 cross");
         viewModelA.HasResearchDesignHandoff.Should().BeFalse(
             "Back must not attach a finding");
+        viewModelA.HasPendingAddFindingReview.Should().BeFalse();
 
-        // Second trip — still preserves the draft.
-        viewModelA.OpenResearchScreenCommand.Execute(null);
+        // Second trip via Investigate — still preserves the draft.
+        viewModelA.InvestigateInResearchStudioCommand.Execute(null);
         viewModelA.IsResearchStudioShell = true;
         viewModelA.ReturnToStrategyBuilderCommand.Execute(null);
         viewModelA.DesignEntryRuleText.Should().Be("A entry: EMA 20 cross");
@@ -806,18 +817,23 @@ public sealed class StrategyAuthoringFreshSessionTests
             "Add finding stages a review — Design is unchanged until Confirm");
         viewModel.HasResearchDesignHandoff.Should().BeFalse();
         viewModel.Composer.Should().NotContain("Add this saved Research finding");
+        var entryBeforeConfirm = viewModel.DesignEntryRuleText;
 
         viewModel.ConfirmAddFindingToStrategyCommand.Execute(null);
 
         viewModel.HasPendingAddFindingReview.Should().BeFalse();
         viewModel.IsChartDesignStage.Should().BeTrue();
         viewModel.HasResearchDesignHandoff.Should().BeTrue();
+        viewModel.LinkedResearchSummaryText.Should().Contain("Finding linked");
+        viewModel.LinkedResearchSummaryText.Should().Contain("ema");
         viewModel.CanOpenDesignScreen.Should().BeTrue();
         viewModel.WorkingFlowMapText.Should().Contain("1 Design ✓");
         viewModel.Composer.Should().Contain("Add this saved Research finding");
         viewModel.Composer.Should().Contain("MSFT");
         viewModel.Composer.Should().Contain("ema");
         viewModel.Composer.Should().Contain("Saved finding");
+        viewModel.DesignEntryRuleText.Should().Be(entryBeforeConfirm,
+            "Confirm links evidence — it must not invent or overwrite Design entry rules");
         viewModel.AuthoredUnitSpecification.Should().BeNull(
             "Use in Design attaches evidence only — no generate/compile/register");
         viewModel.CompiledOk.Should().BeFalse();
