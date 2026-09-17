@@ -66,12 +66,17 @@ public sealed class NativeChartSurface : Control
     private ChartInteractionMode _interactionMode;
     private ChartTimeRange? _observationRange;
     private ChartTimeRange? _outcomeRange;
+    private IReadOnlyList<ChartConditionHitMarker> _conditionHitMarkers = Array.Empty<ChartConditionHitMarker>();
     private Rect _lastPricePane;
     private double _lastPriceMin;
     private double _lastPriceMax = 1;
     private double? _draftStopPrice;
     private double? _draftTargetPrice;
 
+    private static readonly IBrush ConditionHitPositiveBrush = Brush("#8026A69A");
+    private static readonly IBrush ConditionHitNegativeBrush = Brush("#80EF5350");
+    private static readonly IPen ConditionHitPositivePen = Pen("#26A69A", 1.2);
+    private static readonly IPen ConditionHitNegativePen = Pen("#EF5350", 1.2);
     private static readonly IPen DraftStopPen = new Pen(new SolidColorBrush(Color.Parse("#EF5350")), 1.2);
     private static readonly IPen DraftTargetPen = new Pen(new SolidColorBrush(Color.Parse("#26A69A")), 1.2);
 
@@ -105,6 +110,16 @@ public sealed class NativeChartSurface : Control
     {
         get => _outcomeRange;
         set { _outcomeRange = value; InvalidateVisual(); }
+    }
+
+    public IReadOnlyList<ChartConditionHitMarker> ConditionHitMarkers
+    {
+        get => _conditionHitMarkers;
+        set
+        {
+            _conditionHitMarkers = value ?? Array.Empty<ChartConditionHitMarker>();
+            InvalidateVisual();
+        }
     }
 
     public event EventHandler<ChartRangeSelectedEventArgs>? ResearchRangeSelected;
@@ -277,6 +292,7 @@ public sealed class NativeChartSurface : Control
         }
 
         DrawResearchRanges(context, snapshot, start, end, lastPaneBottom);
+        DrawConditionHitMarkers(context, snapshot, start, end, pricePane);
         DrawDraftLevels(context, pricePane, priceMin, priceMax);
 
         DrawCrosshairAndLegend(context, snapshot, candles, pricePane, rsiPane, macdPane,
@@ -483,6 +499,50 @@ public sealed class NativeChartSurface : Control
             var rect = new Rect(left, 0, Math.Max(1, right - left), Math.Max(1, bottom));
             context.FillRectangle(fill, rect);
             context.DrawRectangle(null, border, rect);
+        }
+    }
+
+    private void DrawConditionHitMarkers(
+        DrawingContext context,
+        ChartSnapshot snapshot,
+        int visibleStart,
+        int visibleEndExclusive,
+        Rect pricePane)
+    {
+        if (_conditionHitMarkers.Count == 0 || pricePane.Height <= 0)
+            return;
+
+        var width = Math.Max(1, Bounds.Width - AxisWidth);
+        var count = visibleEndExclusive - visibleStart;
+        if (count <= 0)
+            return;
+
+        foreach (var hit in _conditionHitMarkers)
+        {
+            var unix = hit.TimeUtc.ToUnixTimeSeconds();
+            var index = FindNearestCandle(snapshot.Candles, unix, visibleStart, visibleEndExclusive);
+            if (index < 0)
+                continue;
+
+            var x = (index - visibleStart + 0.5) / count * width;
+            var pen = hit.ForwardPositive ? ConditionHitPositivePen : ConditionHitNegativePen;
+            var brush = hit.ForwardPositive ? ConditionHitPositiveBrush : ConditionHitNegativeBrush;
+            context.DrawLine(pen, new Point(x, pricePane.Top), new Point(x, pricePane.Bottom));
+
+            // Small triangle marker at the bottom of the price pane.
+            var tip = new Point(x, pricePane.Bottom - 2);
+            var left = new Point(x - 4, pricePane.Bottom - 10);
+            var right = new Point(x + 4, pricePane.Bottom - 10);
+            var geo = new StreamGeometry();
+            using (var g = geo.Open())
+            {
+                g.BeginFigure(tip, isFilled: true);
+                g.LineTo(left);
+                g.LineTo(right);
+                g.EndFigure(isClosed: true);
+            }
+
+            context.DrawGeometry(brush, pen, geo);
         }
     }
 

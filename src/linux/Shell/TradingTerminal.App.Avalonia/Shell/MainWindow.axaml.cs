@@ -632,6 +632,7 @@ public partial class MainWindow : Window
         DateTime? historyToUtc = null,
         TradingTerminal.Core.Domain.BarSize? historyBarSize = null,
         TradingTerminal.Core.Strategies.Generation.ResearchChartSelectionV1? researchSelection = null,
+        IReadOnlyList<TradingTerminal.Core.Strategies.Generation.ResearchConditionHitV1>? conditionHits = null,
         bool forceDetachedWindow = false,
         Settings.ResearchStudioWindow? targetStudio = null)
     {
@@ -743,6 +744,12 @@ public partial class MainWindow : Window
         {
             chartViewModel.ApplyHostPreferredSymbol(preferredSymbol);
             PreviewLog($"preferred symbol applied: {preferredSymbol}");
+        }
+
+        if (conditionHits is not null)
+        {
+            chartViewModel.ApplyConditionHitMarkers(conditionHits);
+            PreviewLog($"condition hit markers applied: {conditionHits.Count}");
         }
 
         // Prefer host/research intent over a stale chart selection (e.g. BTCUSD default).
@@ -1110,6 +1117,7 @@ public partial class MainWindow : Window
                 historyToUtc: args.HistoryToUtc,
                 historyBarSize: args.HistoryBarSize,
                 researchSelection: args.ResearchSelection,
+                conditionHits: args.ConditionHits.Count > 0 ? args.ConditionHits : null,
                 targetStudio: studio);
             Vm?.ActivityLog.Append(
                 "Charts",
@@ -1638,6 +1646,7 @@ public partial class MainWindow : Window
                 historyToUtc: args.HistoryToUtc,
                 historyBarSize: args.HistoryBarSize,
                 researchSelection: args.ResearchSelection,
+                conditionHits: args.ConditionHits.Count > 0 ? args.ConditionHits : null,
                 targetStudio: window);
         };
         structureHandler = (_, args) => OpenResearchMarketStructure(args.ViewKind, args.CanonicalSymbol);

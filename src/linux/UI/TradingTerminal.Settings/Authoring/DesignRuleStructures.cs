@@ -40,6 +40,9 @@ public sealed partial class DesignIndicatorRow : ObservableObject
     [ObservableProperty] private string _input = "Close";
     [ObservableProperty] private DesignValueProvenance _provenance = DesignValueProvenance.Operator;
 
+    /// <summary>Period before the latest edit — used to retune Design ENTRY operands.</summary>
+    public int PreviousPeriod { get; private set; } = 20;
+
     public string DisplayLabel =>
         Period > 0 ? $"{Kind.Trim()}({Period})" : Kind.Trim();
 
@@ -52,7 +55,17 @@ public sealed partial class DesignIndicatorRow : ObservableObject
         (string.IsNullOrEmpty(ProvenanceLabel) ? "" : $" · {ProvenanceLabel}");
 
     partial void OnKindChanged(string value) => NotifyDisplay();
-    partial void OnPeriodChanged(int value) => NotifyDisplay();
+    partial void OnPeriodChanged(int value)
+    {
+        // CommunityToolkit raises Changed after the field is assigned; stash prior via Changing.
+        NotifyDisplay();
+    }
+
+    partial void OnPeriodChanging(int value)
+    {
+        PreviousPeriod = Period;
+    }
+
     partial void OnInputChanged(string value) => NotifyDisplay();
     partial void OnProvenanceChanged(DesignValueProvenance value) => NotifyDisplay();
 

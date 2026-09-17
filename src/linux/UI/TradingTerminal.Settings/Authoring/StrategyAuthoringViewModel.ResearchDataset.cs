@@ -415,6 +415,7 @@ public sealed partial class StrategyAuthoringViewModel
             Status =
                 $"Local search: {ResearchConditionSearchResult.HitCount} hits · " +
                 ResearchConditionSearchResult.Note;
+            PublishConditionHitsToChart(ResearchConditionSearchResult);
         }
         catch (Exception ex)
         {
@@ -457,6 +458,7 @@ public sealed partial class StrategyAuthoringViewModel
             Status =
                 $"TSD search ({ResearchConditionSearchResult.DataSource}, {interval}): {ResearchConditionSearchResult.HitCount} hits · " +
                 ResearchConditionSearchResult.Note;
+            PublishConditionHitsToChart(ResearchConditionSearchResult);
         }
         catch (Exception ex)
         {
@@ -467,6 +469,23 @@ public sealed partial class StrategyAuthoringViewModel
         {
             IsResearchConditionSearching = false;
         }
+    }
+
+    /// <summary>
+    /// Push condition-search hits onto the shared Research chart as markers (not a mutate of Design).
+    /// </summary>
+    private void PublishConditionHitsToChart(ResearchConditionSearchResultV1? result)
+    {
+        if (result is null || result.Hits.Count == 0)
+            return;
+
+        var symbol = result.Symbol;
+        HostChartOverlayPreviewRequested?.Invoke(
+            this,
+            new HostChartOverlayPreviewRequestedEventArgs(
+                OverlaysForResearchPreview().ToArray(),
+                preferredSymbol: symbol,
+                conditionHits: result.Hits));
     }
 
     private bool CanSearchResearchConditionAction() => CanSearchResearchCondition;
@@ -529,7 +548,8 @@ public sealed partial class StrategyAuthoringViewModel
             new HostChartOverlayPreviewRequestedEventArgs(
                 OverlaysForResearchPreview().ToArray(),
                 preferredSymbol: symbol,
-                researchSelection: selection));
+                researchSelection: selection,
+                conditionHits: ResearchConditionSearchResult.Hits));
         Status =
             $"Opened condition hit {symbol} @ {bar:u} · metric {hit.ConditionMetric:0.00} · fwd {hit.ForwardReturn:P1}.";
     }

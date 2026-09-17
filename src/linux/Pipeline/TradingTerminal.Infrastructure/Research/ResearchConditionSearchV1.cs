@@ -61,6 +61,59 @@ public sealed class ResearchConditionSearchV1 : IResearchConditionSearchV1
             symbol: symbol);
     }
 
+    public async Task<ResearchConditionSearchResultV1> SearchDesignOperandsLocalAsync(
+        string leftOperand,
+        string operatorKey,
+        string rightOperand,
+        InstrumentId instrumentId,
+        string symbol,
+        BarSize timeframe,
+        int recentBarCount = 500,
+        CancellationToken cancellationToken = default)
+    {
+        var bars = await _store.GetRecentBarsAsync(
+                instrumentId,
+                timeframe,
+                Math.Clamp(recentBarCount, 50, 2000),
+                source: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var series = bars
+            .Select(bar => (
+                TimeUtc: new DateTimeOffset(DateTime.SpecifyKind(bar.OpenTimeUtc, DateTimeKind.Utc)),
+                Close: bar.Close))
+            .ToArray();
+
+        if (!DesignConditionChartPreviewEvaluatorV1.TryEvaluateDesignOperands(
+                leftOperand,
+                operatorKey,
+                rightOperand,
+                series,
+                dataSource: "local_store",
+                symbol: symbol,
+                out var result))
+        {
+            return new ResearchConditionSearchResultV1(
+                ResearchConditionSearchResultV1.CurrentSchemaVersion,
+                ConditionVersionHashSha256: "blocked",
+                ConditionSummary: $"{leftOperand} {operatorKey} {rightOperand}",
+                DataSource: "local_store",
+                Symbol: symbol,
+                UniverseBars: series.Length,
+                EvaluatedBars: 0,
+                HitCount: 0,
+                PositiveForwardCount: 0,
+                NegativeForwardCount: 0,
+                InsufficientDataCount: 0,
+                LiveMeetsCondition: null,
+                Hits: Array.Empty<ResearchConditionHitV1>(),
+                Note: "Design condition is not chart-previewable yet (need ema(n)/sma(n) operands).");
+        }
+
+        return result;
+    }
+
     public async Task<ResearchConditionSearchResultV1> SearchTsdAsync(
         ResearchConditionDefinitionV1 condition,
         string symbol,

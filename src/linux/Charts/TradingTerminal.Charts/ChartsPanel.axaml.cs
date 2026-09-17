@@ -170,6 +170,7 @@ public partial class ChartsPanel : UserControl
         if (e.PropertyName is nameof(ChartsViewModel.IsResearchRangeSelectionEnabled) or
             nameof(ChartsViewModel.ResearchObservationRange) or
             nameof(ChartsViewModel.ResearchOutcomeRange) or
+            nameof(ChartsViewModel.ConditionHitMarkers) or
             nameof(ChartsViewModel.DraftPlacementMode) or
             nameof(ChartsViewModel.DraftStopPrice) or
             nameof(ChartsViewModel.DraftTargetPrice) or
@@ -193,6 +194,7 @@ public partial class ChartsPanel : UserControl
 
         _surface.ObservationRange = _viewModel?.ResearchObservationRange;
         _surface.OutcomeRange = _viewModel?.ResearchOutcomeRange;
+        _surface.ConditionHitMarkers = _viewModel?.ConditionHitMarkers ?? Array.Empty<ChartConditionHitMarker>();
         _surface.DraftStopPrice = _viewModel?.DraftStopPrice;
         _surface.DraftTargetPrice = _viewModel?.DraftTargetPrice;
     }

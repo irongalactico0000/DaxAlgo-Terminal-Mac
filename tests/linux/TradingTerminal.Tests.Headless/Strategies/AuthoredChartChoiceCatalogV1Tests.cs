@@ -79,6 +79,26 @@ public sealed class AuthoredChartChoiceCatalogV1Tests
 
         Assert.Equal(["ema-20"], args.OverlayIds);
         Assert.True(args.StartResearchCapture);
+        Assert.Empty(args.ConditionHits);
+    }
+
+    [Fact]
+    public void Host_preview_event_carries_condition_hit_markers()
+    {
+        var hit = new ResearchConditionHitV1(
+            DateTimeOffset.UtcNow,
+            ConditionMetric: 2.5,
+            Threshold: 2,
+            ForwardReturn: 0.01,
+            ForwardPositive: true);
+        var args = new HostChartOverlayPreviewRequestedEventArgs(
+            ["ema-20"],
+            preferredSymbol: "BTCUSDT",
+            conditionHits: [hit]);
+
+        Assert.Equal("BTCUSDT", args.PreferredSymbol);
+        Assert.Single(args.ConditionHits);
+        Assert.Equal(hit.BarTimeUtc, args.ConditionHits[0].BarTimeUtc);
     }
 
     [Fact]

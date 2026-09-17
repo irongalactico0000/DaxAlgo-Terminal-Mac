@@ -2132,12 +2132,20 @@
                           <TextBlock Text="LINKED RESEARCH" Classes="eyebrow" />
                           <TextBlock Text="{Binding LinkedResearchSummaryText}" Classes="caption"
                                      TextWrapping="Wrap" />
-                          <Button Classes="ghost" Content="Propose Design rules from finding"
-                                  Command="{Binding StageFindingAsDesignProposalCommand}"
-                                  IsEnabled="{Binding CanStageFindingAsDesignProposal}"
-                                  HorizontalAlignment="Left"
-                                  AutomationProperties.Name="Propose Design rules from finding"
-                                  ToolTip.Tip="Stages ENTRY/instrument/timeframe from the linked condition. Apply required — does not overwrite until you confirm." />
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="ghost" Content="Preview on chart"
+                                    Command="{Binding PreviewDesignConditionOnChartCommand}"
+                                    IsEnabled="{Binding CanPreviewDesignConditionOnChart}"
+                                    HorizontalAlignment="Left"
+                                    AutomationProperties.Name="Preview design condition on chart"
+                                    ToolTip.Tip="{Binding PreviewDesignConditionOnChartHint}" />
+                            <Button Classes="ghost" Content="Propose Design rules from finding"
+                                    Command="{Binding StageFindingAsDesignProposalCommand}"
+                                    IsEnabled="{Binding CanStageFindingAsDesignProposal}"
+                                    HorizontalAlignment="Left"
+                                    AutomationProperties.Name="Propose Design rules from finding"
+                                    ToolTip.Tip="Stages ENTRY/instrument/timeframe from the linked condition. Apply required — does not overwrite until you confirm." />
+                          </StackPanel>
                         </StackPanel>
                       </Border>
                       <Border IsVisible="{Binding HasPendingFindingDesignProposal}"

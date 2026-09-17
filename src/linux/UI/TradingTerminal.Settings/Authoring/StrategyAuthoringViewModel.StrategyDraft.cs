@@ -39,6 +39,11 @@ public sealed partial class StrategyAuthoringViewModel
     /// <summary>True while syncing freeform summaries from structured form controls.</summary>
     private bool _syncingStructuredRuleText;
 
+    /// <summary>After Preview on chart, form edits re-run markers until the session moves on.</summary>
+    private bool _designConditionPreviewArmed;
+
+    private CancellationTokenSource? _designConditionPreviewCts;
+
     public ObservableCollection<DesignIndicatorRow> DesignIndicators { get; } = [];
 
     public DesignConditionRow DesignEntryCondition { get; } = new();
@@ -254,6 +259,144 @@ public sealed partial class StrategyAuthoringViewModel
         }
     }
 
+    public bool CanPreviewDesignConditionOnChart =>
+        !IsGenerating &&
+        _researchConditionSearch is not null &&
+        (DesignEntryCondition.IsComplete || HasPendingResearchCondition || HasResearchConditionSearchResult);
+
+    public string PreviewDesignConditionOnChartHint =>
+        DesignEntryCondition.IsComplete
+            ? "Marks bars where the Design ENTRY condition is true on the linked Research chart. Changing EMA periods updates markers."
+            : "Marks bars from the linked research condition search on the Research chart.";
+
+    [RelayCommand(CanExecute = nameof(CanPreviewDesignConditionOnChart))]
+    private async Task PreviewDesignConditionOnChartAsync()
+    {
+        _designConditionPreviewArmed = true;
+        await RunDesignConditionChartPreviewAsync(forceOpenChart: true).ConfigureAwait(true);
+    }
+
+    private void QueueLiveDesignConditionPreview()
+    {
+        if (!_designConditionPreviewArmed || _applyingDesignProposal || _restoring)
+            return;
+        _ = RunDesignConditionChartPreviewAsync(forceOpenChart: false);
+    }
+
+    private async Task RunDesignConditionChartPreviewAsync(bool forceOpenChart)
+    {
+        if (_researchConditionSearch is null)
+            return;
+
+        _designConditionPreviewCts?.Cancel();
+        _designConditionPreviewCts = new CancellationTokenSource();
+        var token = _designConditionPreviewCts.Token;
+
+        try
+        {
+            await Task.Delay(180, token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        ResearchChartSelectionV1? selection = PendingResearchChartSelection
+            ?? ResearchDatasetDefinition?.Samples.LastOrDefault()?.Selection;
+        if (selection is null || selection.InstrumentId.IsNone)
+        {
+            Status =
+                "Preview needs a linked Research chart selection (instrument + timeframe). " +
+                "Open Research, keep a setup, then return to Design.";
+            return;
+        }
+
+        try
+        {
+            ResearchConditionSearchResultV1? result = null;
+            if (DesignEntryCondition.IsComplete &&
+                DesignConditionChartPreviewEvaluatorV1.TryParseSeriesOperand(
+                    DesignEntryCondition.LeftOperand, out _, out _))
+            {
+                result = await _researchConditionSearch.SearchDesignOperandsLocalAsync(
+                        DesignEntryCondition.LeftOperand,
+                        DesignEntryCondition.OperatorKey,
+                        DesignEntryCondition.RightOperand,
+                        selection.InstrumentId,
+                        selection.CanonicalSymbol,
+                        selection.Timeframe,
+                        cancellationToken: token)
+                    .ConfigureAwait(true);
+            }
+            else if (PendingResearchCondition is { } volumeCondition)
+            {
+                result = await _researchConditionSearch.SearchLocalAsync(
+                        volumeCondition,
+                        selection.InstrumentId,
+                        selection.CanonicalSymbol,
+                        selection.Timeframe,
+                        cancellationToken: token)
+                    .ConfigureAwait(true);
+            }
+            else if (ResearchConditionSearchResult is { } existing)
+            {
+                result = existing;
+            }
+
+            if (token.IsCancellationRequested)
+                return;
+
+            if (result is null)
+            {
+                Status =
+                    "Nothing to preview yet — set Design ENTRY as ema(n) crosses/is above ema(m), " +
+                    "or link a research volume condition.";
+                return;
+            }
+
+            ResearchConditionSearchResult = result;
+            var overlays = OverlaysForDesignPreview();
+            if (forceOpenChart || result.Hits.Count > 0)
+            {
+                HostChartOverlayPreviewRequested?.Invoke(
+                    this,
+                    new HostChartOverlayPreviewRequestedEventArgs(
+                        overlays,
+                        preferredSymbol: selection.CanonicalSymbol,
+                        conditionHits: result.Hits));
+            }
+
+            Status =
+                result.Hits.Count == 0
+                    ? $"Design preview: no hits · {result.ConditionSummary} · {result.Note}"
+                    : $"Design preview: {result.HitCount} hits marked on chart · {result.ConditionSummary}";
+            PreviewDesignConditionOnChartCommand.NotifyCanExecuteChanged();
+            OnPropertyChanged(nameof(CanPreviewDesignConditionOnChart));
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer form edit
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Design condition chart preview failed");
+            Status = $"Design chart preview failed: {ex.Message}";
+        }
+    }
+
+    private IReadOnlyList<string> OverlaysForDesignPreview()
+    {
+        if (DesignIndicators.Count > 0)
+        {
+            return DesignIndicators
+                .Select(static i => $"{i.Kind.Trim().ToLowerInvariant()}-{i.Period}")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        return OverlaysForResearchPreview();
+    }
+
     private void NotifyDesignDraftChanged()
     {
         OnPropertyChanged(nameof(HasDesignRuleDraft));
@@ -266,13 +409,16 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(DesignInstrumentProvenanceLabel));
         OnPropertyChanged(nameof(DesignTimeframeProvenanceLabel));
         OnPropertyChanged(nameof(DesignRuleEditorHint));
+        OnPropertyChanged(nameof(CanPreviewDesignConditionOnChart));
         PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
         ReviewDesignRulesCommand.NotifyCanExecuteChanged();
         ImportResearchIndicatorsToDesignCommand.NotifyCanExecuteChanged();
+        PreviewDesignConditionOnChartCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanInvestigateInResearchStudio));
         InvestigateInResearchStudioCommand.NotifyCanExecuteChanged();
         NotifyBuildDesignBlockerStateChanged();
         NotifyWorkingFlowMapChanged();
+        QueueLiveDesignConditionPreview();
     }
 
     private void NotifyHyperionDesignProposalCommandsChanged()
@@ -621,8 +767,54 @@ public sealed partial class StrategyAuthoringViewModel
         DesignOrders.PropertyChanged += OnDesignOrdersPropertyChanged;
     }
 
-    private void OnDesignIndicatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+    private void OnDesignIndicatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (DesignIndicatorRow row in e.NewItems)
+                row.PropertyChanged += OnDesignIndicatorRowPropertyChanged;
+        }
+
+        if (e.OldItems is not null)
+        {
+            foreach (DesignIndicatorRow row in e.OldItems)
+                row.PropertyChanged -= OnDesignIndicatorRowPropertyChanged;
+        }
+
         NotifyDesignDraftChanged();
+    }
+
+    private void OnDesignIndicatorRowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(DesignIndicatorRow.Period) &&
+            sender is DesignIndicatorRow row &&
+            DesignEntryCondition.IsComplete)
+        {
+            var kind = row.Kind.Trim().ToLowerInvariant();
+            var oldToken = $"{kind}({row.PreviousPeriod})";
+            var newToken = $"{kind}({row.Period})";
+            if (row.PreviousPeriod > 0 &&
+                row.PreviousPeriod != row.Period &&
+                !string.Equals(oldToken, newToken, StringComparison.Ordinal))
+            {
+                if (string.Equals(
+                        DesignEntryCondition.LeftOperand.Trim(),
+                        oldToken,
+                        StringComparison.OrdinalIgnoreCase))
+                    DesignEntryCondition.LeftOperand = newToken;
+                if (string.Equals(
+                        DesignEntryCondition.RightOperand.Trim(),
+                        oldToken,
+                        StringComparison.OrdinalIgnoreCase))
+                    DesignEntryCondition.RightOperand = newToken;
+            }
+        }
+
+        if (e.PropertyName is nameof(DesignIndicatorRow.Period) or
+            nameof(DesignIndicatorRow.Kind) or
+            nameof(DesignIndicatorRow.Input))
+            NotifyDesignDraftChanged();
+    }
 
     private void OnDesignEntryConditionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {

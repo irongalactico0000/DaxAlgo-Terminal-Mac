@@ -326,6 +326,9 @@ public sealed class CandidateAuthoringUxContractTests
             (string?)element.Attribute("AutomationProperties.Name") == "Propose Design rules from finding" &&
             (string?)element.Attribute("Command") == "{Binding StageFindingAsDesignProposalCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Preview design condition on chart" &&
+            (string?)element.Attribute("Command") == "{Binding PreviewDesignConditionOnChartCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Apply finding design proposal" &&
             (string?)element.Attribute("Command") == "{Binding AcceptFindingDesignProposalCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>

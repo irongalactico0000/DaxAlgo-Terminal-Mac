@@ -19,6 +19,12 @@ public sealed partial class ChartsViewModel
     [ObservableProperty] private ChartTimeRange? _researchObservationRange;
     [ObservableProperty] private ChartTimeRange? _researchOutcomeRange;
 
+    /// <summary>Condition-search / Design-preview hits drawn on the native Research chart.</summary>
+    [ObservableProperty] private IReadOnlyList<ChartConditionHitMarker> _conditionHitMarkers =
+        Array.Empty<ChartConditionHitMarker>();
+
+    public bool HasConditionHitMarkers => ConditionHitMarkers.Count > 0;
+
     public bool IsResearchRangeSelectionEnabled => ResearchSelectionStep != ChartResearchSelectionStep.None;
     public bool HasResearchObservationRange => ResearchObservationRange is not null;
     public bool HasResearchOutcomeRange => ResearchOutcomeRange is not null;
@@ -251,6 +257,7 @@ public sealed partial class ChartsViewModel
         ResearchSelectionStep = ChartResearchSelectionStep.None;
         ResearchObservationRange = null;
         ResearchOutcomeRange = null;
+        ConditionHitMarkers = Array.Empty<ChartConditionHitMarker>();
     }
 
     private int CountBarsInRange(ChartTimeRange range)
@@ -277,6 +284,27 @@ public sealed partial class ChartsViewModel
 
     partial void OnResearchOutcomeRangeChanged(ChartTimeRange? value) =>
         NotifyResearchSelectionStateChanged();
+
+    partial void OnConditionHitMarkersChanged(IReadOnlyList<ChartConditionHitMarker> value) =>
+        OnPropertyChanged(nameof(HasConditionHitMarkers));
+
+    /// <summary>
+    /// Replace condition-hit markers from Research search or Design preview.
+    /// Pass empty to clear. Does not mutate observation/outcome ranges.
+    /// </summary>
+    public void ApplyConditionHitMarkers(IReadOnlyList<ResearchConditionHitV1>? hits)
+    {
+        if (hits is null || hits.Count == 0)
+        {
+            ConditionHitMarkers = Array.Empty<ChartConditionHitMarker>();
+            return;
+        }
+
+        ConditionHitMarkers = hits
+            .Select(static hit => new ChartConditionHitMarker(hit.BarTimeUtc, hit.ForwardPositive))
+            .ToArray();
+        Status = $"Condition markers: {ConditionHitMarkers.Count} hit(s) on chart.";
+    }
 
     private void NotifyResearchSelectionStateChanged()
     {

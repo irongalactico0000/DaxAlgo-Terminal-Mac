@@ -56,7 +56,8 @@ public sealed class HostChartOverlayPreviewRequestedEventArgs : EventArgs
         DateTime? historyFromUtc = null,
         DateTime? historyToUtc = null,
         BarSize? historyBarSize = null,
-        ResearchChartSelectionV1? researchSelection = null)
+        ResearchChartSelectionV1? researchSelection = null,
+        IReadOnlyList<ResearchConditionHitV1>? conditionHits = null)
     {
         OverlayIds = overlayIds ?? Array.Empty<string>();
         StartResearchCapture = startResearchCapture;
@@ -68,6 +69,7 @@ public sealed class HostChartOverlayPreviewRequestedEventArgs : EventArgs
         HistoryToUtc = historyToUtc;
         HistoryBarSize = historyBarSize;
         ResearchSelection = researchSelection;
+        ConditionHits = conditionHits ?? Array.Empty<ResearchConditionHitV1>();
     }
 
     public IReadOnlyList<string> OverlayIds { get; }
@@ -95,6 +97,12 @@ public sealed class HostChartOverlayPreviewRequestedEventArgs : EventArgs
     /// Research space capture — same path as gallery focus.
     /// </summary>
     public ResearchChartSelectionV1? ResearchSelection { get; }
+
+    /// <summary>
+    /// Bars where a research/Design condition fired — drawn as markers on the Research chart.
+    /// Empty when the preview is overlays/selection only.
+    /// </summary>
+    public IReadOnlyList<ResearchConditionHitV1> ConditionHits { get; }
 }
 
 public enum ResearchMarketStructureViewKind

@@ -156,4 +156,17 @@ public interface IResearchConditionSearchV1
         string interval = "1m",
         int limit = 500,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Evaluate Design form operands (ema/sma crossover or level) on local bars for chart markers.
+    /// </summary>
+    Task<ResearchConditionSearchResultV1> SearchDesignOperandsLocalAsync(
+        string leftOperand,
+        string operatorKey,
+        string rightOperand,
+        InstrumentId instrumentId,
+        string symbol,
+        BarSize timeframe,
+        int recentBarCount = 500,
+        CancellationToken cancellationToken = default);
 }
