@@ -5,26 +5,34 @@
 | **Saved finding** | “Reference A/B” | One kept research case: chart instrument/period, indicator settings, optional condition + search hits. You can keep **two** findings to compare (working vs failing). |
 | **Open chart** | — | Shared chart workspace (indicators + market views). |
 | **Strategy draft / version** | — | Trading rules built **from a saved finding**. |
-| **Fill model** | Calling L1 “Nautilus” | How Validate/Backtest turns orders into fills. **Today: L1 touch only.** Nautilus-class = later target. |
+| **Fill model** | Calling L1 “Nautilus” | How Validate/Backtest turns orders into fills. **Today: L1 touch.** Target: **event-driven execution validation** (book/queue/liquidity/lifecycle) with fixtures. |
 | **Doc index / lane map** | “Reference map” as product UI | Catalogue of specs and engines (this file). |
 
 **Code names (engineers only):** type `ResearchAnalysisReferenceV1`; UI commands still use slots labeled A and B as *storage keys*, not product vocabulary. Canon R11–R12 say “reference” in the Dolpago spec — prefer **saved finding** in Mac UI and agent prose.
 
 ---
 
-# Research · Strategy · Backtest — lane map (incl. Nautilus)
+# Research · Strategy · Backtest — lane map (incl. event-driven Validate)
 
 **Status:** Living index (2026-09-17) — organise by **saved findings**, not extra chrome  
+**North star:** Complete multi-chart indicator research and its handoff to Strategy Builder; develop and verify realistic execution simulation **alongside** it.  
+**Workstreams:** [`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md)  
 **Read with:** [`README.md`](README.md) · [`research-strategy-reference-spine.md`](research-strategy-reference-spine.md)  
 **Canon IDs:** Dolpago G/U/S/C/Q/V · R01–R28 (do not invent alternate schemes)
 
 ```text
 Research ──(saved finding)──► Strategy ──(strategy version + fill model)──► Backtest / Validate / Paper
-                                                                              │
+     │                              │                                              │
+     │ workstream 1                 │ workstream 2                                 │ workstream 3
+     │ multi-chart + findings       │ finding → executable rules                   │ event-driven sim
+     │                              │                                              │ (parallel fixtures OK)
                                                                               ▼
                                                                     Execution fidelity
-                                                                    (today L1 · later Nautilus-class)
+                                                                    (today L1 · target: event-driven)
 ```
+
+NautilusTrader docs inform **capability splits** (data/venue, sequencing, matching, fill models) — not a claim that Mac Validate “is Nautilus.”  
+[Backtesting](https://nautilustrader.io/docs/latest/concepts/backtesting/) · [Orders](https://nautilustrader.io/docs/latest/concepts/orders/)
 
 ---
 
@@ -32,11 +40,12 @@ Research ──(saved finding)──► Strategy ──(strategy version + fill 
 
 | Lane | Primary job | Handoff unit | Must not pretend to own |
 |------|-------------|--------------|-------------------------|
-| **Research** | Screen → open chart → indicators → Hyperion → Find similar → **save finding** | Saved finding (`ResearchAnalysisReferenceV1`) | Fill models, queue, OMS |
-| **Strategy** | Turn a **saved finding** into entry / exit / size / risk | `StrategyDraftV1` + condition id/hash → strategy version | Re-building chart tools |
+| **Research** | Screen → open chart → indicators → compare → Hyperion → Find similar → **save finding** | Saved finding (`ResearchAnalysisReferenceV1`) | Fill models, queue, OMS |
+| **Strategy** | Turn a **saved finding** into entry / exit / size / risk (with calculation, threshold, eval time) | `StrategyDraftV1` + condition id/hash → strategy version | Re-building chart tools |
 | **Backtest / Validate** | Replay the **same** version under a **declared** fill model | RunSpec / validation evidence hash | Silent “realistic” fills without disclosure |
 
-Shared chart across Research and Builder. Chart tools live on the **open chart**, not on Rank.
+Shared chart across Research and Builder. Chart tools live on the **open chart**, not on Rank.  
+**Three charts ≠ handoff.** Handoff is finding → editable executable rules.
 
 ---
 
@@ -66,6 +75,7 @@ Shared chart across Research and Builder. Chart tools live on the **open chart**
 | [`TSMS_Signal_OrderCandidate_Field_Map_2026-09-15.md`](TSMS_Signal_OrderCandidate_Field_Map_2026-09-15.md) | Strategy→OMS | Field map |
 | [`daxalgo-windows-to-macos-execution-parity.md`](daxalgo-windows-to-macos-execution-parity.md) | Backtest/OMS | Lifecycle / partials / restart |
 | [`daxalgo-research-design-chart-strategy-workflow.md`](daxalgo-research-design-chart-strategy-workflow.md) | Research/Design | Longer event-study plan |
+| [`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md) | All | Three parallel workstreams + IOC Validate fixture |
 | [`Volume_Rehearsal_Evidence_2026-09-15.md`](Volume_Rehearsal_Evidence_2026-09-15.md) | Research | Rehearsal evidence + Nautilus posture |
 | [`MS_First_Roadmap_2026-09-15.md`](MS_First_Roadmap_2026-09-15.md) | TSD | Build order |
 | [`../docs/how-a-strategy-gets-in.md`](../../docs/how-a-strategy-gets-in.md) | Strategy | Intake |
@@ -77,7 +87,7 @@ Shared chart across Research and Builder. Chart tools live on the **open chart**
 
 | Name | What it is | Role for DaxAlgo |
 |------|------------|------------------|
-| **NautilusTrader** | Trading/backtest engine with richer matching options | **Later fill-fidelity target** (queue, liquidity, latency, realistic partials). Optional in TSD; **not** Mac Paper today. Behind S06 mediator — never AI→venue. |
+| **NautilusTrader** | Event-driven trading/backtest engine (data catalog, sequencing, matching, fill models) | **Reference architecture** for Validate workstream 3. Optional in TSD; **not** Mac Validate today. Behind S06 mediator — never AI→venue. |
 | **LEAN / QuantConnect** | Event-driven backtest + live | Benchmark comparison |
 | **vectorbt / backtesting.py / Freqtrade** | Research tooling | Benchmark only |
 | **TSD (MDMS / TSMS / TOMS / PPMS)** | Data, signals, admit, paper | Shared desk; Mac adapter |
@@ -118,22 +128,36 @@ Shared chart across Research and Builder. Chart tools live on the **open chart**
 |---------|----------|
 | L1 touch ± slippage, full remaining qty | **Yes** (`L1TouchFillModel`) |
 | Latency ms, quantity-capped partials (max N per L1 touch) | **Yes** when enabled on Validate (applied by session + engine) |
-| Queue position, liquidity walk, L2/L3 books | **No** (UI marks unavailable) |
+| Queue position, liquidity walk, L2/L3 books, full IOC book walk | **No** (UI marks unavailable) |
 
-### Later (Nautilus-class target — not claimed done)
+### Target: event-driven execution validation (workstream 3)
 
-Order-book / L2 replay · queue position · liquidity consumption · uncapped realistic partials beyond the demo max-per-touch.
+Verify as **separate** capabilities (Nautilus-style split — not one checkbox):
 
-Chosen explicitly on Validate/Paper. Research **saved findings** stay about signals/conditions, not fill physics.
+| Requirement | Demonstrate |
+|-------------|-------------|
+| Order books | Reconstruct available historical book at each replay timestamp |
+| Market/limit execution | Order type, price constraints, available qty, venue rules |
+| Queue position | Stated model; estimates vs data-supported facts labeled |
+| Liquidity consumption | No repeated consumption of the same available liquidity |
+| Latency | Submits / amends / cancels at modeled arrival times |
+| Partial fills / lifecycle | Remaining qty, fills, cancels, rejects, expiry |
+| Accounting | Fills ↔ positions, fees, cash, P&L |
+
+**Canonical fixture (IOC):** buy limit IOC 100 @ 100.01 vs asks 30@100.00 + 50@100.01 → fill **80**, cancel **20**, avg **100.00625**.  
+Full criteria + parallelism: [`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md).
+
+Chosen explicitly on Validate/Paper. Research **saved findings** stay about signals/conditions, not fill physics.  
+Validate engine work may start **now** with a fixed strategy + deterministic fixtures — independent of multi-chart UI.
 
 ---
 
 ## 6. End-to-end narrative
 
-1. Research on the open chart → save a **finding**.  
+1. Research multi-chart / indicators → **numerical** compare → save a **finding** (include failing cases when claiming a pattern).  
 2. Optionally save a second finding as contrast; restore the first.  
-3. Strategy Builder from that finding → bind condition → exits/size.  
-4. Validate with **L1 disclosed** (optional capped partials + latency). Nautilus-class queue/L2 is a **later fill-fidelity target**, not claimed when Validate runs L1.  
+3. Strategy Builder: finding → editable rules (calculation, threshold, eval time, entry, exit, size, risk) → Build.  
+4. Validate with **declared** fill model (today L1 disclosed). Event-driven book/queue/liquidity proven by fixtures before UI claims them.  
 5. Paper: same strategy version, one book, one owner.
 
 **Design → TradeIR honesty:** Design “Use rules as request” only fills the composer. TradeIR requires Build/confirm — no silent IR from rule text.
@@ -142,7 +166,8 @@ Chosen explicitly on Validate/Paper. Research **saved findings** stay about sign
 
 ## 7. Agent reporting
 
-`Lane` → `Spec ID` → `Object (saved finding / strategy version / fill model)` → `Code` → `Evidence` → `Remaining`
+`Workstream` → `Spec ID` → `Object (saved finding / strategy version / fill model)` → `Code` → `Evidence` → `Remaining`
 
-Never mark Nautilus done because an Order book window exists.  
+Never mark event-driven Validate done because an Order book window exists.  
+Never mark Research→Builder done because Compare shows three charts.  
 Never say “Reference A/B” in user-facing copy.

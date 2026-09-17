@@ -7,12 +7,15 @@
   [`.omx/plans/task-to-interface-map.md`](../.omx/plans/task-to-interface-map.md) ·
   [`.omx/plans/interaction-states-wireframes.md`](../.omx/plans/interaction-states-wireframes.md) ·
   [`.omx/plans/acceptance-journey-research-to-validate.md`](../.omx/plans/acceptance-journey-research-to-validate.md).
-- **Research · Strategy · Backtest lane map (incl. Nautilus):**
+- **Three workstreams (Research · Builder · event-driven Validate):**
+  [`.omx/plans/workstreams-research-builder-validate.md`](../.omx/plans/workstreams-research-builder-validate.md)
+  — multi-chart completion criteria, finding→executable rules, IOC fixture; Validate parallel to UI.
+- **Research · Strategy · Backtest lane map:**
   [`.omx/plans/research-strategy-backtest-reference-map.md`](../.omx/plans/research-strategy-backtest-reference-map.md)
-  — terminology first; then lanes, types, docs, honest L1 vs later fill fidelity.
+  — terminology first; honest L1 today vs event-driven target.
 - **Research↔Strategy via saved findings:**
   [`.omx/plans/research-strategy-reference-spine.md`](../.omx/plans/research-strategy-reference-spine.md)
-  — handoff = saved finding (not “Reference A/B”).
+  — handoff = saved finding → editable rules (not “Reference A/B”).
 - [Plans index](../.omx/plans/README.md) — ordered canon for agents.
 - [Vibe Quant four-lane workflow](vibe-quant-four-lane-workflow.md) — how four initial AI requests,
   bounded invalid-response repair, immediate per-lane artifact inspection, durable strategy

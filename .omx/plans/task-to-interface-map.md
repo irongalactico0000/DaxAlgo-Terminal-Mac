@@ -4,8 +4,13 @@
 **Language:** **saved finding** (not “Reference A/B”). Chart tools live on the **open chart**.  
 **Companion deliverables:** [`interaction-states-wireframes.md`](interaction-states-wireframes.md) · [`acceptance-journey-research-to-validate.md`](acceptance-journey-research-to-validate.md)
 
-**Immediate product targets:** (1) usable Research chart / comparison screen · (2) usable Builder **rule editor**.  
-Do not assign success probabilities; completion is measured by the acceptance journey.
+**Immediate product targets:**  
+> Complete multi-chart indicator research and its **handoff to Strategy Builder**; develop and verify **realistic execution simulation alongside it**.
+
+Three parallel workstreams (Validate does **not** wait for multi-chart UI):  
+[`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md).
+
+Do not assign success probabilities; completion is measured by acceptance journeys + declared fixtures.
 
 External patterns (not layouts to copy): [TradingView screener](https://www.tradingview.com/support/solutions/43000718885-tradingview-screeners-walkthrough/), [TrendSpider](https://help.trendspider.com/), [QuantConnect Research Engine](https://www.quantconnect.com/docs/v2/research-environment/key-concepts/research-engine).
 
@@ -42,7 +47,7 @@ Selecting an observation **only narrows the period**. It must **not** invent an 
 | **Visible result** | Ranked table **or real chart grid**; coverage (requested / usable history / excluded / returned); data source (e.g. simulated) |
 | **Saved state** | Screener query + selected symbols (session) |
 | **Next** | Study one chart · Compare cases |
-| **Local now** | Rank + table/detail work; chart grid honestly unavailable |
+| **Local now** | Rank + table/detail; Compare hosts up to 3 live tiles (sources/intervals still need Mac verification) |
 
 ### 1.2 Study one chart
 
@@ -74,8 +79,11 @@ Selecting an observation **only narrows the period**. It must **not** invent an 
 | **Actions** | Shared interval/indicator settings; numerical comparison panel; include unsuccessful cases |
 | **Visible result** | Multiple charts **and** calculated similarities/differences Hyperion can cite |
 | **Saved state** | Comparison set id (optional) or notes on a saved finding |
-| **Next** | Save finding(s) · Develop indicator |
-| **Local now** | Compare mode: multi-select ranked rows → numeric strip + **up to 3 live chart tiles** (same window / indicators). Open a ranked tile to focus the single chart. |
+| **Next** | Save finding(s) · Develop indicator · **Use in Strategy Builder** (finding → editable rules) |
+| **Done when** | See workstream 1 table in [`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md) — shared defs, numerical deltas, failed cases, Hyperion on calculated results, reopen without upload |
+| **Local now** | Up to 3 live chart tiles + numeric strip (return %, vol÷avg, EMA20 slope). Shared params across tiles + Hyperion citing strip + failed-case compare still thin. |
+
+**Gap:** chart tiles alone are **not** Research→Strategy. A finding must become an editable rule (calculation, threshold, evaluation time, entry, exit, sizing, risk).
 
 ### 1.5 Find similar observations
 
@@ -119,20 +127,28 @@ Selecting an observation **only narrows the period**. It must **not** invent an 
 
 | Activity | Visible | Produces |
 |----------|---------|----------|
-| **Design** | Instruments, data inputs, **entry**, **exit**, **sizing**, **risk**, **order instructions** — editable immediately; **Use rules as request** → composer only (Build still required) | Draft rules (may cite indicator defs from a finding) |
+| **Design** | Instruments, data inputs, **entry**, **exit**, **sizing**, **risk**, **order instructions** — editable immediately; **Use rules as request** → composer only (Build still required) | Draft rules with calculation + threshold + evaluation time when bound from a finding |
 | **Review research inputs** | Linked saved findings; exact indicator definitions/settings used by rules | Explicit link; stale if research indicator version changes until user updates |
 | **Build** | Generated implementation, compile results, errors tied to rules | Artifact / strategy version hash |
-| **Validate** | Period, costs, **L1 fill model disclosed** (optional capped partials + latency); queue/L2 = Nautilus-class later | Validation evidence bound to version |
+| **Validate** | Declared fill model (today L1; event-driven book/queue/liquidity = workstream 3) | Validation evidence bound to version |
 | **Run** | Mode, account/book, active version, orders, positions, start/stop | Live/Paper run under ownership rules |
 
-### 2.3 Indicator connection (concrete)
+### 2.3 Research → Builder (required middle)
+
+A finding is incomplete until Design holds an **executable rule package**:
+
+calculation · threshold · evaluation time · entry · exit · sizing · risk  
+
+Example: finding *“relative volume increased before these moves”* → rule with volume÷avg definition, threshold \(k\), bar-close evaluation, plus entry/exit/size/risk. Three charts without that package ≠ handoff done.
+
+### 2.4 Indicator connection (concrete)
 
 ```text
 Research: EMA(20, close) on chart
   → Save finding
   → Use in Strategy Builder
   → Builder references that definition
-  → User writes rule: close crosses above EMA(20)
+  → User writes rule: close crosses above EMA(20) (+ exit/size/risk)
 ```
 
 The indicator does **not** set entry order, exit, size, or risk — Builder exposes those.  
@@ -157,7 +173,9 @@ On small Mac windows: collapse/reflow panels; keep the **current task** usable.
 
 ## 4. Implementation priority (from this map)
 
-1. **Builder Design** = rule editor first (**shipped MVP**: entry/exit/sizing/risk/orders fields; templates demoted).  
-2. **Research compare** = real multi-chart tiles (up to 3 hosts) + numeric strip + focus chart.  
-3. **Indicator develop** = editable params → live series → versioned definition for findings.  
-4. **Validate** = L1 + optional capped partials + latency applied; Nautilus-class queue/L2 remain a separate engine lane.
+1. **Research compare** = multi-chart + shared indicator defs + numerical/historical compare + saved findings (workstream 1).  
+2. **Builder handoff** = finding → editable executable rules (calculation/threshold/eval time/entry/exit/size/risk) (workstream 2).  
+3. **Validate** = event-driven execution models with fixtures (workstream 3) — **parallel**, fixed strategy OK.  
+4. Design rule editor chrome remains usable without Research (**Start from rules**).
+
+Canon: [`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md).

@@ -45,6 +45,7 @@ Real multi-chart tiles: Compare hosts up to **3 live chart tiles** + numeric str
 |---|------|----------|-------|
 | C1 | From finding 1: Use in Strategy Builder | Builder opens; **same session**; finding linked | |
 | C2 | Design screen | **Editable rules** visible (entry/exit/size/risk/orders)—not research templates as home | |
+| C2b | From finding: define calculation, threshold, evaluation time | Rule package is explicit — not “three charts” alone | |
 | C3 | Confirm linked indicator def (e.g. EMA 20) | Exact params shown under research inputs | |
 | C4 | Write entry using that def (e.g. close crosses above EMA 20) | Rule editable; indicator ≠ full strategy | |
 | C5 | Add exit + sizing | Entry condition id/hash unchanged | |
@@ -59,10 +60,26 @@ Real multi-chart tiles: Compare hosts up to **3 live chart tiles** + numeric str
 | # | Step | Expected | Pass? |
 |---|------|----------|-------|
 | D1 | Build | Compile result; errors tied to rules if any | |
-| D2 | Validate assumptions | L1 applied; optional quantity-capped partials (max 4/touch) + latency ms; queue/liquidity unavailable **with explanation** | |
+| D2 | Validate assumptions | L1 applied; optional quantity-capped partials (max 4/touch) + latency ms; queue/liquidity unavailable **with explanation** (Nautilus-class / event-driven = workstream 3, not claimed) | |
 | D3 | Run validation | Trades/performance for the version | |
 | D4 | Select one trade | Chart opens for that trade context | |
 | D5 | Change research EMA to 30; reopen Builder | Strategy still on prior EMA 20 until user updates link (stale banner if implemented) | |
+
+---
+
+## Journey F — Event-driven Validate fixtures (parallel; no UI required)
+
+May run with a **fixed strategy** and deterministic book data. Does **not** wait for multi-chart Research.  
+Criteria: [`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md).
+
+| # | Step | Expected | Pass? |
+|---|------|----------|-------|
+| F1 | Book reconstruction fixture | Available book at each replay timestamp is explicit | |
+| F2 | IOC limit: buy 100 @ 100.01 vs asks 30@100.00 + 50@100.01 | Fill **80**, cancel **20**, avg **100.00625** | |
+| F3 | Accounting | Positions / fees / cash / P&L reconcile with fills | |
+| F4 | UI claim gate | Richer model selectable in Validate **only after** F1–F3 green for that model | |
+
+**Local now:** F* not implemented — L1 path only. Do not mark PASS on F from Order book chrome alone.
 
 ---
 
@@ -89,4 +106,4 @@ Real multi-chart tiles: Compare hosts up to **3 live chart tiles** + numeric str
 | E (Direct rules) | PASS (automated) |
 | Notes | See [`Acceptance_Evidence_2026-09-17.md`](Acceptance_Evidence_2026-09-17.md). Desktop launcher: `~/Desktop/DaxAlgo Terminal.app`. |
 
-**Done means:** A + C + D pass on Mac with notes. B = strip + up to 3 compare chart tiles (focus chart still available). E must pass so known-rules users are not forced through Research.
+**Done means:** A + C + D pass on Mac with notes. B = strip + compare tiles **and** progress toward numerical/shared-indicator criteria. C requires finding → editable executable rules (not charts alone). E must pass so known-rules users are not forced through Research. F (event-driven fixtures) may advance in parallel and is required before UI claims book/queue/liquidity.

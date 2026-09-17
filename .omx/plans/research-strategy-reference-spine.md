@@ -40,37 +40,43 @@ Restore must reopen that package without re-uploading files.
 └──────────────┬──────────────┘
                │ Use in Strategy Builder (requires / creates a finding)
 ┌──────────────▼──────────────┐
-│ Strategy Builder            │  entry / exit / size from that finding
+│ Strategy Builder            │  finding → editable rules:
+│                             │  calculation · threshold · eval time
+│                             │  entry · exit · sizing · risk
 │                             │  Validate · Paper (fill model explicit)
 └─────────────────────────────┘
 ```
+
+Three charts without that rule package ≠ Research→Strategy done.  
+Parallel Validate criteria: [`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md).
 
 ## User journeys (acceptance)
 
 ### Research-only (no strategy yet)
 
 1. Open chart (Charts or Rank → Open chart).
-2. Toggle / develop indicators on **that** chart.
-3. Ask Hyperion an analytical question (must explain, not only “overlay applied”).
-4. Optionally select observation + outcome; Apply condition; Find similar (same condition — never silent next-day +5%).
+2. Toggle / develop indicators on **that** chart (shared defs across Compare tiles when comparing).
+3. Ask Hyperion an analytical question (must explain **calculated** results, not only “overlay applied”).
+4. Optionally select observation + outcome; Apply condition; Find similar (same condition — never silent next-day +5%). Include failing cases when claiming a pattern.
 5. **Save finding** (and a second finding if you need contrast). Restoring the first after the second must keep distinct ranges/bindings.
 
 ### Research → Strategy
 
 1. Restore the intended **saved finding**, or save before handoff.
 2. **Use in Strategy Builder** — Builder opens with that evidence; Studio stays session-matched.
-3. Bind condition id+hash into the draft; add exits/sizing without rewriting the entry condition.
-4. Validate under the declared fill model (today: L1 + optional capped partials + latency ms; queue/liquidity = later).
+3. Turn the finding into an **editable executable rule**: calculation, threshold, evaluation time, entry, exit, sizing, risk. Bind condition id+hash; do not rewrite entry when adding exits.
+4. Validate under the declared fill model (today: L1 + optional capped partials + latency ms). Event-driven book/queue/liquidity = separate workstream with fixtures.
 
 ### What not to do
 
 - Do not gate Order book / Footprint / Bookmap on Rank.
 - Do not open another session’s Studio from Builder.
 - Do not invent outcome intervals or declare Depth/Tape when the chart only used bars.
-- Do not pretend “Chart grid” is multi-chart until real tiles exist — Compare now hosts up to 3 live tiles + strip.
+- Do not treat multi-chart tiles alone as Research→Strategy handoff.
 - Do not add Rank-adjacent tool buttons; put chart tools on the chart.
 - Do not say “Reference A/B” in user-facing copy.
 - Design → TradeIR: **Use rules as request** copies rules into the composer only — Build still required; no invented TradeIR.
+- Do not mark event-driven Validate done because an Order book window exists.
 
 ## Code anchors
 
@@ -83,9 +89,10 @@ Restore must reopen that package without re-uploading files.
 | Durable Builder handoff | `MainWindow.WireStrategyBuilderHandoff` |
 | Chart-owned market views | `ChartsViewModel` `OpenChart*Command` |
 
-## Execution (separate lane)
+## Execution (separate parallel lane)
 
-Nautilus-class fill behaviour belongs in Validate/Paper — not Research UI.
+Event-driven execution validation belongs in Validate/Paper — not Research UI. May proceed with a fixed strategy + deterministic fixtures while Research multi-chart continues.
 
 Full lane map: [`research-strategy-backtest-reference-map.md`](research-strategy-backtest-reference-map.md).  
+Workstreams: [`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md).  
 Phase 5: [`Phase5_Execution_Contracts_2026-09-15.md`](Phase5_Execution_Contracts_2026-09-15.md).
