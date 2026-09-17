@@ -139,13 +139,13 @@ public sealed partial class StrategyAuthoringViewModel
         $"← Back to {StrategyReturnDisplayName}";
 
     public string UseInStrategyBuilderText =>
-        $"Add finding to {StrategyReturnDisplayName}";
+        $"Use in Strategy · {StrategyReturnDisplayName}";
 
     public string StrategyReturnDisplayName =>
         string.IsNullOrWhiteSpace(DisplayName) ? "strategy" : DisplayName.Trim();
 
     /// <summary>
-    /// Preview of what Add finding will transfer — independent of whether Back is available.
+    /// Preview of what Use in Strategy will transfer — independent of whether Back is available.
     /// </summary>
     public string AddFindingTransferPreviewText
     {
@@ -167,8 +167,8 @@ public sealed partial class StrategyAuthoringViewModel
                 parts.Add("Indicators: " + string.Join(", ",
                     PendingResearchIndicatorBindings.Select(static b => b.DisplayLabel)));
             return parts.Count == 0
-                ? "Ready to attach the current Research evidence to Design."
-                : "Will transfer — " + string.Join(" · ", parts);
+                ? "Ready to review Research inputs for Strategy Builder."
+                : "Will offer for reuse — " + string.Join(" · ", parts);
         }
     }
 

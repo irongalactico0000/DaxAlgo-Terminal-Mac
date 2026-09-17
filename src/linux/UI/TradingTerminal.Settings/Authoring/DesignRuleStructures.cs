@@ -43,6 +43,8 @@ public sealed partial class DesignIndicatorRow : ObservableObject
     public string DisplayLabel =>
         Period > 0 ? $"{Kind.Trim()}({Period})" : Kind.Trim();
 
+    public string FormulaDescription => ToBinding().FormulaDescription;
+
     public string ProvenanceLabel => DesignValueProvenanceLabels.Label(Provenance);
 
     public string EditorSummary =>
@@ -57,6 +59,7 @@ public sealed partial class DesignIndicatorRow : ObservableObject
     private void NotifyDisplay()
     {
         OnPropertyChanged(nameof(DisplayLabel));
+        OnPropertyChanged(nameof(FormulaDescription));
         OnPropertyChanged(nameof(ProvenanceLabel));
         OnPropertyChanged(nameof(EditorSummary));
     }

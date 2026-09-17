@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -152,6 +153,25 @@ public sealed partial class StrategyAuthoringViewModel
     /// Navigation (Back) clears this without transferring.
     /// </summary>
     [ObservableProperty] private string _pendingAddFindingReviewText = "";
+
+    /// <summary>Exact Research indicator definitions staged for Use-in-Strategy review (editable before Confirm).</summary>
+    public ObservableCollection<DesignIndicatorRow> HandoffIndicators { get; } = [];
+
+    [ObservableProperty] private string _handoffConditionSummaryText = "";
+    [ObservableProperty] private string _handoffExampleSummaryText = "";
+    [ObservableProperty] private string _handoffRoleText = "Entry";
+    [ObservableProperty] private string _handoffDestinationText = "";
+
+    /// <summary>Role chosen on last Confirm — guides Apply into Entry vs Exit vs Filter.</summary>
+    public DesignHandoffConditionRole LastConfirmedHandoffRole { get; private set; } =
+        DesignHandoffConditionRole.Entry;
+
+    public IReadOnlyList<string> HandoffRoleOptions => DesignHandoffConditionRoleLabels.Options;
+
+    public DesignHandoffConditionRole HandoffConditionRole =>
+        DesignHandoffConditionRoleLabels.Parse(HandoffRoleText);
+
+    public bool HasHandoffIndicators => HandoffIndicators.Count > 0;
 
     public bool HasPendingAddFindingReview =>
         !string.IsNullOrWhiteSpace(PendingAddFindingReviewText);
@@ -522,7 +542,7 @@ public sealed partial class StrategyAuthoringViewModel
     {
         if (!CanUseObservationInDesign) return;
 
-        // Stage review only — ConfirmAddFindingToStrategy mutates Design; Back clears without transfer.
+        // Stage review only — ConfirmAddFindingToStrategy mutates Design; Back clears without transferring.
         if (PendingResearchCondition is not null)
         {
             if (!HasResearchFinding1)
@@ -557,23 +577,55 @@ public sealed partial class StrategyAuthoringViewModel
                 : "none locked yet";
         var condition = PendingResearchConditionText;
         var selection = ResearchChartSelectionText;
+
+        StageHandoffReviewInputs();
+        HandoffDestinationText = StrategyReturnDisplayName;
+        HandoffRoleText = "Entry";
+        HandoffConditionSummaryText = string.IsNullOrWhiteSpace(condition)
+            ? "(no condition yet — indicators only)"
+            : condition;
+        HandoffExampleSummaryText =
+            $"{selection} · samples {ResearchEventSampleCount} · instrument {ResearchChartInstrumentText ?? eventSymbol}";
+
         PendingAddFindingReviewText =
-            $"Review before linking to {StrategyReturnDisplayName} Design for {eventSymbol}.\n\n" +
-            $"Saved finding: {activeFinding}\n" +
-            $"Selection: {selection}\n" +
-            $"Analysis indicators (candidates — include only what Design confirms): {indicators}\n" +
-            $"Candidate condition: {condition}\n" +
-            $"Chart instrument binding: {ResearchChartInstrumentText ?? "unset"}\n" +
-            $"Samples labeled: {ResearchEventSampleCount}\n\n" +
-            "Confirm links this finding. Cancel or ← Back leaves Design unchanged.";
+            $"Use in Strategy — review transferable Research inputs for {StrategyReturnDisplayName} ({eventSymbol}).\n\n" +
+            $"Destination: {HandoffDestinationText}\n" +
+            $"Role: {HandoffRoleText} (change below — Entry / Exit / Filter)\n" +
+            $"Indicators (exact): {indicators}\n" +
+            $"Condition: {HandoffConditionSummaryText}\n" +
+            $"Example: {HandoffExampleSummaryText}\n" +
+            $"Saved finding notes: {activeFinding}\n\n" +
+            "Confirm links these definitions into Design for review. Cancel or ← Back leaves Design unchanged.\n" +
+            "An indicator is a measurement; a condition interprets it; choosing Entry/Exit/Filter decides how the strategy uses it.";
         Status =
-            $"Review the finding before linking it to {StrategyReturnDisplayName}. " +
+            $"Review exact Research indicators and condition before linking to {StrategyReturnDisplayName}. " +
             "Confirm changes the draft; ← Back does not.";
         OnPropertyChanged(nameof(HasPendingAddFindingReview));
+        OnPropertyChanged(nameof(HasHandoffIndicators));
         OnPropertyChanged(nameof(CanConfirmAddFindingToStrategy));
         ConfirmAddFindingToStrategyCommand.NotifyCanExecuteChanged();
         DiscardAddFindingReviewCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(AddFindingTransferPreviewText));
+    }
+
+    private void StageHandoffReviewInputs()
+    {
+        HandoffIndicators.Clear();
+        foreach (var binding in PendingResearchIndicatorBindings)
+        {
+            HandoffIndicators.Add(
+                DesignIndicatorRow.FromBinding(binding, DesignValueProvenance.ResearchAvailable));
+        }
+    }
+
+    /// <summary>Write edited handoff indicator periods back into pending Research bindings before Confirm.</summary>
+    private void CommitHandoffIndicatorEditsToPendingResearch()
+    {
+        if (HandoffIndicators.Count == 0) return;
+        PendingResearchIndicatorBindings = HandoffIndicators
+            .Select(static row => row.ToBinding())
+            .ToArray();
+        PendingResearchOverlayIds = OverlayIdsFromBindings(PendingResearchIndicatorBindings);
     }
 
     [RelayCommand(CanExecute = nameof(CanConfirmAddFindingToStrategy))]
@@ -581,16 +633,44 @@ public sealed partial class StrategyAuthoringViewModel
     {
         if (!CanConfirmAddFindingToStrategy) return;
 
+        CommitHandoffIndicatorEditsToPendingResearch();
+        var handoffRole = HandoffConditionRole;
+        LastConfirmedHandoffRole = handoffRole;
+
+        // Refresh prose package with chosen role before Composer evidence.
+        PendingAddFindingReviewText =
+            PendingAddFindingReviewText
+                .Replace(
+                    "Role: Entry (change below — Entry / Exit / Filter)",
+                    $"Role: {DesignHandoffConditionRoleLabels.Label(handoffRole)}",
+                    StringComparison.Ordinal)
+                .Replace(
+                    "Role: Exit (change below — Entry / Exit / Filter)",
+                    $"Role: {DesignHandoffConditionRoleLabels.Label(handoffRole)}",
+                    StringComparison.Ordinal)
+                .Replace(
+                    "Role: Filter (change below — Entry / Exit / Filter)",
+                    $"Role: {DesignHandoffConditionRoleLabels.Label(handoffRole)}",
+                    StringComparison.Ordinal);
+
         var evidence = PendingAddFindingReviewText
+            .Replace(
+                "Use in Strategy — review transferable Research inputs for",
+                "Add this saved Research finding to",
+                StringComparison.Ordinal)
             .Replace(
                 "Review before linking to",
                 "Add this saved Research finding to",
                 StringComparison.Ordinal)
             .Replace(
+                "Confirm links these definitions into Design for review. Cancel or ← Back leaves Design unchanged.",
+                "Apply the staged finding→Design proposal to write fields for the chosen role. " +
+                "Indicators stay available measurements until that Apply; do not treat them as entry rules alone.",
+                StringComparison.Ordinal)
+            .Replace(
             "Confirm links this finding. Cancel or ← Back leaves Design unchanged.",
-            "Write explicit entry, confirmation, exit, sizing, and risk rules from this evidence. " +
-            "Do not treat analysis-only indicators as strategy rules until confirmed here. " +
-            "Apply the staged finding→Design proposal to write fields.",
+            "Apply the staged finding→Design proposal to write fields. " +
+            "Do not treat analysis-only indicators as strategy rules until confirmed here.",
             StringComparison.Ordinal);
 
         if (string.IsNullOrWhiteSpace(Composer) || Composer.StartsWith("Investigate before writing", StringComparison.Ordinal))
@@ -599,26 +679,29 @@ public sealed partial class StrategyAuthoringViewModel
             Composer = evidence + "\n\n---\n\n" + Composer.Trim();
 
         PendingAddFindingReviewText = "";
+        ClearHandoffReviewInputs(keepRole: true);
         HasResearchDesignHandoff = true;
-        var bound = TryBindResearchConditionIntoStrategyDraft(createDraftFromSelectionIfMissing: true);
+        var bound = TryBindResearchConditionIntoStrategyDraft(
+            createDraftFromSelectionIfMissing: true,
+            role: DesignHandoffConditionRoleLabels.ToDraftRole(handoffRole));
         var staged = TryStageFindingAsDesignProposal();
         AiStatus = $"Finding attached to {StrategyReturnDisplayName}. Confirm which conditions become strategy rules.";
         Status = IsResearchStudioShell
             ? bound
                 ? staged
-                    ? $"Added finding to {StrategyReturnDisplayName} — condition bound · Design proposal ready · opening Design."
-                    : $"Added finding to {StrategyReturnDisplayName} — condition id/hash bound · opening Design."
-                : $"Added finding to {StrategyReturnDisplayName} — opening Design."
+                    ? $"Used in Strategy · {StrategyReturnDisplayName} — condition bound as {DesignHandoffConditionRoleLabels.Label(handoffRole)} · Design proposal ready."
+                    : $"Used in Strategy · {StrategyReturnDisplayName} — condition bound · opening Design."
+                : $"Used in Strategy · {StrategyReturnDisplayName} — opening Design."
             : bound
                 ? staged
-                    ? $"Finding attached · condition bound · review Design proposal before Apply. No compile yet."
+                    ? $"Finding attached · role {DesignHandoffConditionRoleLabels.Label(handoffRole)} · review Design proposal before Apply."
                     : $"Finding attached to {StrategyReturnDisplayName} Design · condition id/hash bound. No compile or register yet."
                 : $"Finding attached to {StrategyReturnDisplayName} Design. No compile or register yet.";
         Append(AuthoringMessage.Tool(
             "Ok",
             UseInStrategyBuilderText,
             bound
-                ? $"Linked finding · condition {PendingStrategyDraft?.LinkedConditionId} · samples {ResearchEventSampleCount}."
+                ? $"Linked finding · role {DesignHandoffConditionRoleLabels.Label(handoffRole)} · condition {PendingStrategyDraft?.LinkedConditionId} · samples {ResearchEventSampleCount}."
                 : $"Linked finding · samples {ResearchEventSampleCount}."));
         Save();
 
@@ -644,6 +727,7 @@ public sealed partial class StrategyAuthoringViewModel
     {
         if (!HasPendingAddFindingReview) return;
         PendingAddFindingReviewText = "";
+        ClearHandoffReviewInputs(keepRole: false);
         Status =
             $"Canceled linking to {StrategyReturnDisplayName}. Design draft unchanged — use ← Back or review again.";
         OnPropertyChanged(nameof(HasPendingAddFindingReview));
@@ -663,12 +747,24 @@ public sealed partial class StrategyAuthoringViewModel
     /// <summary>Clear staged Add-finding review without transferring (navigation preserve).</summary>
     internal void ClearPendingAddFindingReview()
     {
-        if (!HasPendingAddFindingReview) return;
+        if (!HasPendingAddFindingReview && HandoffIndicators.Count == 0) return;
         PendingAddFindingReviewText = "";
+        ClearHandoffReviewInputs(keepRole: false);
         OnPropertyChanged(nameof(HasPendingAddFindingReview));
         OnPropertyChanged(nameof(CanConfirmAddFindingToStrategy));
         ConfirmAddFindingToStrategyCommand.NotifyCanExecuteChanged();
         DiscardAddFindingReviewCommand.NotifyCanExecuteChanged();
+    }
+
+    private void ClearHandoffReviewInputs(bool keepRole)
+    {
+        HandoffIndicators.Clear();
+        HandoffConditionSummaryText = "";
+        HandoffExampleSummaryText = "";
+        HandoffDestinationText = "";
+        if (!keepRole)
+            HandoffRoleText = "Entry";
+        OnPropertyChanged(nameof(HasHandoffIndicators));
     }
 
     /// <summary>Raised when Research Studio asks MainWindow to open Strategy Builder with this handoff.</summary>
@@ -691,7 +787,9 @@ public sealed partial class StrategyAuthoringViewModel
     /// Confirm may create a research-scoped draft from the chart selection; the manual Bind button does not.
     /// Does not rewrite Design rule text fields.
     /// </summary>
-    private bool TryBindResearchConditionIntoStrategyDraft(bool createDraftFromSelectionIfMissing)
+    private bool TryBindResearchConditionIntoStrategyDraft(
+        bool createDraftFromSelectionIfMissing,
+        StrategyDraftObjectRoleV1 role = StrategyDraftObjectRoleV1.Filter)
     {
         var condition = ResolveConditionForDraftBind();
         if (condition is null)
@@ -729,7 +827,8 @@ public sealed partial class StrategyAuthoringViewModel
         PendingStrategyDraft = StrategyDraftGestureApplierV1.BindResearchCondition(
             PendingStrategyDraft,
             condition,
-            sampleIds);
+            sampleIds,
+            role);
         return true;
     }
 

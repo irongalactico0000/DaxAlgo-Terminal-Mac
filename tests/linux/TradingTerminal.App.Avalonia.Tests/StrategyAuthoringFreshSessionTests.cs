@@ -393,7 +393,7 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModelA.CanUseObservationInDesign.Should().BeFalse(
             "Add finding stays disabled until there is something to transfer");
         viewModelA.ReturnToStrategyBuilderText.Should().Contain("Momentum");
-        viewModelA.UseInStrategyBuilderText.Should().Contain("Add finding to Momentum");
+        viewModelA.UseInStrategyBuilderText.Should().Contain("Use in Strategy · Momentum");
         viewModelA.HasResearchDesignHandoff.Should().BeFalse();
 
         viewModelA.ReturnToStrategyBuilderCommand.Execute(null);
@@ -931,6 +931,10 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.UseObservationInDesignCommand.Execute(null);
         viewModel.HasPendingAddFindingReview.Should().BeTrue(
             "Add finding stages a review — Design is unchanged until Confirm");
+        viewModel.HandoffIndicators.Should().NotBeEmpty(
+            "Use in Strategy review must show exact Research indicator definitions");
+        viewModel.HandoffConditionSummaryText.Should().NotBeNullOrWhiteSpace();
+        viewModel.HandoffRoleText.Should().Be("Entry");
         viewModel.HasResearchDesignHandoff.Should().BeFalse();
         viewModel.Composer.Should().NotContain("Add this saved Research finding");
         var entryBeforeConfirm = viewModel.DesignEntryRuleText;
@@ -938,6 +942,10 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.ConfirmAddFindingToStrategyCommand.Execute(null);
 
         viewModel.HasPendingAddFindingReview.Should().BeFalse();
+        viewModel.LastConfirmedHandoffRole.Should().Be(DesignHandoffConditionRole.Entry);
+        viewModel.PendingStrategyDraft!.Objects.Should().Contain(o =>
+            o.Role == StrategyDraftObjectRoleV1.Entry &&
+            o.IndicatorId == viewModel.PendingResearchCondition!.ConditionId);
         viewModel.IsChartDesignStage.Should().BeTrue();
         viewModel.HasResearchDesignHandoff.Should().BeTrue();
         viewModel.LinkedResearchSummaryText.Should().Contain("Finding linked");

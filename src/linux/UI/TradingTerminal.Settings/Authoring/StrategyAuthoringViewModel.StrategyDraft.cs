@@ -743,22 +743,41 @@ public sealed partial class StrategyAuthoringViewModel
             ? null
             : $"INDICATORS: {indicatorLabels}";
 
+        var roleLabel = DesignHandoffConditionRoleLabels.Label(LastConfirmedHandoffRole);
         var entry =
             $"When {condition.SummaryText} (condition {condition.ConditionId} · ver {condition.VersionShort}" +
             (string.IsNullOrEmpty(indicatorLabels) ? "" : $"; indicators [{indicatorLabels}]") +
-            ")";
+            $"; role {roleLabel})";
 
-        // Only propose fields the finding can fill. EXIT/SIZING/RISK/ORDERS stay empty
-        // until the user (or Hyperion) writes real rules — do not apply "Unresolved" placeholders.
-        // INDICATORS are listed for reuse — Apply imports them as available, not as entry rules alone.
+        // Role decides which Design control the condition targets on Apply.
+        // INDICATORS are listed for reuse — Apply imports them as available measurements.
+        string? conditionLine = null;
+        string? entryLine = $"ENTRY: {entry}";
+        string? exitLine = null;
+        string? filterLine = null;
+        if (LastConfirmedHandoffRole == DesignHandoffConditionRole.Exit)
+        {
+            exitLine = $"EXIT: {condition.SummaryText}";
+            entryLine = null;
+        }
+        else if (LastConfirmedHandoffRole == DesignHandoffConditionRole.Filter)
+        {
+            filterLine = $"FILTER: {condition.SummaryText} (condition {condition.ConditionId})";
+            entryLine = null;
+        }
+
         return string.Join('\n', new[]
         {
             $"INSTRUMENT: {instrument.Trim()}",
             $"TIMEFRAME: {timeframe}",
             "EVALUATION: Completed bar",
+            $"ROLE: {roleLabel}",
             indicatorsLine,
-            $"ENTRY: {entry}",
-            "UNRESOLVED: exit, sizing, risk, orders — define from research or Hyperion before Build",
+            conditionLine,
+            filterLine,
+            entryLine,
+            exitLine,
+            "UNRESOLVED: sizing, risk, orders — define from research or Hyperion before Build",
         }.Where(static s => !string.IsNullOrWhiteSpace(s))!);
     }
 
@@ -791,7 +810,21 @@ public sealed partial class StrategyAuthoringViewModel
                     continue;
                 }
 
-                if (line.StartsWith("INDICATORS", StringComparison.OrdinalIgnoreCase))
+                if (line.StartsWith("FILTER", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Filter is measurement reuse — keep available via INDICATORS / linked condition, not ENTRY.
+                    appliedKey = true;
+                }
+                else if (line.StartsWith("ROLE", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyKeyedLine(line, v =>
+                    {
+                        LastConfirmedHandoffRole = DesignHandoffConditionRoleLabels.Parse(v);
+                        HandoffRoleText = DesignHandoffConditionRoleLabels.Label(LastConfirmedHandoffRole);
+                    });
+                    appliedKey = true;
+                }
+                else if (line.StartsWith("INDICATORS", StringComparison.OrdinalIgnoreCase))
                 {
                     ApplyIndicatorsProposalLine(line, provenance);
                     appliedKey = true;

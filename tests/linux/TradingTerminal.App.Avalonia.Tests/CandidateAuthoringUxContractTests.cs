@@ -302,6 +302,10 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("DesignTimeframeText");
         root.ToString().Should().Contain("DesignEvaluationTimingText");
         root.ToString().Should().Contain("DesignEntryRuleText");
+        root.ToString().Should().Contain("USE IN STRATEGY — REVIEW BEFORE LINK");
+        root.ToString().Should().Contain("Handoff condition role");
+        root.ToString().Should().Contain("HandoffIndicators");
+        root.ToString().Should().Contain("HandoffConditionSummaryText");
         root.ToString().Should().Contain("DesignUnresolvedChecklistText");
         root.ToString().Should().Contain("Hyperion design proposal review");
         root.ToString().Should().Contain("Finding design proposal review");

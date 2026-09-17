@@ -68,4 +68,16 @@ Chat and the Rules panel share one working draft. Hyperion **stages → Accept**
 | **Provenance captions** | You set this · From Hyperion (accepted) · From Research (available) · Suggested default |
 | **Ask Hyperion** | Prompt includes structured keys; Accept parses them into the same form |
 
+## Use in Strategy (Research → Design)
+
+| Step | Behavior |
+|------|----------|
+| **Use in Strategy · {name}** | Stages review — does not mutate Design |
+| **Review panel** | Exact indicators (editable period) · condition · example selection · destination · **role Entry/Exit/Filter** |
+| **Confirm** | Binds condition id/hash with chosen role; stages Design proposal; opens Design |
+| **Apply** | Writes fields; imports indicators as available measurements (not auto-entry) |
+
+Indicator = measurement. Condition = interpretation. Role = how the strategy uses it.
+
+
 

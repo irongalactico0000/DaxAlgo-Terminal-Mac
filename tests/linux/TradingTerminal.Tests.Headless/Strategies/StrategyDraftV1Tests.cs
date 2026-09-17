@@ -74,6 +74,7 @@ public sealed class StrategyDraftV1Tests
         Assert.Equal(new[] { "sample-a", "sample-b" }, draft.LinkedEventSampleIds);
         Assert.Contains(draft.Objects, o =>
             o.Kind == StrategyDraftObjectKindV1.IndicatorThreshold &&
+            o.Role == StrategyDraftObjectRoleV1.Filter &&
             o.IndicatorId == condition.ConditionId &&
             o.Threshold == 2.5m &&
             o.Note == ResearchConditionDefinitionV1.KindVolumeMultipleOfAverage);
@@ -81,6 +82,14 @@ public sealed class StrategyDraftV1Tests
         var restored = StrategyDraftCanonicalJsonV1.Deserialize(StrategyDraftCanonicalJsonV1.Serialize(draft));
         Assert.Equal(condition.ConditionId, restored.LinkedConditionId);
         Assert.Equal(condition.VersionHashSha256, restored.LinkedConditionVersionHashSha256);
+
+        var asEntry = StrategyDraftGestureApplierV1.BindResearchCondition(
+            StrategyDraftV1.Create(Scope()),
+            condition,
+            role: StrategyDraftObjectRoleV1.Entry);
+        Assert.Contains(asEntry.Objects, o =>
+            o.IndicatorId == condition.ConditionId &&
+            o.Role == StrategyDraftObjectRoleV1.Entry);
     }
 
     private static StrategyDraftScopeV1 Scope() =>

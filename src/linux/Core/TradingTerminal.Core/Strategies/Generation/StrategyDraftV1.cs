@@ -292,15 +292,19 @@ public static class StrategyDraftGestureApplierV1
     public static StrategyDraftV1 BindResearchCondition(
         StrategyDraftV1 draft,
         ResearchConditionDefinitionV1 condition,
-        IReadOnlyList<string>? linkedEventSampleIds = null)
+        IReadOnlyList<string>? linkedEventSampleIds = null,
+        StrategyDraftObjectRoleV1 role = StrategyDraftObjectRoleV1.Filter)
     {
         ArgumentNullException.ThrowIfNull(condition);
         StrategyDraftValidatorV1.RequireUnlocked(draft);
 
+        if (role is not (StrategyDraftObjectRoleV1.Entry or StrategyDraftObjectRoleV1.Filter or StrategyDraftObjectRoleV1.Reference))
+            role = StrategyDraftObjectRoleV1.Filter;
+
         var thresholdObject = new StrategyDraftObjectV1(
             ObjectId: $"condition:{condition.ConditionId}",
             Kind: StrategyDraftObjectKindV1.IndicatorThreshold,
-            Role: StrategyDraftObjectRoleV1.Filter,
+            Role: role,
             IndicatorId: condition.ConditionId,
             Threshold: (decimal)condition.Threshold,
             Note: condition.Kind);

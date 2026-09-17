@@ -126,10 +126,44 @@
                   MaxWidth="720" HorizontalAlignment="Left"
                   AutomationProperties.Name="Add finding review before link">
             <StackPanel Spacing="6">
-              <TextBlock Text="ADD FINDING — REVIEW BEFORE LINK" Classes="eyebrow" />
+              <TextBlock Text="USE IN STRATEGY — REVIEW BEFORE LINK" Classes="eyebrow" />
+              <TextBlock Text="An indicator measures. A condition interprets. Choose Entry / Exit / Filter for how the strategy uses it."
+                         Classes="caption" TextWrapping="Wrap" />
+              <TextBlock Text="DESTINATION" Classes="eyebrow" />
+              <TextBlock Text="{Binding HandoffDestinationText}" FontWeight="SemiBold"
+                         AutomationProperties.Name="Handoff destination" />
+              <TextBlock Text="CONDITION ROLE" Classes="eyebrow" />
+              <ComboBox ItemsSource="{Binding HandoffRoleOptions}"
+                        SelectedItem="{Binding HandoffRoleText, Mode=TwoWay}"
+                        MinWidth="120" HorizontalAlignment="Left"
+                        AutomationProperties.Name="Handoff condition role" />
+              <TextBlock Text="INDICATORS (EXACT)" Classes="eyebrow" />
+              <ItemsControl ItemsSource="{Binding HandoffIndicators}"
+                            IsVisible="{Binding HasHandoffIndicators}"
+                            AutomationProperties.Name="Handoff indicator list">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                      <TextBlock Text="{Binding Kind}" VerticalAlignment="Center" MinWidth="48" />
+                      <TextBox Text="{Binding Period, Mode=TwoWay}" Width="56"
+                               AutomationProperties.Name="Handoff indicator period" />
+                      <TextBlock Text="{Binding FormulaDescription}" Classes="caption"
+                                 TextWrapping="Wrap" MaxWidth="280" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Text="CONDITION" Classes="eyebrow" />
+              <TextBlock Text="{Binding HandoffConditionSummaryText}" TextWrapping="Wrap"
+                         FontFamily="{StaticResource Font.Data}" FontSize="11"
+                         AutomationProperties.Name="Handoff condition summary" />
+              <TextBlock Text="EXAMPLE / SELECTION" Classes="eyebrow" />
+              <TextBlock Text="{Binding HandoffExampleSummaryText}" Classes="caption"
+                         TextWrapping="Wrap"
+                         AutomationProperties.Name="Handoff example summary" />
               <TextBox Text="{Binding PendingAddFindingReviewText, Mode=OneWay}"
                        IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
-                       MinHeight="72" MaxHeight="140"
+                       MinHeight="48" MaxHeight="100"
                        FontFamily="{StaticResource Font.Data}" FontSize="11"
                        AutomationProperties.Name="Pending add finding review text" />
               <StackPanel Orientation="Horizontal" Spacing="8">
