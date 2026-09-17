@@ -171,6 +171,8 @@ public sealed partial class StrategyAuthoringViewModel
         NotifyAuthoringScreenStateChanged();
         OnPropertyChanged(nameof(DesignRuleEditorHint));
         OnPropertyChanged(nameof(LinkedResearchSummaryText));
+        OnPropertyChanged(nameof(CanStageFindingAsDesignProposal));
+        StageFindingAsDesignProposalCommand.NotifyCanExecuteChanged();
     }
 
     public int ResearchEventSampleCount => ResearchDatasetDefinition?.Samples.Count ?? 0;
@@ -585,10 +587,11 @@ public sealed partial class StrategyAuthoringViewModel
                 "Add this saved Research finding to",
                 StringComparison.Ordinal)
             .Replace(
-                "Confirm links this finding. Cancel or ← Back leaves Design unchanged.",
-                "Write explicit entry, confirmation, exit, sizing, and risk rules from this evidence. " +
-                "Do not treat analysis-only indicators as strategy rules until confirmed here.",
-                StringComparison.Ordinal);
+            "Confirm links this finding. Cancel or ← Back leaves Design unchanged.",
+            "Write explicit entry, confirmation, exit, sizing, and risk rules from this evidence. " +
+            "Do not treat analysis-only indicators as strategy rules until confirmed here. " +
+            "Apply the staged finding→Design proposal to write fields.",
+            StringComparison.Ordinal);
 
         if (string.IsNullOrWhiteSpace(Composer) || Composer.StartsWith("Investigate before writing", StringComparison.Ordinal))
             Composer = evidence;
@@ -598,13 +601,18 @@ public sealed partial class StrategyAuthoringViewModel
         PendingAddFindingReviewText = "";
         HasResearchDesignHandoff = true;
         var bound = TryBindResearchConditionIntoStrategyDraft(createDraftFromSelectionIfMissing: true);
+        var staged = TryStageFindingAsDesignProposal();
         AiStatus = $"Finding attached to {StrategyReturnDisplayName}. Confirm which conditions become strategy rules.";
         Status = IsResearchStudioShell
             ? bound
-                ? $"Added finding to {StrategyReturnDisplayName} — condition id/hash bound · opening Design."
+                ? staged
+                    ? $"Added finding to {StrategyReturnDisplayName} — condition bound · Design proposal ready · opening Design."
+                    : $"Added finding to {StrategyReturnDisplayName} — condition id/hash bound · opening Design."
                 : $"Added finding to {StrategyReturnDisplayName} — opening Design."
             : bound
-                ? $"Finding attached to {StrategyReturnDisplayName} Design · condition id/hash bound. No compile or register yet."
+                ? staged
+                    ? $"Finding attached · condition bound · review Design proposal before Apply. No compile yet."
+                    : $"Finding attached to {StrategyReturnDisplayName} Design · condition id/hash bound. No compile or register yet."
                 : $"Finding attached to {StrategyReturnDisplayName} Design. No compile or register yet.";
         Append(AuthoringMessage.Tool(
             "Ok",

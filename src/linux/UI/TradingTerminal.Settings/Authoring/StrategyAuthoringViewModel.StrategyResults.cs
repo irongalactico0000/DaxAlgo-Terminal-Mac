@@ -37,7 +37,7 @@ public sealed partial class StrategyAuthoringViewModel
                 missing.Add("Entry instrument missing");
             if (string.IsNullOrWhiteSpace(DesignEntryRuleText))
                 missing.Add("Entry rule missing");
-            if (string.IsNullOrWhiteSpace(DesignExitRuleText))
+            if (IsDesignFieldUnresolved(DesignExitRuleText))
                 missing.Add("Exit unresolved");
             if (missing.Count == 0)
                 return DesignUnresolvedChecklistText;

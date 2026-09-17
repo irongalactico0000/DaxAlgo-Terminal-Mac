@@ -840,16 +840,70 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.Composer.Should().Contain("Saved finding");
         viewModel.DesignEntryRuleText.Should().Be(entryBeforeConfirm,
             "Confirm links evidence — it must not invent or overwrite Design entry rules");
+        viewModel.HasPendingFindingDesignProposal.Should().BeTrue(
+            "Confirm stages finding → Design rules for review before Apply");
+        viewModel.PendingFindingDesignProposalText.Should().Contain("ENTRY:");
+        viewModel.PendingFindingDesignProposalText.Should().Contain("INSTRUMENT:");
+
+        viewModel.AcceptFindingDesignProposalCommand.Execute(null);
+        viewModel.HasPendingFindingDesignProposal.Should().BeFalse();
+        viewModel.DesignInstrumentText.Should().Be("MSFT");
+        viewModel.DesignTimeframeText.Should().Be("1h");
+        viewModel.DesignEvaluationTimingText.Should().Be("Completed bar");
+        viewModel.DesignEntryRuleText.Should().Contain("volume");
+        viewModel.DesignEntryRuleText.Should().Contain(viewModel.PendingResearchCondition!.ConditionId);
+        StrategyAuthoringViewModel.IsDesignFieldUnresolved(viewModel.DesignExitRuleText).Should().BeTrue(
+            "Apply must not treat Unresolved placeholders as real EXIT rules");
+        viewModel.DesignUnresolvedChecklistText.Should().Contain("exit");
+        viewModel.DesignUnresolvedChecklistText.Should().Contain("sizing");
         viewModel.AuthoredUnitSpecification.Should().BeNull(
             "Use in Design attaches evidence only — no generate/compile/register");
         viewModel.CompiledOk.Should().BeFalse();
         viewModel.IsRegistered.Should().BeFalse();
         viewModel.BuildStageState.Should().Be("PENDING");
         viewModel.Status.Should().Match(s =>
-            s.Contains("condition id/hash bound", StringComparison.Ordinal) ||
+            s.Contains("Applied finding", StringComparison.Ordinal) ||
+            s.Contains("condition", StringComparison.Ordinal) ||
             s.Contains("No compile or register", StringComparison.Ordinal) ||
             s.Contains("opening Design", StringComparison.Ordinal) ||
             s.Contains("Added finding", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Finding_design_proposal_Discard_leaves_Design_fields_unchanged()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.DisplayName = "Momentum";
+        viewModel.DesignEntryRuleText = "Keep manual entry";
+        var start = new DateTimeOffset(2026, 9, 16, 14, 0, 0, TimeSpan.Zero);
+        viewModel.SetResearchChartSelection(
+            new ResearchChartSelectionV1(
+                new InstrumentId(7),
+                "MSFT",
+                BarSize.OneHour,
+                start,
+                start.AddHours(4),
+                start.AddHours(4),
+                start.AddHours(8),
+                StrategyDataRequirement.Bars),
+            indicatorBindings: [new ResearchIndicatorBindingV1("ema-20", "ema", 20)]);
+        viewModel.PendingConditionMultipleText = "2";
+        viewModel.PendingConditionLookbackText = "20";
+        viewModel.ApplyPendingResearchConditionCommand.Execute(null);
+        viewModel.SaveResearchFinding1Command.Execute(null);
+        viewModel.UseObservationInDesignCommand.Execute(null);
+        viewModel.ConfirmAddFindingToStrategyCommand.Execute(null);
+        viewModel.HasPendingFindingDesignProposal.Should().BeTrue();
+
+        viewModel.DiscardFindingDesignProposalCommand.Execute(null);
+        viewModel.HasPendingFindingDesignProposal.Should().BeFalse();
+        viewModel.DesignEntryRuleText.Should().Be("Keep manual entry");
+        viewModel.DesignInstrumentText.Should().BeNullOrEmpty();
     }
 
     [Fact]

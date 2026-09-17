@@ -304,6 +304,13 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("DesignEntryRuleText");
         root.ToString().Should().Contain("DesignUnresolvedChecklistText");
         root.ToString().Should().Contain("Hyperion design proposal review");
+        root.ToString().Should().Contain("Finding design proposal review");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Propose Design rules from finding" &&
+            (string?)element.Attribute("Command") == "{Binding StageFindingAsDesignProposalCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Apply finding design proposal" &&
+            (string?)element.Attribute("Command") == "{Binding AcceptFindingDesignProposalCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Review design rules for build" &&
             (string?)element.Attribute("Command") == "{Binding ReviewDesignRulesCommand}");

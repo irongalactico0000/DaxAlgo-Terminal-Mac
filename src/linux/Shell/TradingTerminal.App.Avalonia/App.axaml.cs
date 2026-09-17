@@ -230,6 +230,29 @@ public partial class App : Application
                 return;
             }
 
+            var findingToDesignSmoke = args.FirstOrDefault(argument =>
+                argument.StartsWith("--smoke-finding-to-design", StringComparison.OrdinalIgnoreCase));
+            if (findingToDesignSmoke is not null)
+            {
+                var outDir = findingToDesignSmoke.Contains('=', StringComparison.Ordinal)
+                    ? findingToDesignSmoke.Split('=', 2)[1]
+                    : Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                        "Developer",
+                        "DaxAlgo-Terminal-Mac",
+                        "tmp",
+                        "finding-design-audit");
+                var exitCode = await FindingToDesignSmoke.RunAsync(Services, outDir);
+                activityLog.Append(
+                    "Diagnostics",
+                    exitCode == 0 ? "Information" : "Error",
+                    $"Finding→Design smoke finished with exit code {exitCode}; dir: {outDir}");
+                startupWindow?.Close();
+                Services = null;
+                desktop.Shutdown(exitCode);
+                return;
+            }
+
             var installOpenPackage = args.FirstOrDefault(argument =>
                 argument.StartsWith("--install-open-package=", StringComparison.OrdinalIgnoreCase));
             if (installOpenPackage is not null)

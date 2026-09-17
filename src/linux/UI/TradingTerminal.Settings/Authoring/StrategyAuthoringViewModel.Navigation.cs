@@ -417,7 +417,7 @@ public sealed partial class StrategyAuthoringViewModel
                 StrategyAuthoringScreen.Research =>
                     "Chart-first investigation. Findings hand off into Design — Research is not a Builder stage.",
                 StrategyAuthoringScreen.Design =>
-                    "Edit entry, exit, sizing, risk, and order rules in the center. Open Research Studio when you need chart evidence.",
+                    "Edit entry, exit, sizing, risk, and order rules in Rules (right). Open Research Studio when you need chart evidence.",
                 StrategyAuthoringScreen.Build when ShowNativeStrategyRunPanel =>
                     "Inspect a retained native research → compare run.",
                 StrategyAuthoringScreen.Build =>

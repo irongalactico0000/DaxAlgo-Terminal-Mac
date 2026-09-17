@@ -46,9 +46,24 @@ public sealed partial class StrategyAuthoringViewModel
         !string.IsNullOrWhiteSpace(PendingHyperionDesignProposalText);
 
     public string DesignRuleEditorHint =>
-        HasResearchDesignHandoff
-            ? "Linked research finding is below — fill instrument, timeframe, evaluation timing, and trading rules."
+        HasPendingFindingDesignProposal
+            ? "Review the finding → Design rules proposal below. Apply writes fields; Discard keeps your draft."
+            : HasResearchDesignHandoff
+            ? "Linked research finding is below — Apply finding to Design rules (review first), or fill fields manually."
             : "Edit the working strategy draft here. Hyperion proposals must be Accepted before they change these fields.";
+
+    [ObservableProperty] private string _pendingFindingDesignProposalText = "";
+
+    public bool HasPendingFindingDesignProposal =>
+        !string.IsNullOrWhiteSpace(PendingFindingDesignProposalText);
+
+    public bool CanStageFindingAsDesignProposal =>
+        HasResearchDesignHandoff &&
+        !IsGenerating &&
+        ResolveConditionForDraftBind() is not null;
+
+    public bool CanAcceptFindingDesignProposal =>
+        HasPendingFindingDesignProposal && !IsGenerating;
 
     public bool CanPromoteDesignRulesToRequest => HasDesignRuleDraft && !IsGenerating;
 
@@ -66,21 +81,21 @@ public sealed partial class StrategyAuthoringViewModel
         get
         {
             var missing = new List<string>();
-            if (string.IsNullOrWhiteSpace(DesignInstrumentText))
+            if (IsDesignFieldUnresolved(DesignInstrumentText))
                 missing.Add("instrument");
-            if (string.IsNullOrWhiteSpace(DesignTimeframeText))
+            if (IsDesignFieldUnresolved(DesignTimeframeText))
                 missing.Add("timeframe / data");
-            if (string.IsNullOrWhiteSpace(DesignEvaluationTimingText))
+            if (IsDesignFieldUnresolved(DesignEvaluationTimingText))
                 missing.Add("evaluation timing");
-            if (string.IsNullOrWhiteSpace(DesignEntryRuleText))
+            if (IsDesignFieldUnresolved(DesignEntryRuleText))
                 missing.Add("entry condition");
-            if (string.IsNullOrWhiteSpace(DesignExitRuleText))
+            if (IsDesignFieldUnresolved(DesignExitRuleText))
                 missing.Add("exit");
-            if (string.IsNullOrWhiteSpace(DesignSizingRuleText))
+            if (IsDesignFieldUnresolved(DesignSizingRuleText))
                 missing.Add("sizing");
-            if (string.IsNullOrWhiteSpace(DesignRiskRuleText))
+            if (IsDesignFieldUnresolved(DesignRiskRuleText))
                 missing.Add("risk");
-            if (string.IsNullOrWhiteSpace(DesignOrderRuleText))
+            if (IsDesignFieldUnresolved(DesignOrderRuleText))
                 missing.Add("orders");
 
             if (missing.Count == 0)
@@ -90,6 +105,11 @@ public sealed partial class StrategyAuthoringViewModel
                    ". Choose an instrument and resolve the entry condition before review is complete.";
         }
     }
+
+    /// <summary>Empty or explicit "Unresolved …" placeholders are not ready for Build.</summary>
+    public static bool IsDesignFieldUnresolved(string? value) =>
+        string.IsNullOrWhiteSpace(value) ||
+        value.TrimStart().StartsWith("Unresolved", StringComparison.OrdinalIgnoreCase);
 
     public string DesignRulesReviewText
     {
@@ -259,13 +279,112 @@ public sealed partial class StrategyAuthoringViewModel
         Status = "Discarded Hyperion proposal. Design fields unchanged.";
     }
 
+    partial void OnPendingFindingDesignProposalTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasPendingFindingDesignProposal));
+        OnPropertyChanged(nameof(CanAcceptFindingDesignProposal));
+        OnPropertyChanged(nameof(DesignRuleEditorHint));
+        AcceptFindingDesignProposalCommand.NotifyCanExecuteChanged();
+        DiscardFindingDesignProposalCommand.NotifyCanExecuteChanged();
+        StageFindingAsDesignProposalCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Stage keyed Design lines from the linked finding. Does not mutate Design fields until Apply.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanStageFindingAsDesignProposal))]
+    private void StageFindingAsDesignProposal()
+    {
+        if (!TryStageFindingAsDesignProposal())
+        {
+            Status = "Nothing to propose — link a finding with a condition first.";
+            return;
+        }
+
+        Status =
+            "Finding → Design rules staged for review. Apply to write fields, or Discard to keep the current draft.";
+    }
+
+    /// <returns>True when a proposal was staged.</returns>
+    internal bool TryStageFindingAsDesignProposal()
+    {
+        var proposal = BuildFindingDesignProposalText();
+        if (string.IsNullOrWhiteSpace(proposal))
+            return false;
+        PendingFindingDesignProposalText = proposal;
+        return true;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanAcceptFindingDesignProposal))]
+    private void AcceptFindingDesignProposal()
+    {
+        if (!HasPendingFindingDesignProposal) return;
+        ApplyHyperionProposalToDesignFields(PendingFindingDesignProposalText);
+        PendingFindingDesignProposalText = "";
+        Status =
+            "Applied finding into Design fields. Unresolved sizing/exit/risk stay editable — prior Validate evidence stays on earlier revisions.";
+        NotifyDesignDraftChanged();
+        Save();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanAcceptFindingDesignProposal))]
+    private void DiscardFindingDesignProposal()
+    {
+        if (!HasPendingFindingDesignProposal) return;
+        PendingFindingDesignProposalText = "";
+        Status = "Discarded finding → Design proposal. Design fields unchanged.";
+    }
+
+    internal string? BuildFindingDesignProposalText()
+    {
+        var condition = ResolveConditionForDraftBind();
+        if (condition is null)
+            return null;
+
+        var selection = ResolveSelectionForDraftBind();
+        var instrument = selection?.CanonicalSymbol
+            ?? ResearchChartInstrumentText
+            ?? DesignInstrumentText;
+        if (string.IsNullOrWhiteSpace(instrument))
+            instrument = "(unresolved)";
+
+        var timeframe = selection is not null
+            ? selection.Timeframe.ToDisplayString()
+            : DesignTimeframeText;
+        if (string.IsNullOrWhiteSpace(timeframe) ||
+            !DesignTimeframeOptions.Any(t => string.Equals(t, timeframe, StringComparison.Ordinal)))
+        {
+            timeframe = "5m";
+        }
+
+        var indicators = PendingResearchIndicatorBindings.Count > 0
+            ? string.Join(", ", PendingResearchIndicatorBindings.Select(static b => b.DisplayLabel))
+            : "none locked";
+
+        var entry =
+            $"When {condition.SummaryText} (condition {condition.ConditionId} · ver {condition.VersionShort}; indicators [{indicators}])";
+
+        // Only propose fields the finding can fill. EXIT/SIZING/RISK/ORDERS stay empty
+        // until the user (or Hyperion) writes real rules — do not apply "Unresolved" placeholders.
+        return string.Join('\n', new[]
+        {
+            $"INSTRUMENT: {instrument.Trim()}",
+            $"TIMEFRAME: {timeframe}",
+            "EVALUATION: Completed bar",
+            $"ENTRY: {entry}",
+            "UNRESOLVED: exit, sizing, risk, orders — define from research or Hyperion before Build",
+        });
+    }
+
     private static void ApplyKeyedLine(string line, Action<string> assign)
     {
         var idx = line.IndexOf(':');
         if (idx < 0) return;
         var value = line[(idx + 1)..].Trim();
-        if (value.Length > 0)
-            assign(value);
+        // Skip empty and explicit Unresolved placeholders — leave prior field / empty draft.
+        if (value.Length == 0 || IsDesignFieldUnresolved(value))
+            return;
+        assign(value);
     }
 
     private void ApplyHyperionProposalToDesignFields(string proposal)
@@ -274,6 +393,13 @@ public sealed partial class StrategyAuthoringViewModel
         foreach (var raw in proposal.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         {
             var line = raw.Trim();
+            // Non-field notes (UNRESOLVED: …) — display-only in the proposal panel.
+            if (line.StartsWith("UNRESOLVED", StringComparison.OrdinalIgnoreCase) &&
+                !line.StartsWith("UNRESOLVED FIELDS", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             if (line.StartsWith("INSTRUMENT", StringComparison.OrdinalIgnoreCase))
             {
                 ApplyKeyedLine(line, v => DesignInstrumentText = v);

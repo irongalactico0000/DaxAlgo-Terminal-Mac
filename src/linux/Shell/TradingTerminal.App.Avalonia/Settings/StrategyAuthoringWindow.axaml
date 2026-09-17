@@ -2092,10 +2092,40 @@
                               BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
                               CornerRadius="4" Padding="8,6"
                               AutomationProperties.Name="Linked research finding">
-                        <StackPanel Spacing="2">
+                        <StackPanel Spacing="6">
                           <TextBlock Text="LINKED RESEARCH" Classes="eyebrow" />
                           <TextBlock Text="{Binding LinkedResearchSummaryText}" Classes="caption"
                                      TextWrapping="Wrap" />
+                          <Button Classes="ghost" Content="Propose Design rules from finding"
+                                  Command="{Binding StageFindingAsDesignProposalCommand}"
+                                  IsEnabled="{Binding CanStageFindingAsDesignProposal}"
+                                  HorizontalAlignment="Left"
+                                  AutomationProperties.Name="Propose Design rules from finding"
+                                  ToolTip.Tip="Stages ENTRY/instrument/timeframe from the linked condition. Apply required — does not overwrite until you confirm." />
+                        </StackPanel>
+                      </Border>
+                      <Border IsVisible="{Binding HasPendingFindingDesignProposal}"
+                              Background="{StaticResource Ai.Soft}"
+                              BorderBrush="{StaticResource Ai.Glow.Brush}" BorderThickness="1"
+                              CornerRadius="4" Padding="8,6"
+                              AutomationProperties.Name="Finding design proposal review">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="FINDING → DESIGN RULES — REVIEW BEFORE APPLY" Classes="eyebrow" />
+                          <TextBox Text="{Binding PendingFindingDesignProposalText, Mode=OneWay}"
+                                   IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                                   MinHeight="72" MaxHeight="160"
+                                   FontFamily="{StaticResource Font.Data}" FontSize="11"
+                                   AutomationProperties.Name="Pending finding design proposal text" />
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="aiAction" Content="Apply into Design fields"
+                                    Command="{Binding AcceptFindingDesignProposalCommand}"
+                                    IsEnabled="{Binding CanAcceptFindingDesignProposal}"
+                                    AutomationProperties.Name="Apply finding design proposal" />
+                            <Button Classes="ghost" Content="Discard"
+                                    Command="{Binding DiscardFindingDesignProposalCommand}"
+                                    IsEnabled="{Binding CanAcceptFindingDesignProposal}"
+                                    AutomationProperties.Name="Discard finding design proposal" />
+                          </StackPanel>
                         </StackPanel>
                       </Border>
                       <Border IsVisible="{Binding HasPendingHyperionDesignProposal}"
