@@ -361,6 +361,11 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("Design sizing form");
         root.ToString().Should().Contain("Design risk form");
         root.ToString().Should().Contain("Design orders form");
+        root.ToString().Should().Contain("Design order side");
+        root.ToString().Should().Contain("DesignOrderSideOptions");
+        root.ToString().Should().Contain("DesignOrderTypeOptions");
+        root.ToString().Should().Contain("시장가");
+        root.ToString().Should().Contain("지정가");
         root.ToString().Should().Contain("Design sizing range min");
         root.ToString().Should().Contain("Design exit condition editor");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>

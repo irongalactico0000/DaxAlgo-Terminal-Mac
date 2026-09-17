@@ -2692,10 +2692,16 @@
                               AutomationProperties.Name="Design orders form">
                         <StackPanel Spacing="6">
                           <TextBlock Text="ORDERS / EXECUTION" Classes="eyebrow" />
+                          <TextBlock Text="Side first (Long / Short / Both), then 시장가 or 지정가."
+                                     Classes="caption" TextWrapping="Wrap" />
                           <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ComboBox ItemsSource="{Binding DesignOrderSideOptions}"
+                                      SelectedItem="{Binding DesignOrders.Side, Mode=TwoWay}"
+                                      MinWidth="110" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Design order side" />
                             <ComboBox ItemsSource="{Binding DesignOrderTypeOptions}"
                                       SelectedItem="{Binding DesignOrders.OrderType, Mode=TwoWay}"
-                                      MinWidth="100" HorizontalAlignment="Left"
+                                      MinWidth="140" HorizontalAlignment="Left"
                                       AutomationProperties.Name="Design order type" />
                             <ComboBox ItemsSource="{Binding DesignTimeInForceOptions}"
                                       SelectedItem="{Binding DesignOrders.TimeInForce, Mode=TwoWay}"
@@ -2706,6 +2712,9 @@
                                       MinWidth="88" HorizontalAlignment="Left"
                                       AutomationProperties.Name="Design price rule" />
                           </StackPanel>
+                          <TextBlock Text="{Binding DesignOrders.SideHint}" Classes="caption"
+                                     TextWrapping="Wrap"
+                                     AutomationProperties.Name="Design order side hint" />
                           <TextBlock Text="{Binding DesignOrders.ProvenanceLabel}" Classes="caption"
                                      IsVisible="{Binding DesignOrders.ProvenanceLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                         </StackPanel>

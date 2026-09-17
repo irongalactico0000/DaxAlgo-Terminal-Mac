@@ -121,6 +121,7 @@ public sealed partial class StrategyAuthoringViewModel
     public IReadOnlyList<string> DesignSizingUnitOptions => DesignSizingForm.UnitOptions;
     public IReadOnlyList<string> DesignRiskUnitOptions => DesignRiskForm.UnitOptions;
     public IReadOnlyList<string> DesignOrderTypeOptions => DesignOrdersForm.OrderTypeOptions;
+    public IReadOnlyList<string> DesignOrderSideOptions => DesignOrdersForm.SideOptions;
     public IReadOnlyList<string> DesignTimeInForceOptions => DesignOrdersForm.TimeInForceOptions;
     public IReadOnlyList<string> DesignPriceRuleOptions => DesignOrdersForm.PriceRuleOptions;
 
@@ -1197,7 +1198,8 @@ public sealed partial class StrategyAuthoringViewModel
 
     private void OnDesignOrdersPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(DesignOrdersForm.OrderType) or
+        if (e.PropertyName is nameof(DesignOrdersForm.Side) or
+            nameof(DesignOrdersForm.OrderType) or
             nameof(DesignOrdersForm.TimeInForce) or
             nameof(DesignOrdersForm.PriceRule))
         {
@@ -1674,10 +1676,19 @@ public sealed partial class StrategyAuthoringViewModel
     private void TryParseOrdersFromFreeText(string text, DesignValueProvenance provenance)
     {
         var lower = text.ToLowerInvariant();
-        if (lower.Contains("limit", StringComparison.Ordinal))
-            DesignOrders.OrderType = "Limit";
-        else if (lower.Contains("market", StringComparison.Ordinal))
-            DesignOrders.OrderType = "Market";
+        var normalizedType = DesignOrdersForm.NormalizeOrderType(text);
+        if (!string.IsNullOrWhiteSpace(normalizedType))
+            DesignOrders.OrderType = normalizedType;
+
+        var normalizedSide = DesignOrdersForm.NormalizeSide(text);
+        if (!string.IsNullOrWhiteSpace(normalizedSide) &&
+            (lower.Contains("long", StringComparison.Ordinal) ||
+             lower.Contains("short", StringComparison.Ordinal) ||
+             lower.Contains("flip", StringComparison.Ordinal) ||
+             lower.Contains("both", StringComparison.Ordinal) ||
+             text.Contains("롱", StringComparison.Ordinal) ||
+             text.Contains("숏", StringComparison.Ordinal)))
+            DesignOrders.Side = normalizedSide;
 
         if (lower.Contains("ioc", StringComparison.Ordinal))
             DesignOrders.TimeInForce = "IOC";

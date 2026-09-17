@@ -910,9 +910,9 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignRisk.DailyStopText = "2";
         viewModel.DesignRisk.IsComplete.Should().BeTrue();
 
-        viewModel.DesignOrders.OrderType = "Market";
+        viewModel.DesignOrders.OrderType = DesignOrdersForm.OrderTypeMarket;
         viewModel.DesignOrders.TimeInForce = "IOC";
-        viewModel.DesignOrderRuleText.Should().Be("Market IOC");
+        viewModel.DesignOrderRuleText.Should().Be("Long · Market · 시장가 · IOC");
 
         viewModel.Messages.Add(new AuthoringMessage(
             CodegenRole.Assistant,
@@ -925,9 +925,10 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignSizing.HasRange.Should().BeTrue();
         viewModel.DesignSizing.RangeMinText.Should().Be("5");
         viewModel.DesignSizing.RangeMaxText.Should().Be("15");
-        viewModel.DesignOrders.OrderType.Should().Be("Limit");
+        viewModel.DesignOrders.OrderType.Should().Be(DesignOrdersForm.OrderTypeLimit);
         viewModel.DesignOrders.TimeInForce.Should().Be("Day");
         viewModel.DesignOrders.PriceRule.Should().Be("mid");
+        viewModel.DesignOrders.Side.Should().Be(DesignOrdersForm.SideLong);
         viewModel.DesignExitCondition.OperatorKey.Should().Be("crosses below");
     }
 

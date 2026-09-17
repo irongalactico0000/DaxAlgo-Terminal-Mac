@@ -816,11 +816,23 @@ public sealed record DesignRiskLimitSessionV1(
     string Action,
     string Provenance);
 
-/// <summary>Execution policy — order type, TIF, optional price rule.</summary>
+/// <summary>
+/// Execution policy — side, order type (시장가/지정가), TIF, optional price rule.
+/// </summary>
 public sealed partial class DesignOrdersForm : ObservableObject
 {
+    public const string OrderTypeMarket = "Market · 시장가";
+    public const string OrderTypeLimit = "Limit · 지정가";
+
+    public const string SideLong = "Long";
+    public const string SideShort = "Short";
+    public const string SideBoth = "Both (flip)";
+
+    public static IReadOnlyList<string> SideOptions { get; } =
+        ["", SideLong, SideShort, SideBoth];
+
     public static IReadOnlyList<string> OrderTypeOptions { get; } =
-        ["", "Market", "Limit"];
+        ["", OrderTypeMarket, OrderTypeLimit];
 
     public static IReadOnlyList<string> TimeInForceOptions { get; } =
         ["", "Day", "IOC", "GTC", "FOK"];
@@ -828,12 +840,14 @@ public sealed partial class DesignOrdersForm : ObservableObject
     public static IReadOnlyList<string> PriceRuleOptions { get; } =
         ["", "last", "mid", "bid", "ask"];
 
+    [ObservableProperty] private string _side = SideLong;
     [ObservableProperty] private string _orderType = "";
     [ObservableProperty] private string _timeInForce = "";
     [ObservableProperty] private string _priceRule = "";
     [ObservableProperty] private DesignValueProvenance _provenance = DesignValueProvenance.Unset;
 
     public bool IsComplete =>
+        !string.IsNullOrWhiteSpace(Side) &&
         !string.IsNullOrWhiteSpace(OrderType) &&
         !string.IsNullOrWhiteSpace(TimeInForce);
 
@@ -842,15 +856,58 @@ public sealed partial class DesignOrdersForm : ObservableObject
         get
         {
             if (!IsComplete) return "";
-            var text = $"{OrderType.Trim()} {TimeInForce.Trim()}".Trim();
+            var text = $"{Side.Trim()} · {OrderType.Trim()} · {TimeInForce.Trim()}".Trim();
             if (!string.IsNullOrWhiteSpace(PriceRule))
                 text += $" · price {PriceRule.Trim()}";
             return text;
         }
     }
 
+    public string SideHint =>
+        string.Equals(Side, SideShort, StringComparison.Ordinal) ? "Short only — sell to enter, cover to exit."
+        : string.Equals(Side, SideBoth, StringComparison.Ordinal) ? "Both — allow long and short (flip) under this draft."
+        : string.Equals(Side, SideLong, StringComparison.Ordinal) ? "Long only — buy to enter, sell to exit."
+        : "Choose Long, Short, or Both (flip).";
+
     public string ProvenanceLabel => DesignValueProvenanceLabels.Label(Provenance);
 
+    /// <summary>Map freeform / legacy "Market" or "Limit" onto bilingual option labels.</summary>
+    public static string NormalizeOrderType(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "";
+        var t = value.Trim();
+        if (string.Equals(t, OrderTypeMarket, StringComparison.Ordinal) ||
+            string.Equals(t, OrderTypeLimit, StringComparison.Ordinal))
+            return t;
+        if (t.Contains("Limit", StringComparison.OrdinalIgnoreCase) ||
+            t.Contains("지정가", StringComparison.Ordinal))
+            return OrderTypeLimit;
+        if (t.Contains("Market", StringComparison.OrdinalIgnoreCase) ||
+            t.Contains("시장가", StringComparison.Ordinal))
+            return OrderTypeMarket;
+        return "";
+    }
+
+    public static string NormalizeSide(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "";
+        var t = value.Trim();
+        if (string.Equals(t, SideLong, StringComparison.OrdinalIgnoreCase) ||
+            t.Contains("long", StringComparison.OrdinalIgnoreCase) ||
+            t.Contains("롱", StringComparison.Ordinal))
+            return SideLong;
+        if (string.Equals(t, SideShort, StringComparison.OrdinalIgnoreCase) ||
+            t.Contains("short", StringComparison.OrdinalIgnoreCase) ||
+            t.Contains("숏", StringComparison.Ordinal))
+            return SideShort;
+        if (string.Equals(t, SideBoth, StringComparison.OrdinalIgnoreCase) ||
+            t.Contains("flip", StringComparison.OrdinalIgnoreCase) ||
+            t.Contains("both", StringComparison.OrdinalIgnoreCase))
+            return SideBoth;
+        return "";
+    }
+
+    partial void OnSideChanged(string value) => NotifyShape();
     partial void OnOrderTypeChanged(string value) => NotifyShape();
     partial void OnTimeInForceChanged(string value) => NotifyShape();
     partial void OnPriceRuleChanged(string value) => NotifyShape();
@@ -861,10 +918,12 @@ public sealed partial class DesignOrdersForm : ObservableObject
     {
         OnPropertyChanged(nameof(IsComplete));
         OnPropertyChanged(nameof(SummaryText));
+        OnPropertyChanged(nameof(SideHint));
     }
 
     public void Clear()
     {
+        Side = SideLong;
         OrderType = "";
         TimeInForce = "";
         PriceRule = "";
