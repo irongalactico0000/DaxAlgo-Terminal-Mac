@@ -826,6 +826,12 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.HasResearchDesignHandoff.Should().BeTrue();
         viewModel.LinkedResearchSummaryText.Should().Contain("Finding linked");
         viewModel.LinkedResearchSummaryText.Should().Contain("ema");
+        viewModel.HasStrategyDraft.Should().BeTrue(
+            "Confirm creates a research-scoped draft and binds condition id/hash");
+        viewModel.PendingStrategyDraft!.LinkedConditionId.Should().Be(
+            viewModel.PendingResearchCondition!.ConditionId);
+        viewModel.PendingStrategyDraft.LinkedConditionVersionHashSha256.Should().Be(
+            viewModel.PendingResearchCondition.VersionHashSha256);
         viewModel.CanOpenDesignScreen.Should().BeTrue();
         viewModel.WorkingFlowMapText.Should().Contain("1 Design ✓");
         viewModel.Composer.Should().Contain("Add this saved Research finding");
@@ -840,6 +846,7 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.IsRegistered.Should().BeFalse();
         viewModel.BuildStageState.Should().Be("PENDING");
         viewModel.Status.Should().Match(s =>
+            s.Contains("condition id/hash bound", StringComparison.Ordinal) ||
             s.Contains("No compile or register", StringComparison.Ordinal) ||
             s.Contains("opening Design", StringComparison.Ordinal) ||
             s.Contains("Added finding", StringComparison.Ordinal));

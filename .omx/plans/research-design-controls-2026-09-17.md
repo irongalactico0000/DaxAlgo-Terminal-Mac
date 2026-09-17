@@ -31,7 +31,7 @@
 | **← Back to {strategy}** | Navigation to prior Builder stage | Strategy Design (same draft) | **No** — also clears staged Add-finding review |
 | **Save finding 1 / 2** | Chart + condition → finding slots | Stays in Research | **Yes** — findings only |
 | **Add finding to {strategy}** | Stages review panel | Stays in Research | **No** until Confirm |
-| **Confirm link to Design** | Review package → linked research + composer evidence | Design | **Yes** |
+| **Confirm link to Design** | Review package → linked research + composer evidence + condition id/hash on strategy draft | Design | **Yes** |
 | **Cancel** (Add finding review) | Clears staged review | Stays in Research | **No** |
 | Rank / Open chart / Find similar | Research evidence | Chart / results | Research state only |
 
@@ -51,7 +51,7 @@
 1. From Builder or Studio: apply condition, **Save finding 1**.  
 2. **Add finding to {strategy}** → review panel.  
 3. **Confirm link to Design**.  
-4. **Expect:** Design open; `LinkedResearchSummaryText` shows finding linked; evidence in composer; Design rule fields unchanged until the operator edits them.
+4. **Expect:** Design open; `LinkedResearchSummaryText` shows finding linked; evidence in composer; Design rule fields unchanged until the operator edits them; `PendingStrategyDraft` carries **condition id + version hash** (created from chart selection when no chart draft existed).
 
 ## Shipped code map
 
@@ -60,5 +60,6 @@
 | Back without finding | `ReturnToStrategyBuilder` + `ClearPendingAddFindingReview` |
 | Stage Add finding | `UseObservationInDesign` → `PendingAddFindingReviewText` |
 | Confirm / Cancel | `ConfirmAddFindingToStrategy` / `DiscardAddFindingReview` |
+| Confirm binds condition | `TryBindResearchConditionIntoStrategyDraft(createDraftFromSelectionIfMissing: true)` |
 | Hyperion Accept | `AcceptHyperionDesignProposal` |
 | Investigate | `InvestigateInResearchStudio` |

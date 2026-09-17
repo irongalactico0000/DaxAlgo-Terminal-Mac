@@ -597,14 +597,21 @@ public sealed partial class StrategyAuthoringViewModel
 
         PendingAddFindingReviewText = "";
         HasResearchDesignHandoff = true;
+        var bound = TryBindResearchConditionIntoStrategyDraft(createDraftFromSelectionIfMissing: true);
         AiStatus = $"Finding attached to {StrategyReturnDisplayName}. Confirm which conditions become strategy rules.";
         Status = IsResearchStudioShell
-            ? $"Added finding to {StrategyReturnDisplayName} — opening Design."
-            : $"Finding attached to {StrategyReturnDisplayName} Design. No compile or register yet.";
+            ? bound
+                ? $"Added finding to {StrategyReturnDisplayName} — condition id/hash bound · opening Design."
+                : $"Added finding to {StrategyReturnDisplayName} — opening Design."
+            : bound
+                ? $"Finding attached to {StrategyReturnDisplayName} Design · condition id/hash bound. No compile or register yet."
+                : $"Finding attached to {StrategyReturnDisplayName} Design. No compile or register yet.";
         Append(AuthoringMessage.Tool(
             "Ok",
             UseInStrategyBuilderText,
-            $"Linked finding · samples {ResearchEventSampleCount}."));
+            bound
+                ? $"Linked finding · condition {PendingStrategyDraft?.LinkedConditionId} · samples {ResearchEventSampleCount}."
+                : $"Linked finding · samples {ResearchEventSampleCount}."));
         Save();
 
         ActiveScreen = StrategyAuthoringScreen.Design;
@@ -662,8 +669,44 @@ public sealed partial class StrategyAuthoringViewModel
     [RelayCommand(CanExecute = nameof(CanBindResearchConditionToDraft))]
     private void BindResearchConditionToDraft()
     {
-        if (PendingResearchCondition is not { } condition || PendingStrategyDraft is null)
+        if (!TryBindResearchConditionIntoStrategyDraft(createDraftFromSelectionIfMissing: false))
             return;
+
+        Status =
+            $"Draft bound to condition {PendingStrategyDraft!.LinkedConditionId} · ver " +
+            $"{PendingResearchCondition?.VersionShort ?? "n/a"} (not a formula re-narration).";
+        Save();
+    }
+
+    /// <summary>
+    /// Bind versioned research condition id+hash onto <see cref="PendingStrategyDraft"/>.
+    /// Confirm may create a research-scoped draft from the chart selection; the manual Bind button does not.
+    /// Does not rewrite Design rule text fields.
+    /// </summary>
+    private bool TryBindResearchConditionIntoStrategyDraft(bool createDraftFromSelectionIfMissing)
+    {
+        var condition = ResolveConditionForDraftBind();
+        if (condition is null)
+            return false;
+
+        if (PendingStrategyDraft is { IsLocked: true })
+            return false;
+
+        if (PendingStrategyDraft is null)
+        {
+            if (!createDraftFromSelectionIfMissing)
+                return false;
+            var selection = ResolveSelectionForDraftBind();
+            if (selection is null)
+                return false;
+
+            PendingStrategyDraft = StrategyDraftV1.Create(new StrategyDraftScopeV1(
+                selection.InstrumentId,
+                selection.CanonicalSymbol,
+                selection.Timeframe,
+                selection.ObservationFromUtc,
+                selection.ObservationToUtc));
+        }
 
         var sampleIds = ResearchDatasetDefinition?.Samples
             .Where(s => s.Condition is not null &&
@@ -679,10 +722,29 @@ public sealed partial class StrategyAuthoringViewModel
             PendingStrategyDraft,
             condition,
             sampleIds);
-        Status =
-            $"Draft bound to condition {condition.ConditionId} · ver {condition.VersionShort} " +
-            $"(not a formula re-narration).";
-        Save();
+        return true;
+    }
+
+    private ResearchConditionDefinitionV1? ResolveConditionForDraftBind()
+    {
+        if (PendingResearchCondition is { } pending)
+            return pending;
+        if (_researchAnalysisReferences.TryGetValue("A", out var finding1) && finding1.Condition is not null)
+            return finding1.Condition;
+        if (_researchAnalysisReferences.TryGetValue("B", out var finding2) && finding2.Condition is not null)
+            return finding2.Condition;
+        return null;
+    }
+
+    private ResearchChartSelectionV1? ResolveSelectionForDraftBind()
+    {
+        if (PendingResearchChartSelection is { } pending)
+            return pending;
+        if (_researchAnalysisReferences.TryGetValue("A", out var finding1) && finding1.Selection is not null)
+            return finding1.Selection;
+        if (_researchAnalysisReferences.TryGetValue("B", out var finding2) && finding2.Selection is not null)
+            return finding2.Selection;
+        return null;
     }
 
     [RelayCommand(CanExecute = nameof(CanSaveResearchFinding))]
