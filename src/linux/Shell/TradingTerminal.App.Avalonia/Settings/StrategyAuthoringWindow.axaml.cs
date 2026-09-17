@@ -250,24 +250,6 @@ public partial class StrategyAuthoringWindow : Window
                     .Distinct(StringComparer.Ordinal));
         return $"System: {body}";
     }
-
-    /// <summary>
-    /// Avalonia AutoCompleteBox often needs an explicit populate on focus so click-open shows
-    /// recent/available instruments (MinimumPrefixLength=0 alone is unreliable).
-    /// </summary>
-    private void OnDesignInstrumentSearchGotFocus(object? sender, GotFocusEventArgs e)
-    {
-        if (sender is not AutoCompleteBox box)
-            return;
-        if (DataContext is StrategyAuthoringViewModel vm)
-            _ = vm.EnsureDesignInstrumentCatalogueAsync();
-
-        // Re-assign ItemsSource to force dropdown population when the catalogue already loaded.
-        var items = box.ItemsSource;
-        box.ItemsSource = null;
-        box.ItemsSource = items;
-        box.IsDropDownOpen = true;
-    }
 }
 
 /// <summary>Lets the Avalonia parameter workbench select the correct editor without UI-specific VM code.</summary>

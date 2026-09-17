@@ -552,7 +552,7 @@ public sealed partial class StrategyAuthoringViewModel
     {
         ApplyDesignInstrumentFilter();
         OnPropertyChanged(nameof(DesignInstrumentPickerStatusText));
-        // Free-typed symbol without a catalogue match still updates the draft string.
+        // Typing filters the ComboBox list. Free-typed symbol (no match) still updates the draft.
         if (_syncingDesignInstrumentSelection)
             return;
         if (SelectedDesignInstrument is not null &&
@@ -570,8 +570,11 @@ public sealed partial class StrategyAuthoringViewModel
 
         var trimmed = value.Trim();
         if (trimmed.Length == 0)
+        {
+            // Clearing the filter keeps selection; browse list refreshes via Apply above.
             return;
-        // Prefer exact catalogue match while typing; otherwise keep draft text as typed symbol.
+        }
+
         var match = FindDesignInstrumentMatch(trimmed);
         if (match is not null)
         {
@@ -606,7 +609,11 @@ public sealed partial class StrategyAuthoringViewModel
         try
         {
             DesignInstrumentText = value.Contract.Symbol;
-            DesignInstrumentSearchText = value.DisplayName;
+            // Keep search box as a filter term, not the full display name — so the dropdown
+            // stays in browse mode (full/recent list) when reopened.
+            if (string.IsNullOrWhiteSpace(DesignInstrumentSearchText) ||
+                string.Equals(DesignInstrumentSearchText.Trim(), value.DisplayName, StringComparison.OrdinalIgnoreCase))
+                DesignInstrumentSearchText = "";
             if (!_applyingDesignProposal && !_restoring)
                 DesignInstrumentProvenance = DesignValueProvenance.Operator;
             LastInstrumentStore.Save(DesignInstrumentPersistKey, value.Contract.Symbol);
@@ -616,6 +623,7 @@ public sealed partial class StrategyAuthoringViewModel
             _syncingDesignInstrumentSelection = false;
         }
 
+        ApplyDesignInstrumentFilter();
         NotifyDesignDraftChanged();
     }
 
@@ -660,7 +668,7 @@ public sealed partial class StrategyAuthoringViewModel
                 {
                     SelectedDesignInstrument = remembered;
                     DesignInstrumentText = remembered.Contract.Symbol;
-                    DesignInstrumentSearchText = remembered.DisplayName;
+                    DesignInstrumentSearchText = "";
                 }
                 finally
                 {

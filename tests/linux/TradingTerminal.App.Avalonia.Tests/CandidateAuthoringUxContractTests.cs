@@ -317,6 +317,7 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("DesignInstrumentSearchText");
         root.ToString().Should().Contain("SelectedDesignInstrument");
         root.ToString().Should().Contain("Design instrument search");
+        root.ToString().Should().Contain("Design instrument picker");
         root.ToString().Should().Contain("Design instrument venue");
         root.ToString().Should().Contain("Design instrument picker status");
         root.ToString().Should().Contain("DesignOperandKindOptions");
