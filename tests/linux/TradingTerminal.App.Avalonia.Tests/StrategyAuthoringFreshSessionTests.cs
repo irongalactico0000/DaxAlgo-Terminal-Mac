@@ -271,8 +271,17 @@ public sealed class StrategyAuthoringFreshSessionTests
         applied.DataModeToken.Should().Contain("applied");
         viewModel.ExecutionEnableQueuePosition = true;
         viewModel.TryGetAppliedExecutionFidelity(out _, out rejection).Should().BeFalse();
-        rejection.Should().Contain("Unsupported");
+        rejection.Should().Contain("Queue");
         viewModel.ExecutionEnableQueuePosition = false;
+        viewModel.ExecutionEnablePartialFills = true;
+        viewModel.ExecutionLatencyMs = 25;
+        viewModel.TryGetAppliedExecutionFidelity(out var withPartials, out rejection).Should().BeTrue(rejection);
+        withPartials.PartialsEnabled.Should().BeTrue();
+        withPartials.LatencyMs.Should().Be(25);
+        withPartials.DataModeToken.Should().Contain("partials=max4");
+        withPartials.DataModeToken.Should().Contain("latencyMs=25");
+        viewModel.ExecutionEnablePartialFills = false;
+        viewModel.ExecutionLatencyMs = 0;
         viewModel.ShowImplementationTabs.Should().BeFalse(
             "Design must not expose Strategy.cs / Code — that belongs in Build");
         viewModel.ActiveArtifactKindText.Should().NotBeNullOrWhiteSpace();
@@ -452,9 +461,10 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.HasResearchDesignHandoff.Should().BeTrue();
         viewModel.CanOpenDesignScreen.Should().BeTrue();
         viewModel.WorkingFlowMapText.Should().Contain("2 Design ✓");
-        viewModel.Composer.Should().Contain("Use this Research observation in Design");
+        viewModel.Composer.Should().Contain("Use this saved Research finding in Design");
         viewModel.Composer.Should().Contain("MSFT");
         viewModel.Composer.Should().Contain("ema");
+        viewModel.Composer.Should().Contain("Saved finding");
         viewModel.AuthoredUnitSpecification.Should().BeNull(
             "Use in Design attaches evidence only — no generate/compile/register");
         viewModel.CompiledOk.Should().BeFalse();

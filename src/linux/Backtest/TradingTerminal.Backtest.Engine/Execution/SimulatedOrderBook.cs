@@ -15,6 +15,7 @@ internal sealed class SimulatedOrderBook
     private readonly SimClock _clock;
     private readonly IFillModel _fillModel;
     private readonly Func<InstrumentId, double> _tickSizeOf;
+    private readonly TimeSpan _latency;
     private readonly Dictionary<string, WorkingOrder> _byClientId = new(StringComparer.Ordinal);
     private readonly List<SimulatedOrderBookDiagnosticFailure> _diagnosticFailures = [];
     private readonly ReadOnlyCollection<SimulatedOrderBookDiagnosticFailure> _readOnlyDiagnosticFailures;
@@ -22,11 +23,16 @@ internal sealed class SimulatedOrderBook
     private long _nextBrokerId;
     private long _nextDiagnosticFailureSequence;
 
-    public SimulatedOrderBook(SimClock clock, IFillModel fillModel, Func<InstrumentId, double> tickSizeOf)
+    public SimulatedOrderBook(
+        SimClock clock,
+        IFillModel fillModel,
+        Func<InstrumentId, double> tickSizeOf,
+        TimeSpan latency = default)
     {
         _clock = clock;
         _fillModel = fillModel;
         _tickSizeOf = tickSizeOf;
+        _latency = latency < TimeSpan.Zero ? TimeSpan.Zero : latency;
         _readOnlyDiagnosticFailures = _diagnosticFailures.AsReadOnly();
     }
 
@@ -59,7 +65,13 @@ internal sealed class SimulatedOrderBook
 
         var requiredSink = RequireTransitionSink();
         var brokerId = $"BT-{Interlocked.Increment(ref _nextBrokerId)}";
-        var order = new WorkingOrder { Request = request, Instrument = instrument, BrokerOrderId = brokerId };
+        var order = new WorkingOrder
+        {
+            Request = request,
+            Instrument = instrument,
+            BrokerOrderId = brokerId,
+            EarliestFillUtc = _clock.UtcNow.Add(_latency),
+        };
         _byClientId.Add(request.ClientOrderId, order);
 
         PublishTransition(requiredSink, instrument, new OrderEvent(
@@ -92,6 +104,7 @@ internal sealed class SimulatedOrderBook
         foreach (var order in _byClientId.Values.ToList())
         {
             if (order.Instrument != instrument || IsTerminal(order.State)) continue;
+            if (tick.TimestampUtc < order.EarliestFillUtc) continue;
             if (!_fillModel.TryFill(order, tick, tickSize, out var price, out var qty)) continue;
 
             var requiredSink = RequireTransitionSink();

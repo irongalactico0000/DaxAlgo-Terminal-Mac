@@ -60,14 +60,14 @@ Restore must reopen that package without re-uploading files.
 1. Restore the intended **saved finding**, or save before handoff.
 2. **Use in Strategy Builder** — Builder opens with that evidence; Studio stays session-matched.
 3. Bind condition id+hash into the draft; add exits/sizing without rewriting the entry condition.
-4. Validate under the declared fill model (today: honest L1; queue/liquidity/latency = later).
+4. Validate under the declared fill model (today: L1 + optional capped partials + latency ms; queue/liquidity = later).
 
 ### What not to do
 
 - Do not gate Order book / Footprint / Bookmap on Rank.
 - Do not open another session’s Studio from Builder.
 - Do not invent outcome intervals or declare Depth/Tape when the chart only used bars.
-- Do not pretend “Chart grid” is multi-chart until real tiles exist.
+- Do not pretend “Chart grid” is multi-chart until real tiles exist (Compare MVP = numeric strip + focus chart).
 - Do not add Rank-adjacent tool buttons; put chart tools on the chart.
 - Do not say “Reference A/B” in user-facing copy.
 

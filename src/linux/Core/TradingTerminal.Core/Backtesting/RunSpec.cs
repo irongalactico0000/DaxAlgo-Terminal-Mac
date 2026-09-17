@@ -73,12 +73,14 @@ public sealed record DataSpec(
     string? ParquetPath = null,
     string? TradeParquetPath = null);
 
-/// <summary>How orders fill: which fill model, how many ticks of slippage on market crosses, and an
-/// optional order→fill latency to model reaction delay.</summary>
+/// <summary>How orders fill: which fill model, how many ticks of slippage on market crosses,
+/// optional order→fill latency, and an optional per-touch quantity cap for partial fills.</summary>
 public sealed record ExecutionSpec(
     FillModelKind FillModel = FillModelKind.L1Touch,
     int SlippageTicks = 0,
-    double LatencyMs = 0);
+    double LatencyMs = 0,
+    // When > 0, each L1 touch fills at most this many units (partials). 0 = full remaining.
+    long MaxFillQuantityPerTouch = 0);
 
 /// <summary>Transaction costs charged on each fill. Fields are consulted per the chosen
 /// <see cref="CostModelKind"/>; defaults reproduce a zero-cost backtest exactly.</summary>

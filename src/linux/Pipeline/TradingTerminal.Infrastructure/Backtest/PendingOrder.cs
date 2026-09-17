@@ -11,6 +11,9 @@ public sealed class PendingOrder
     public double TotalFillValue { get; set; }
     public OrderState State { get; set; } = OrderState.Working;
 
+    /// <summary>Earliest sim clock when this order may fill (submit time + latency).</summary>
+    public DateTime EarliestFillUtc { get; set; }
+
     public double? AveragePrice =>
         FilledQuantity == 0 ? null : TotalFillValue / FilledQuantity;
 }

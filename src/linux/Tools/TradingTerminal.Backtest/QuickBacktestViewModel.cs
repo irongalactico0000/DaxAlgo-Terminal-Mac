@@ -75,6 +75,8 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
     private QuickBacktestPaperLaunchRequest? _paperLaunchRequest;
     private HistoricalValidationContextV1? _validationContext;
     private string? _appliedExecutionFidelityToken;
+    private double _executionLatencyMs;
+    private long _maxFillQuantityPerTouch;
 
     public QuickBacktestViewModel(
         IBacktestStrategyRegistry registry,
@@ -259,7 +261,9 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
     public bool Initialize(
         StrategyKernelRegistration registration,
         HistoricalValidationContextV1? validationContext = null,
-        string? appliedExecutionFidelityToken = null)
+        string? appliedExecutionFidelityToken = null,
+        int executionLatencyMs = 0,
+        long maxFillQuantityPerTouch = 0)
     {
         ArgumentNullException.ThrowIfNull(registration);
         ClearPaperLaunchRequest();
@@ -267,6 +271,8 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
         _appliedExecutionFidelityToken = string.IsNullOrWhiteSpace(appliedExecutionFidelityToken)
             ? null
             : appliedExecutionFidelityToken.Trim();
+        _executionLatencyMs = Math.Max(0, executionLatencyMs);
+        _maxFillQuantityPerTouch = Math.Max(0, maxFillQuantityPerTouch);
         StrategyDisplayName = registration.DisplayName;
         _option = null;
         _kernelOption = _kernelRegistry.Find(registration.Id);
@@ -535,7 +541,9 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
                     StartingCash: 100_000,
                     FeeModel: new BpsFeeModel(FeeBps),
                     Source: BacktestDataSource.ParquetFile,
-                    TradeDataPath: tradesPath);
+                    TradeDataPath: tradesPath,
+                    LatencyMs: _executionLatencyMs,
+                    MaxFillQuantityPerTouch: _maxFillQuantityPerTouch);
                 FeedQuality = "Real tape (q = 1.0) — full quality. Depth/OBI excluded (engine is L1-only for depth).";
             }
             else
@@ -596,7 +604,9 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
                     Source: BacktestDataSource.ParquetFile,
                     ReplayBars: series.Length == 1 ? primaryBars : null,
                     ReplayBarSize: SelectedBarSize,
-                    ReplayBarSeries: series.Length > 1 ? series : null);
+                    ReplayBarSeries: series.Length > 1 ? series : null,
+                    LatencyMs: _executionLatencyMs,
+                    MaxFillQuantityPerTouch: _maxFillQuantityPerTouch);
                 FeedQuality = _kernelOption is null
                     ? "Completed broker bars + deterministic synthetic L1 fills (q ≈ 0.4 for tape logic)."
                     : $"Reviewed SDK bars + contract-scoped synthetic L1 fills. {coverage.Description} Missing bars are not forward-filled; orders are risk-gated.";

@@ -117,11 +117,12 @@ Shared chart across Research and Builder. Chart tools live on the **open chart**
 | Setting | Applied? |
 |---------|----------|
 | L1 touch ± slippage, full remaining qty | **Yes** (`L1TouchFillModel`) |
-| Latency ≠ 0, queue, liquidity walk, true partials, L2 replay in Validate | **No** (UI marks unavailable) |
+| Latency ms, quantity-capped partials (max N per L1 touch) | **Yes** when enabled on Validate (applied by session + engine) |
+| Queue position, liquidity walk, L2/L3 books | **No** (UI marks unavailable) |
 
 ### Later (Nautilus-class target — not claimed done)
 
-Order-book replay · size-limited market fills · queue position · liquidity consumption · configured latency · partial lifecycle (e.g. 10→fill 4→cancel 6→position 4).
+Order-book / L2 replay · queue position · liquidity consumption · uncapped realistic partials beyond the demo max-per-touch.
 
 Chosen explicitly on Validate/Paper. Research **saved findings** stay about signals/conditions, not fill physics.
 

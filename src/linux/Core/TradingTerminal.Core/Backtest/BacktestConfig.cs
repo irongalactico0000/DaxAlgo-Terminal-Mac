@@ -57,7 +57,11 @@ public sealed record BacktestConfig(
     string? TradeDataPath = null,
     IReadOnlyList<Bar>? ReplayBars = null,
     BarSize? ReplayBarSize = null,
-    IReadOnlyList<BacktestBarSeries>? ReplayBarSeries = null);
+    IReadOnlyList<BacktestBarSeries>? ReplayBarSeries = null,
+    // Simulated delay after submit before L1 fills may occur (ms). 0 = immediate.
+    double LatencyMs = 0,
+    // When > 0, each L1 touch fills at most this many units (partials). 0 = full remaining.
+    long MaxFillQuantityPerTouch = 0);
 
 /// <summary>
 /// One reviewed instrument's completed-bar history in a multi-series replay. Tick size and contract

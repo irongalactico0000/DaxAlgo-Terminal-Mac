@@ -79,7 +79,7 @@ public sealed partial class StrategyAuthoringViewModel
         }
     }
 
-    /// <summary>Compare selected ranked rows under shared indicator settings.</summary>
+    /// <summary>Compare selected ranked rows with numeric strip (return, vol/avg, EMA slope).</summary>
     public string ResearchIndicatorCompareText
     {
         get
@@ -87,28 +87,42 @@ public sealed partial class StrategyAuthoringViewModel
             if (ResearchScreenSelectedRows.Count < 2)
             {
                 return ResearchScreenSelectedRows.Count == 1
-                    ? "Select a second ranked instrument to compare the same indicators on a shared period."
-                    : "Multi-select ranked rows (or open several), then compare indicators across cases.";
+                    ? "Select a second ranked instrument (Select on tiles), then open Compare for a numeric strip."
+                    : "Multi-select ranked rows (Select), then Compare — shared window metrics for each case.";
             }
 
+            var window = SelectedResearchScreenRow is { } focus
+                ? $"{focus.WindowFromUtc:u} → {focus.WindowToUtcExclusive:u} ({focus.BarSizeLabel})"
+                : ResearchScreenSelectedRows[0] is { } first
+                    ? $"{first.WindowFromUtc:u} → {first.WindowToUtcExclusive:u} ({first.BarSizeLabel})"
+                    : "shared ranking window";
             var indicators = HasPendingResearchIndicatorBindings
                 ? string.Join(", ", PendingResearchIndicatorBindings.Select(static b => b.DisplayLabel))
-                : "chart indicators (enable SMA/EMA/… first)";
-            var window = SelectedResearchScreenRow is { } row
-                ? $"{row.WindowFromUtc:u} → {row.WindowToUtcExclusive:u} ({row.BarSizeLabel})"
-                : "shared ranking window";
-            var cases = string.Join(", ", ResearchScreenSelectedRows
+                : "chart indicators when opened";
+            var lines = ResearchScreenSelectedRows
                 .OrderBy(static r => r.Rank)
-                .Select(static r => $"#{r.Rank} {r.CanonicalSymbol}"));
+                .Select(FormatCompareStripLine);
             return
                 $"Compare {ResearchScreenSelectedRows.Count} cases on {window}.\n" +
-                $"Indicators: {indicators}.\n" +
-                $"Cases: {cases}.\n" +
-                "Method: same bar size and indicator parameters; open Chart grid to view side-by-side.";
+                $"Shared settings: same bar size; indicators on focus chart: {indicators}.\n" +
+                "Numeric strip (from ranking window bars):\n" +
+                string.Join("\n", lines) +
+                "\nOpen a tile to focus the live chart. Method: return %, last vol÷avg vol, EMA(20) slope % over 5 bars.";
         }
     }
 
     public bool HasResearchIndicatorCompare => ResearchScreenSelectedRows.Count >= 2;
+
+    public bool IsResearchCompareView =>
+        string.Equals(ResearchScreenViewMode, "Grid", StringComparison.OrdinalIgnoreCase);
+
+    private static string FormatCompareStripLine(ResearchMarketScreenRowV1 r)
+    {
+        var ret = r.PercentChange is { } p ? $"{p:0.00}%" : "n/a";
+        var vol = r.VolumeVsAvg is { } v ? $"{v:0.00}×avg" : "n/a";
+        var ema = r.Ema20SlopePct is { } e ? $"{e:0.00}%" : "n/a";
+        return $"#{r.Rank} {r.CanonicalSymbol}: ret {ret} · vol {vol} · EMA20Δ {ema}";
+    }
 
     private static string NormalizeResearchScreenUniverseId(string? labelOrId)
     {
@@ -312,16 +326,30 @@ public sealed partial class StrategyAuthoringViewModel
         var normalized = mode.Trim();
         if (string.Equals(normalized, "Grid", StringComparison.OrdinalIgnoreCase))
         {
-            // Chart grid is not implemented yet — keep Table so we do not pretend cards are charts.
-            ResearchScreenViewMode = "Table";
+            if (ResearchScreenSelectedRows.Count < 2)
+            {
+                ResearchScreenViewMode = "Table";
+                Status =
+                    "Compare needs at least two selected ranked instruments (use Select on tiles). " +
+                    "Then tap Compare for the numeric strip; open a tile to focus the live chart.";
+                return;
+            }
+
+            ResearchScreenViewMode = "Grid";
             Status =
-                "Chart grid is not available yet. Open several ranked rows one-by-one, or use Table/Detail. " +
-                "Multi-chart comparison tiles will land in a later pass.";
+                $"Compare strip for {ResearchScreenSelectedRows.Count} cases — " +
+                "return %, vol÷avg, EMA(20) slope. Open a tile to focus the chart.";
+            OnPropertyChanged(nameof(IsResearchCompareView));
+            OnPropertyChanged(nameof(ResearchIndicatorCompareText));
             return;
         }
 
         ResearchScreenViewMode = normalized;
+        OnPropertyChanged(nameof(IsResearchCompareView));
     }
+
+    partial void OnResearchScreenViewModeChanged(string value) =>
+        OnPropertyChanged(nameof(IsResearchCompareView));
 
     [RelayCommand(CanExecute = nameof(CanOpenResearchMarketStructure))]
     private void OpenResearchOrderBook() =>

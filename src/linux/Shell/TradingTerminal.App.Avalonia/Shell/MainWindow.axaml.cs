@@ -1188,7 +1188,12 @@ public partial class MainWindow : Window
             backtest.HistoricalValidationCompleted -= completed;
             backtest.PaperLaunchRequested -= paper;
         };
-        if (!backtest.Initialize(registration, context, appliedFidelity.DataModeToken))
+        if (!backtest.Initialize(
+                registration,
+                context,
+                appliedFidelity.DataModeToken,
+                executionLatencyMs: appliedFidelity.LatencyMs,
+                maxFillQuantityPerTouch: appliedFidelity.MaxFillPerTouch))
         {
             authoring.Status = backtest.Status;
             window.Close();

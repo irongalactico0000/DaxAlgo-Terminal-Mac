@@ -56,7 +56,11 @@ public sealed record ResearchMarketScreenRowV1(
     DateTime WindowToUtcExclusive,
     double? VolumeSum,
     double? TradedValueSum,
-    double? PercentChange);
+    double? PercentChange,
+    // Last bar volume ÷ mean window volume (1 = average).
+    double? VolumeVsAvg = null,
+    // EMA(20) percent change over the last 5 ready points (null if not enough bars).
+    double? Ema20SlopePct = null);
 
 /// <summary>Full screen result with coverage so Top N never invents missing instruments.</summary>
 public sealed record ResearchMarketScreenResultV1(

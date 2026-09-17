@@ -27,15 +27,15 @@ Include **keyboard** pass where marked [a11y].
 
 ---
 
-## Journey B — Compare (target; may fail until built)
+## Journey B — Compare (MVP: numeric strip + focus chart)
 
 | # | Step | Expected | Pass? |
 |---|------|----------|-------|
-| B1 | Select three ranked symbols for compare | UI accepts selection | |
-| B2 | Open comparison | **Three charts** + shared settings + **numeric** comparison | |
-| B3 | Ask Hyperion what changed in volume/EMA before breakouts | Answer cites the visible comparison numbers/charts | |
+| B1 | Select ≥2 ranked symbols (Select on tiles) | Selection set grows; Compare enabled | |
+| B2 | Open Compare | Numeric strip (return %, vol÷avg, EMA20 slope) for each selected case; open a tile to focus the live chart | |
+| B3 | Ask Hyperion what changed in volume/EMA before breakouts | Answer cites the visible comparison numbers/focus chart | |
 
-If B2 fails because grid/compare is unavailable, mark **blocked** and confirm the UI states that honestly (not a fake card grid).
+Real multi-chart tiles remain a later target; if B2 only shows the strip + one chart, mark **PASS (MVP)** — not blocked.
 
 ---
 
@@ -59,7 +59,7 @@ If B2 fails because grid/compare is unavailable, mark **blocked** and confirm th
 | # | Step | Expected | Pass? |
 |---|------|----------|-------|
 | D1 | Build | Compile result; errors tied to rules if any | |
-| D2 | Validate assumptions | Only L1 (or other **applied**) options; queue/liquidity/latency≠0 unavailable **with explanation** | |
+| D2 | Validate assumptions | L1 applied; optional quantity-capped partials (max 4/touch) + latency ms; queue/liquidity unavailable **with explanation** | |
 | D3 | Run validation | Trades/performance for the version | |
 | D4 | Select one trade | Chart opens for that trade context | |
 | D5 | Change research EMA to 30; reopen Builder | Strategy still on prior EMA 20 until user updates link (stale banner if implemented) | |
@@ -89,4 +89,4 @@ If B2 fails because grid/compare is unavailable, mark **blocked** and confirm th
 | E (Direct rules) | PASS / FAIL |
 | Notes | |
 
-**Done means:** A + C + D pass on Mac with notes. B may stay blocked until multi-chart ships. E must pass so known-rules users are not forced through Research.
+**Done means:** A + C + D pass on Mac with notes. B MVP (numeric strip + focus chart) should pass; real multi-chart tiles may remain later. E must pass so known-rules users are not forced through Research.

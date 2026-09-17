@@ -75,7 +75,7 @@ Selecting an observation **only narrows the period**. It must **not** invent an 
 | **Visible result** | Multiple charts **and** calculated similarities/differences Hyperion can cite |
 | **Saved state** | Comparison set id (optional) or notes on a saved finding |
 | **Next** | Save finding(s) · Develop indicator |
-| **Local now** | Text compare summary only — **no** real multi-chart + numeric grid yet |
+| **Local now** | Compare mode: multi-select ranked rows → numeric strip (return %, vol÷avg, EMA20 slope) + one focus chart. **Not** yet real multi-chart tiles. |
 
 ### 1.5 Find similar observations
 
@@ -158,6 +158,6 @@ On small Mac windows: collapse/reflow panels; keep the **current task** usable.
 ## 4. Implementation priority (from this map)
 
 1. **Builder Design** = rule editor first (remove research-template-as-home conflict).  
-2. **Research compare** = real multi-chart + numeric comparison (or keep grid disabled until ready).  
+2. **Research compare** = real multi-chart tiles (MVP shipped: numeric strip + focus chart).  
 3. **Indicator develop** = editable params → live series → versioned definition for findings.  
-4. **Validate** = keep L1 honesty; Nautilus-class fills remain a separate engine lane.
+4. **Validate** = L1 + optional capped partials + latency applied; Nautilus-class queue/L2 remain a separate engine lane.

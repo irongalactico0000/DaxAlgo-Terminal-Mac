@@ -231,8 +231,8 @@
               <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,12,4">
                 <TextBlock Text="Latency ms" Classes="caption" VerticalAlignment="Center" />
                 <TextBox Width="56" Text="{Binding ExecutionLatencyMs}"
-                         IsEnabled="{Binding ExecutionUnsupportedOptionsAvailable}"
-                         ToolTip.Tip="Only 0 ms is applied today. Non-zero latency is unavailable."
+                         IsEnabled="{Binding ExecutionPartialsAndLatencyAvailable}"
+                         ToolTip.Tip="{Binding ExecutionLatencyTip}"
                          AutomationProperties.Name="Execution latency ms" />
               </StackPanel>
               <CheckBox Content="Queue position (unavailable)"
@@ -245,11 +245,11 @@
                         IsEnabled="{Binding ExecutionUnsupportedOptionsAvailable}"
                         Margin="0,0,8,4"
                         ToolTip.Tip="{Binding ExecutionUnsupportedOptionsExplanation}" />
-              <CheckBox Content="Partial fills (unavailable)"
+              <CheckBox Content="Partial fills (max 4 per touch)"
                         IsChecked="{Binding ExecutionEnablePartialFills}"
-                        IsEnabled="{Binding ExecutionUnsupportedOptionsAvailable}"
+                        IsEnabled="{Binding ExecutionPartialsAndLatencyAvailable}"
                         Margin="0,0,8,4"
-                        ToolTip.Tip="{Binding ExecutionUnsupportedOptionsExplanation}" />
+                        ToolTip.Tip="{Binding ExecutionPartialsTip}" />
             </WrapPanel>
             <TextBlock Text="{Binding ExecutionUnsupportedOptionsExplanation}" Classes="caption" TextWrapping="Wrap"
                        Opacity="0.85" />

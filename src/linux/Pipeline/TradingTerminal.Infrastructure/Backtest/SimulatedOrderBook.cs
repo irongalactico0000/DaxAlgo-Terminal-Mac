@@ -16,14 +16,16 @@ public sealed class SimulatedOrderBook
 {
     private readonly IClock _clock;
     private readonly IFillModel _fillModel;
+    private readonly TimeSpan _latency;
     private readonly Subject<OrderEvent> _events = new();
     private readonly Dictionary<string, PendingOrder> _byClientId = new(StringComparer.Ordinal);
     private long _nextBrokerId;
 
-    public SimulatedOrderBook(IClock clock, IFillModel fillModel)
+    public SimulatedOrderBook(IClock clock, IFillModel fillModel, TimeSpan latency = default)
     {
         _clock = clock;
         _fillModel = fillModel;
+        _latency = latency < TimeSpan.Zero ? TimeSpan.Zero : latency;
     }
 
     public IObservable<OrderEvent> Events => _events.AsObservable();
@@ -37,7 +39,12 @@ public sealed class SimulatedOrderBook
         }
 
         var brokerId = $"BT-{Interlocked.Increment(ref _nextBrokerId)}";
-        var pending = new PendingOrder { Request = request, BrokerOrderId = brokerId };
+        var pending = new PendingOrder
+        {
+            Request = request,
+            BrokerOrderId = brokerId,
+            EarliestFillUtc = _clock.UtcNow.Add(_latency),
+        };
         _byClientId.Add(request.ClientOrderId, pending);
 
         _events.OnNext(new OrderEvent(
@@ -75,6 +82,7 @@ public sealed class SimulatedOrderBook
         {
             if (IsTerminal(order.State)) continue;
             if (order.Request.Contract != contract) continue;
+            if (tick.TimestampUtc < order.EarliestFillUtc) continue;
             if (!_fillModel.TryFill(order, tick, out var price, out var qty)) continue;
 
             order.FilledQuantity += qty;

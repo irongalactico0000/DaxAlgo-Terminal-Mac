@@ -315,9 +315,9 @@
                           ToolTip.Tip="Rank on one shared completed-bar window at the required bar size. Top N is not padded." />
                   <Button Classes="ghost" Content="Table" Margin="0,0,4,4"
                           Command="{Binding SetResearchScreenViewModeCommand}" CommandParameter="Table" />
-                  <Button Classes="ghost" Content="Chart grid" Margin="0,0,4,4"
+                  <Button Classes="ghost" Content="Compare" Margin="0,0,4,4"
                           Command="{Binding SetResearchScreenViewModeCommand}" CommandParameter="Grid"
-                          ToolTip.Tip="Not available yet — multi-chart comparison tiles come later. Use Open chart on ranked rows." />
+                          ToolTip.Tip="Select 2+ ranked instruments, then Compare for a numeric strip (return, vol÷avg, EMA slope). Open a tile to focus the live chart." />
                   <Button Classes="ghost" Content="Detail" Margin="0,0,4,4"
                           Command="{Binding SetResearchScreenViewModeCommand}" CommandParameter="Detail" />
                   <Button Classes="aiAction" Content="Open chart"
@@ -335,17 +335,20 @@
               </ScrollViewer>
             </Border>
 
-            <!-- Ranked results: table or compact grid tiles -->
+            <!-- Ranked results: table or compare tiles -->
             <Border Grid.Row="1" Margin="4,0,4,6" Padding="6"
-                    MaxHeight="160"
+                    MaxHeight="200"
                     Background="{StaticResource Background.Base}"
                     BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
                     CornerRadius="4"
                     IsVisible="{Binding HasResearchScreenRows}">
               <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel>
-                  <ItemsControl ItemsSource="{Binding ResearchScreenRows}"
-                                IsVisible="{Binding ResearchScreenViewMode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <StackPanel Spacing="6">
+                  <TextBlock Text="{Binding ResearchIndicatorCompareText}" Classes="caption" TextWrapping="Wrap"
+                             FontFamily="{StaticResource Font.Data}"
+                             IsVisible="{Binding HasResearchIndicatorCompare}"
+                             AutomationProperties.Name="Research compare numeric strip" />
+                  <ItemsControl ItemsSource="{Binding ResearchScreenRows}">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
                         <WrapPanel Orientation="Horizontal" />
@@ -353,7 +356,7 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <Border Margin="0,0,6,6" Padding="8,6" MinWidth="150"
+                        <Border Margin="0,0,6,6" Padding="8,6" MinWidth="160"
                                 Background="{StaticResource Background.Elevated}"
                                 BorderBrush="{StaticResource Border.Strong}" BorderThickness="1"
                                 CornerRadius="4">
@@ -368,6 +371,11 @@
                             </DockPanel>
                             <TextBlock Classes="caption" FontFamily="{StaticResource Font.Data}" TextWrapping="Wrap">
                               <Run Text="{Binding MetricValue, StringFormat={}{0:N0}}" /><Run Text=" · " /><Run Text="{Binding MetricLabel}" />
+                            </TextBlock>
+                            <TextBlock Classes="caption" FontFamily="{StaticResource Font.Data}" TextWrapping="Wrap">
+                              <Run Text="ret " /><Run Text="{Binding PercentChange, StringFormat={}{0:0.00}}" /><Run Text="% · vol " />
+                              <Run Text="{Binding VolumeVsAvg, StringFormat={}{0:0.00}}" /><Run Text="× · EMAΔ " />
+                              <Run Text="{Binding Ema20SlopePct, StringFormat={}{0:0.00}}" /><Run Text="%" />
                             </TextBlock>
                             <TextBlock Classes="caption">
                               <Run Text="{Binding BarsUsed}" /><Run Text=" bars · " /><Run Text="{Binding BarSizeLabel}" />

@@ -53,9 +53,18 @@ public sealed class BacktestSession : IBacktestSession
             throw new InvalidOperationException(
                 "Multi-instrument replay requires an instrument-aware backtest strategy.");
         }
+        if (config.LatencyMs < 0)
+            throw new ArgumentOutOfRangeException(nameof(config), "LatencyMs must be ≥ 0.");
+        if (config.MaxFillQuantityPerTouch < 0)
+            throw new ArgumentOutOfRangeException(nameof(config), "MaxFillQuantityPerTouch must be ≥ 0.");
+
         var clock = new SimulatedClock();
-        var fillModel = new L1FillModel(config.TickSize, config.SlippageTicks);
-        var orderBook = new SimulatedOrderBook(clock, fillModel);
+        var fillModel = new L1FillModel(
+            config.TickSize,
+            config.SlippageTicks,
+            config.MaxFillQuantityPerTouch);
+        var latency = TimeSpan.FromMilliseconds(config.LatencyMs);
+        var orderBook = new SimulatedOrderBook(clock, fillModel, latency);
         var router = new BacktestOrderRouter(orderBook, risk, clock);
 
         var ledger = new TradeLedger(config.ContractMultiplier, config.StartingCash, config.FeeModel);

@@ -2,6 +2,7 @@ using TradingTerminal.Core.Brokers;
 using TradingTerminal.Core.Domain;
 using TradingTerminal.Core.MarketData;
 using TradingTerminal.Core.Strategies.Generation;
+using Indicators = TradingTerminal.Core.MarketData.Indicators;
 
 namespace TradingTerminal.Infrastructure.MarketData;
 
@@ -228,6 +229,9 @@ public sealed class ResearchMarketScreenerV1 : IResearchMarketScreenerV1
                 continue;
             }
 
+            var volumeVsAvg = ComputeVolumeVsAvg(window);
+            var emaSlope = ComputeEma20SlopePct(window);
+
             rows.Add(new ResearchMarketScreenRowV1(
                 Rank: 0,
                 CanonicalSymbol: instrument.CanonicalSymbol,
@@ -241,7 +245,9 @@ public sealed class ResearchMarketScreenerV1 : IResearchMarketScreenerV1
                 WindowToUtcExclusive: window[^1].OpenTimeUtc.Add(barSpan),
                 VolumeSum: volumeSum,
                 TradedValueSum: estimatedTradedValue,
-                PercentChange: pct));
+                PercentChange: pct,
+                VolumeVsAvg: volumeVsAvg,
+                Ema20SlopePct: emaSlope));
         }
 
         var ranked = rows
@@ -412,6 +418,38 @@ public sealed class ResearchMarketScreenerV1 : IResearchMarketScreenerV1
             ResearchScreenMetricV1.PercentChange => "percent change",
             _ => "metric",
         };
+
+    /// <summary>Last bar volume ÷ mean window volume (1 = average).</summary>
+    internal static double? ComputeVolumeVsAvg(IReadOnlyList<OhlcvBar> window)
+    {
+        if (window.Count == 0) return null;
+        var mean = window.Average(static b => (double)b.Volume);
+        if (mean <= 0) return null;
+        return (double)window[^1].Volume / mean;
+    }
+
+    /// <summary>EMA(20) percent change across the last 5 ready EMA points.</summary>
+    internal static double? ComputeEma20SlopePct(IReadOnlyList<OhlcvBar> window)
+    {
+        const int period = 20;
+        const int slopeBars = 5;
+        if (window.Count < period + slopeBars) return null;
+
+        var ema = new Indicators.ExponentialMovingAverage(period);
+        var ready = new List<double>(window.Count);
+        foreach (var bar in window)
+        {
+            ema.Push(bar.Close);
+            if (ema.IsReady)
+                ready.Add(ema.Value);
+        }
+
+        if (ready.Count < slopeBars + 1) return null;
+        var latest = ready[^1];
+        var earlier = ready[^(slopeBars + 1)];
+        if (earlier == 0 || double.IsNaN(earlier) || double.IsNaN(latest)) return null;
+        return (latest - earlier) / Math.Abs(earlier) * 100.0;
+    }
 
     private static string DescribeMetric(ResearchScreenMetricV1 metric, int lookbackBars, string barSizeLabel) =>
         metric switch

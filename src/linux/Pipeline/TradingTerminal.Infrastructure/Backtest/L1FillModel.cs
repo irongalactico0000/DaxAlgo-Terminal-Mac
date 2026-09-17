@@ -5,8 +5,8 @@ namespace TradingTerminal.Infrastructure.Backtest;
 
 /// <summary>
 /// Strategy for deciding whether a pending order fills against the current L1 quote and
-/// at what price. The first cut fills the full remaining quantity on a single tick;
-/// queue-position effects and partial fills are out of scope.
+/// at what price. Optional max-per-touch enables quantity-limited partials; queue position
+/// and liquidity walk remain out of scope.
 /// </summary>
 public interface IFillModel
 {
@@ -19,18 +19,24 @@ public interface IFillModel
 /// touch crosses the stop, then fill at touch + slippage like a market order.
 ///
 /// Conservative: we use the side of the book that pays the spread (buy-at-ask, sell-at-bid).
+/// When <paramref name="maxFillQuantityPerTouch"/> is &gt; 0, each touch fills at most that
+/// many units (partial lifecycle); 0 means fill full remaining quantity.
 /// </summary>
 public sealed class L1FillModel : IFillModel
 {
     private readonly double _tickSize;
     private readonly int _slippageTicks;
+    private readonly long _maxFillQuantityPerTouch;
 
-    public L1FillModel(double tickSize, int slippageTicks)
+    public L1FillModel(double tickSize, int slippageTicks, long maxFillQuantityPerTouch = 0)
     {
         if (tickSize <= 0) throw new ArgumentOutOfRangeException(nameof(tickSize));
         if (slippageTicks < 0) throw new ArgumentOutOfRangeException(nameof(slippageTicks));
+        if (maxFillQuantityPerTouch < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxFillQuantityPerTouch));
         _tickSize = tickSize;
         _slippageTicks = slippageTicks;
+        _maxFillQuantityPerTouch = maxFillQuantityPerTouch;
     }
 
     public bool TryFill(PendingOrder o, Tick tick, out double fillPrice, out long fillQty)
@@ -47,7 +53,7 @@ public sealed class L1FillModel : IFillModel
         {
             case OrderType.Market:
                 fillPrice = isBuy ? tick.Ask + slip : tick.Bid - slip;
-                fillQty = remaining;
+                fillQty = CapFill(remaining);
                 return true;
 
             case OrderType.Limit:
@@ -56,13 +62,13 @@ public sealed class L1FillModel : IFillModel
                 if (isBuy && tick.Ask <= lp)
                 {
                     fillPrice = Math.Min(tick.Ask, lp);
-                    fillQty = remaining;
+                    fillQty = CapFill(remaining);
                     return true;
                 }
                 if (!isBuy && tick.Bid >= lp)
                 {
                     fillPrice = Math.Max(tick.Bid, lp);
-                    fillQty = remaining;
+                    fillQty = CapFill(remaining);
                     return true;
                 }
                 return false;
@@ -74,13 +80,13 @@ public sealed class L1FillModel : IFillModel
                 if (isBuy && tick.Ask >= sp)
                 {
                     fillPrice = tick.Ask + slip;
-                    fillQty = remaining;
+                    fillQty = CapFill(remaining);
                     return true;
                 }
                 if (!isBuy && tick.Bid <= sp)
                 {
                     fillPrice = tick.Bid - slip;
-                    fillQty = remaining;
+                    fillQty = CapFill(remaining);
                     return true;
                 }
                 return false;
@@ -94,4 +100,9 @@ public sealed class L1FillModel : IFillModel
                 return false;
         }
     }
+
+    private long CapFill(long remaining) =>
+        _maxFillQuantityPerTouch > 0
+            ? Math.Min(remaining, _maxFillQuantityPerTouch)
+            : remaining;
 }

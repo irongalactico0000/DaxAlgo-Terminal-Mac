@@ -12,8 +12,9 @@ public sealed partial class StrategyAuthoringViewModel
     private HistoricalValidationEvidenceV1? _historicalValidationEvidence;
 
     /// <summary>
-    /// Validate/Replay execution fidelity. Only L1 touch ± slippage at 0 ms latency is applied today;
-    /// unsupported options stay unavailable (not “intent” checkboxes).
+    /// Validate/Replay execution fidelity. L1 touch ± slippage is always applied.
+    /// Optional: quantity-capped partials per touch and execution latency ms.
+    /// Queue position and liquidity consumption remain unavailable.
     /// </summary>
     [ObservableProperty] private string _executionBookType = SupportedExecutionBookType;
     [ObservableProperty] private bool _executionEnableQueuePosition;
@@ -21,6 +22,9 @@ public sealed partial class StrategyAuthoringViewModel
     [ObservableProperty] private bool _executionEnablePartialFills;
     [ObservableProperty] private int _executionLatencyMs;
     [ObservableProperty] private string _executionFillModel = SupportedExecutionFillModel;
+
+    /// <summary>When partial fills are on, each L1 touch fills at most this many units (demo default 4).</summary>
+    public const long AppliedPartialFillMaxPerTouch = 4;
 
     public const string SupportedExecutionBookType = "L1 quotes (applied)";
     public const string SupportedExecutionFillModel = "L1 touch ± slippage (applied)";
@@ -31,13 +35,22 @@ public sealed partial class StrategyAuthoringViewModel
     /// <summary>Only engine-applied fill models — unsupported walks/queue fills are not selectable.</summary>
     public IReadOnlyList<string> ExecutionFillModelOptions { get; } = [SupportedExecutionFillModel];
 
-    /// <summary>Queue / liquidity / true partials / latency≠0 are not applied by L1TouchFillModel.</summary>
+    /// <summary>Queue / liquidity walk are not applied yet.</summary>
     public bool ExecutionUnsupportedOptionsAvailable => false;
 
-    public string ExecutionUnsupportedOptionsExplanation =>
-        "Unavailable today: L2/L3 books, liquidity walk, queue position, book consumption, true partial fills, and latency ≠ 0 ms. " +
-        "The engine applies L1TouchFillModel (immediate full remaining qty at touch ± slippage ticks).";
+    /// <summary>Partials and latency are applied by L1TouchFillModel / SimulatedOrderBook when enabled.</summary>
+    public bool ExecutionPartialsAndLatencyAvailable => true;
 
+    public string ExecutionUnsupportedOptionsExplanation =>
+        "Still unavailable: L2/L3 books, liquidity walk, queue position. " +
+        "Applied when enabled: quantity-capped partials (max " + AppliedPartialFillMaxPerTouch +
+        " per touch) and execution latency ms on the L1 book.";
+
+    public string ExecutionPartialsTip =>
+        $"When checked, each L1 touch fills at most {AppliedPartialFillMaxPerTouch} units so orders can PartiallyFilled → Filled/Cancelled.";
+
+    public string ExecutionLatencyTip =>
+        "Milliseconds after submit before the order may fill on L1 touches (sim clock). 0 = immediate.";
     public bool HasHistoricalValidationEvidence => HistoricalValidationEvidence is { } evidence &&
         string.Equals(
             StrategyWorkspace.Bindings.ValidationEvidenceHashSha256,
@@ -82,14 +95,17 @@ public sealed partial class StrategyAuthoringViewModel
                     ExecutionUnsupportedOptionsExplanation;
             }
 
+            var partials = applied.PartialsEnabled
+                ? $"on (max {AppliedPartialFillMaxPerTouch} per L1 touch)"
+                : "off — full remaining qty per touch";
             return
                 "Execution fidelity (Validate → Replay) — applied by engine:\n" +
                 $"• Book / data: {applied.BookType}\n" +
                 $"• Fill model: {applied.FillModel}\n" +
                 $"• Queue position: off (not available)\n" +
                 $"• Liquidity consumption: off (not available)\n" +
-                $"• Partial fills / lifecycle: off — L1 fills full remaining qty in one event\n" +
-                $"• Execution latency: {applied.LatencyMs} ms (immediate)\n" +
+                $"• Partial fills / lifecycle: {partials}\n" +
+                $"• Execution latency: {applied.LatencyMs} ms\n" +
                 "• Order books in Research: live L2 windows are separate; not synchronized to this replay clock\n" +
                 $"Applied report token: {applied.DataModeToken}";
         }
@@ -105,6 +121,8 @@ public sealed partial class StrategyAuthoringViewModel
         string BookType,
         string FillModel,
         int LatencyMs,
+        bool PartialsEnabled,
+        long MaxFillPerTouch,
         string DataModeToken);
 
     /// <summary>
@@ -114,7 +132,6 @@ public sealed partial class StrategyAuthoringViewModel
         out AppliedExecutionFidelityV1 applied,
         out string rejection)
     {
-        // Read-only: do not coerce observables here (CanRunHistoricalValidation evaluates this).
         var bookOk = string.Equals(ExecutionBookType, SupportedExecutionBookType, StringComparison.Ordinal);
         var fillOk = string.Equals(ExecutionFillModel, SupportedExecutionFillModel, StringComparison.Ordinal);
         if (!bookOk || !fillOk)
@@ -126,42 +143,48 @@ public sealed partial class StrategyAuthoringViewModel
             return false;
         }
 
-        if (ExecutionEnableQueuePosition ||
-            ExecutionEnableLiquidityConsumption ||
-            ExecutionEnablePartialFills ||
-            ExecutionLatencyMs != 0)
+        if (ExecutionEnableQueuePosition || ExecutionEnableLiquidityConsumption)
         {
             applied = default;
             rejection =
-                "Unsupported execution options are enabled. Turn off queue position, liquidity consumption, " +
-                "partial fills, and set latency to 0 ms — or wait until L2/queue/latency fill models ship.";
+                "Queue position and liquidity consumption are not available. Turn them off.";
             return false;
         }
 
+        if (ExecutionLatencyMs < 0)
+        {
+            applied = default;
+            rejection = "Execution latency must be ≥ 0 ms.";
+            return false;
+        }
+
+        var partials = ExecutionEnablePartialFills;
+        var maxFill = partials ? AppliedPartialFillMaxPerTouch : 0L;
+        var latency = ExecutionLatencyMs;
         applied = new AppliedExecutionFidelityV1(
             SupportedExecutionBookType,
             SupportedExecutionFillModel,
-            LatencyMs: 0,
+            LatencyMs: latency,
+            PartialsEnabled: partials,
+            MaxFillPerTouch: maxFill,
             DataModeToken:
-                "L1TouchFillModel|book=L1|queue=off|liq=off|partials=off|latencyMs=0|applied");
+                $"L1TouchFillModel|book=L1|queue=off|liq=off|partials={(partials ? $"max{maxFill}" : "off")}|latencyMs={latency}|applied");
         rejection = string.Empty;
         return true;
     }
 
-    /// <summary>Normalize restored/legacy planned labels to the only applied L1 options.</summary>
+    /// <summary>Normalize restored/legacy planned labels; keep applied partials/latency user choices.</summary>
     internal void CoerceLegacyExecutionFidelitySettings()
     {
         if (!string.Equals(ExecutionBookType, SupportedExecutionBookType, StringComparison.Ordinal))
             ExecutionBookType = SupportedExecutionBookType;
         if (!string.Equals(ExecutionFillModel, SupportedExecutionFillModel, StringComparison.Ordinal))
             ExecutionFillModel = SupportedExecutionFillModel;
-        if (ExecutionEnablePartialFills)
-            ExecutionEnablePartialFills = false;
         if (ExecutionEnableQueuePosition)
             ExecutionEnableQueuePosition = false;
         if (ExecutionEnableLiquidityConsumption)
             ExecutionEnableLiquidityConsumption = false;
-        if (ExecutionLatencyMs != 0)
+        if (ExecutionLatencyMs < 0)
             ExecutionLatencyMs = 0;
     }
 

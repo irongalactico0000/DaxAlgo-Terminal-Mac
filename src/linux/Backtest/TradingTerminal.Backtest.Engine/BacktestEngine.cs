@@ -64,8 +64,12 @@ public sealed class BacktestEngine
 
         var clock = new SimClock();
         var fees = FeeModels.From(spec.CostOrDefault);
-        var fillModel = new L1TouchFillModel(spec.ExecutionOrDefault.SlippageTicks);
-        var book = new SimulatedOrderBook(clock, fillModel, id => tickSizeOf.GetValueOrDefault(id, 0.01));
+        var execution = spec.ExecutionOrDefault;
+        var fillModel = new L1TouchFillModel(
+            execution.SlippageTicks,
+            execution.MaxFillQuantityPerTouch);
+        var latency = TimeSpan.FromMilliseconds(Math.Max(0, execution.LatencyMs));
+        var book = new SimulatedOrderBook(clock, fillModel, id => tickSizeOf.GetValueOrDefault(id, 0.01), latency);
         var portfolio = new Portfolio(spec.StartingCash, multipliers, fees);
         var router = new EngineOrderRouter(book, spec.Universe, clock);
 
@@ -213,10 +217,14 @@ public sealed class BacktestEngine
                 $"Fill model '{execution.FillModel}' is not supported. BacktestEngine currently supports only '{FillModelKind.L1Touch}'.");
         }
 
-        if (execution.LatencyMs != 0)
+        if (execution.LatencyMs < 0)
         {
-            throw new NotSupportedException(
-                $"Execution latency '{execution.LatencyMs}' ms is not supported. Set LatencyMs to 0.");
+            throw new NotSupportedException("Execution latency must be ≥ 0 ms.");
+        }
+
+        if (execution.MaxFillQuantityPerTouch < 0)
+        {
+            throw new NotSupportedException("MaxFillQuantityPerTouch must be ≥ 0.");
         }
     }
 

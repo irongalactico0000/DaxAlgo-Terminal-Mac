@@ -147,7 +147,7 @@ Wireframes below are **structural** (layout regions + copy). Visual polish follo
 
 | State | UI |
 |-------|-----|
-| **Unavailable fill option** | Queue/liquidity/latency not selectable; explanation string |
+| **Unavailable fill option** | Queue/liquidity not selectable; partials + latency ms are applied when enabled |
 | **Success** | Trades list; click → chart at trade |
 | **Failure** | Compile/run error tied to version |
 

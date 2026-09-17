@@ -304,7 +304,10 @@ public sealed class TradeIrSimulatedBacktestRunnerV1 : ITradeIrSimulatedBacktest
             TickSize,
             ContractMultiplier);
         var clock = new SimClock();
-        var book = new SimulatedOrderBook(clock, new L1TouchFillModel(slippageTicks: 0), _ => TickSize);
+        var book = new SimulatedOrderBook(
+            clock,
+            new L1TouchFillModel(slippageTicks: 0),
+            _ => TickSize);
         var portfolio = new Portfolio(
             StartingCash,
             new Dictionary<InstrumentId, double> { [instrument.Id] = ContractMultiplier },
