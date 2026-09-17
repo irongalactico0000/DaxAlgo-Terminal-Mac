@@ -156,29 +156,27 @@
               </StackPanel>
             </Border>
           </StackPanel>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                       HorizontalAlignment="Right"
                       IsVisible="{Binding ShowScreenNavigation}">
+            <!-- Research is a place (Studio), not a numbered Builder stage -->
+            <Button Classes="ghost" Content="Research Studio"
+                    Command="{Binding OpenResearchScreenCommand}"
+                    IsEnabled="{Binding CanOpenResearchScreen}"
+                    AutomationProperties.Name="Open Research screen"
+                    ToolTip.Tip="Optional chart investigation. Findings hand off into Design — Research is not a Builder stage." />
+            <TextBlock Text="·" Classes="caption" VerticalAlignment="Center" Opacity="0.4" Margin="2,0" />
             <StackPanel Spacing="1">
-              <Button Classes="pill" Classes.aiAction="{Binding IsResearchStage}" Content="1  Research Studio"
-                      Command="{Binding OpenResearchScreenCommand}"
-                      IsEnabled="{Binding CanOpenResearchScreen}"
-                      AutomationProperties.Name="Open Research screen"
-                      ToolTip.Tip="Open Research Studio — charts, indicators, comparisons. Separate from strategy stages." />
-              <TextBlock Text="{Binding ResearchStageState}" Classes="eyebrow" HorizontalAlignment="Center" />
-            </StackPanel>
-            <TextBlock Text="→" Classes="caption" VerticalAlignment="Center" Opacity="0.5" />
-            <StackPanel Spacing="1">
-              <Button Classes="pill" Classes.aiAction="{Binding IsChartDesignStage}" Content="2  Design"
+              <Button Classes="pill" Classes.aiAction="{Binding IsChartDesignStage}" Content="1  Design"
                       Command="{Binding OpenDesignScreenCommand}"
                       IsEnabled="{Binding CanOpenDesignScreen}"
                       AutomationProperties.Name="Open Design and Confirm screen"
-                      ToolTip.Tip="Turn observations into explicit entry, exit, sizing, and risk rules." />
+                      ToolTip.Tip="Edit entry, exit, sizing, risk, and order rules." />
               <TextBlock Text="{Binding DesignStageState}" Classes="eyebrow" HorizontalAlignment="Center" />
             </StackPanel>
             <TextBlock Text="→" Classes="caption" VerticalAlignment="Center" Opacity="0.5" />
             <StackPanel Spacing="1">
-              <Button Classes="pill" Classes.aiAction="{Binding IsBuildStage}" Content="3  Build"
+              <Button Classes="pill" Classes.aiAction="{Binding IsBuildStage}" Content="2  Build"
                       Command="{Binding OpenBuildScreenCommand}"
                       IsEnabled="{Binding CanOpenBuildScreen}"
                       AutomationProperties.Name="Open Build Test and Compare screen"
@@ -187,7 +185,7 @@
             </StackPanel>
             <TextBlock Text="→" Classes="caption" VerticalAlignment="Center" Opacity="0.5" />
             <StackPanel Spacing="1">
-              <Button Classes="pill" Classes.aiAction="{Binding IsValidateStage}" Content="4  Validate"
+              <Button Classes="pill" Classes.aiAction="{Binding IsValidateStage}" Content="3  Validate"
                       Command="{Binding OpenValidateScreenCommand}"
                       IsEnabled="{Binding CanOpenValidateScreen}"
                       AutomationProperties.Name="Open Validate screen"
@@ -196,7 +194,7 @@
             </StackPanel>
             <TextBlock Text="→" Classes="caption" VerticalAlignment="Center" Opacity="0.5" />
             <StackPanel Spacing="1">
-              <Button Classes="pill" Classes.aiAction="{Binding IsPaperStage}" Content="5  Run"
+              <Button Classes="pill" Classes.aiAction="{Binding IsPaperStage}" Content="4  Run"
                       Command="{Binding OpenPaperScreenCommand}"
                       IsEnabled="{Binding CanOpenPaperScreen}"
                       AutomationProperties.Name="Open Paper screen"
@@ -1518,23 +1516,27 @@
                                                         </Border>
                                                       </StackPanel>
                                                     </Border>
-                                                    <TextBlock Text="Select a period on the chart → optional outcome → label. Indicators travel with each sample."
-                                                               Classes="caption" TextWrapping="Wrap" />
-                                                    <WrapPanel Orientation="Horizontal">
-                                                      <Button Classes="aiAction" Content="B  Pre-breakout"
+                                                    <TextBlock Text="Select a period on the chart (observation only). Optional outcome labels B/C/N — never required to save a finding or hand off to Design."
+                                                               Classes="caption" TextWrapping="Wrap"
+                                                               AutomationProperties.Name="Research outcome labels optional hint" />
+                    <WrapPanel Orientation="Horizontal">
+                                                      <Button Classes="ghost" Content="B  Pre-breakout"
                                                               Command="{Binding MarkPreBreakoutCommand}"
                                                               IsEnabled="{Binding HasResearchChartSelection}"
                                                               Margin="0,0,6,4"
+                                                              ToolTip.Tip="Optional label — not required for Find similar or Use in Strategy Builder."
                                                               AutomationProperties.Name="Label selection pre-breakout" />
                                                       <Button Classes="ghost" Content="C  Pre-crash"
                                                               Command="{Binding MarkPreCrashCommand}"
                                                               IsEnabled="{Binding HasResearchChartSelection}"
                                                               Margin="0,0,6,4"
+                                                              ToolTip.Tip="Optional label — not required for Find similar or Use in Strategy Builder."
                                                               AutomationProperties.Name="Label selection pre-crash" />
                                                       <Button Classes="ghost" Content="N  Neutral"
                                                               Command="{Binding MarkNeutralCommand}"
                                                               IsEnabled="{Binding HasResearchChartSelection}"
                                                               Margin="0,0,6,4"
+                                                              ToolTip.Tip="Optional label — not required for Find similar or Use in Strategy Builder."
                                                               AutomationProperties.Name="Label selection neutral" />
                                                       <Button Classes="ghost" Content="Clear selection"
                                                               Command="{Binding ClearResearchChartSelectionCommand}"

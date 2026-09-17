@@ -2,8 +2,8 @@ namespace TradingTerminal.App.Authoring;
 
 /// <summary>
 /// Strategy Builder workflow vocabulary:
-/// Research → Design → Build → Validate → Run.
-/// Brief is an editable project description, not the first stage.
+/// Design → Build → Validate → Run (numbered stages).
+/// Research Studio is optional chrome (not a numbered stage). Brief is project metadata, not a rail stage.
 /// </summary>
 public sealed partial class StrategyAuthoringViewModel
 {
@@ -28,28 +28,30 @@ public sealed partial class StrategyAuthoringViewModel
     public string WorkflowHelpToggleText => ShowWorkflowHelp ? "Hide help" : "Help";
 
     public string HowStrategyGetsInText =>
-        "Research on the chart and save observations → Design makes rules precise → Build registers a version → " +
-        "Validate on history → Run on Paper (or Live when authorized). Brief is the editable project description.";
+        "Optional: Research Studio → save a finding. Design makes entry/exit/sizing/risk/orders explicit → " +
+        "Build registers a version → Validate on history → Run on Paper (or Live when authorized).";
 
-    /// <summary>Same five stages as the toolbar pills (one vocabulary).</summary>
+    /// <summary>Builder rail vocabulary: Research optional · Design → Build → Validate → Run.</summary>
     public string WorkingFlowMapText
     {
         get
         {
             string Mark(string label, bool done) => done ? $"{label} ✓" : label;
 
-            var research = Mark("1 Research",
+            var research = Mark("Research (optional)",
                 StrategyWorkspace.Bindings.ResearchCaseHashSha256 is not null ||
                 StrategyWorkspace.Bindings.DatasetDefinitionHashSha256 is not null ||
-                HasChartReferences);
-            var design = Mark("2 Design",
+                HasChartReferences ||
+                HasResearchDesignHandoff);
+            var design = Mark("1 Design",
                 HasResearchDesignHandoff ||
+                HasDesignRuleDraft ||
                 StrategyWorkspace.Bindings.ConfirmedIntentHashSha256 is not null);
-            var build = Mark("3 Build",
+            var build = Mark("2 Build",
                 IsRegistered || StrategyWorkspace.Bindings.BuildArtifactHashSha256 is not null);
-            var validate = Mark("4 Validate", HasHistoricalValidationEvidence);
-            var run = Mark("5 Run", StrategyWorkspace.Bindings.PaperBindingHashSha256 is not null);
-            return $"{research} → {design} → {build} → {validate} → {run}";
+            var validate = Mark("3 Validate", HasHistoricalValidationEvidence);
+            var run = Mark("4 Run", StrategyWorkspace.Bindings.PaperBindingHashSha256 is not null);
+            return $"{research} · {design} → {build} → {validate} → {run}";
         }
     }
 
@@ -63,9 +65,8 @@ public sealed partial class StrategyAuthoringViewModel
             if (IsGenerating)
                 return "Wait for the current task to finish.";
 
-            // While Research is selected, next-action must describe the research task — never skip
-            // ahead to Build because a visualizer/spec freeze left AuthoredUnitSpecification set.
-            if (IsResearchStage)
+            // Research Studio (or legacy Research stage) — never skip ahead because a prior spec exists.
+            if (IsResearchStage || IsResearchStudioShell)
             {
                 if (IsScanningResearchGallery)
                     return "Research: scanning local history for outcome events…";
@@ -74,25 +75,25 @@ public sealed partial class StrategyAuthoringViewModel
                 if (SelectedResearchGalleryCard is not null || HasResearchChartSelection)
                 {
                     if (ResearchEventSampleCount == 0 && !HasResearchReferenceA && !HasResearchReferenceB)
-                        return "Next: review indicators on the linked chart, label B/C/N or Save reference — then Use in Design.";
-                    return "Next: Use in Design to turn this observation into explicit rules.";
+                        return "Next: review indicators, optionally label B/C/N, or Save finding — then Use in Strategy Builder.";
+                    return "Next: Use in Strategy Builder to attach this finding to Design rules.";
                 }
                 if (HasResearchOutcomeGalleryResult && !HasResearchOutcomeGalleryMatches)
                     return "Next: no gallery hits — brush manually on the Research chart or try another scan.";
-                return "Next: Load chart, add indicators, run a scan or brush an observation.";
+                return "Next: Rank or load a chart, add indicators, save a finding when ready.";
             }
 
             if (IsChartDesignStage)
             {
-                if (!HasCandidate && AuthoredUnitSpecification is null)
-                    return "Next: turn Research observations into explicit entry, exit, sizing, and risk rules.";
+                if (!HasCandidate && AuthoredUnitSpecification is null && !HasDesignRuleDraft)
+                    return "Next: write entry, exit, sizing, risk, and order rules (Research Studio is optional).";
                 return "Next: confirm the design, then open Build to compile and register.";
             }
 
             if (!(IsRegistered || StrategyWorkspace.Bindings.BuildArtifactHashSha256 is not null))
             {
                 if (AuthoredUnitSpecification is null && !HasCandidate)
-                    return "Next: finish Research/Design, then open Build.";
+                    return "Next: finish Design rules, then open Build.";
                 return "Next: open Build → compile and register.";
             }
 

@@ -20,6 +20,15 @@ public sealed partial class StrategyAuthoringViewModel
     public string ValidateStageState => StageStateText(StrategyWorkspaceStageV1.Validate);
     public string PaperStageState => StageStateText(StrategyWorkspaceStageV1.Paper);
 
+    /// <summary>
+    /// Numbered Builder rail stages (Design → Build → Validate → Run).
+    /// Workspace aggregate still carries Brief + Research for hash bindings.
+    /// </summary>
+    public const int BuilderRailStageCount = 4;
+
+    /// <summary>Full workspace stage snapshots (includes Brief + Research bindings).</summary>
+    public int WorkspaceStageBindingCount => StrategyWorkspace.Stages.Count;
+
     private void ResetStrategyWorkspace()
     {
         HistoricalValidationEvidence = null;
@@ -167,11 +176,18 @@ public sealed partial class StrategyAuthoringViewModel
     private string StageStateText(StrategyWorkspaceStageV1 stage)
     {
         var snapshot = StrategyWorkspace.Stage(stage);
-        // Research/Design may be non-gating in the revision policy, but they are first-class
-        // workflow stages — never label them "optional" in the stage pills.
+        // Research is optional Studio work — surface OPTIONAL on the chrome link / help map.
+        // Design/Build/Validate/Run are the numbered Builder rail.
+        if (stage == StrategyWorkspaceStageV1.Research &&
+            snapshot.Requirement == StrategyWorkspaceStageRequirementV1.Optional &&
+            snapshot.State is StrategyWorkspaceStageStateV1.Pending or StrategyWorkspaceStageStateV1.NeedsReview)
+            return "OPTIONAL";
+
         return snapshot.Requirement switch
         {
             StrategyWorkspaceStageRequirementV1.Skipped => "SKIPPED",
+            StrategyWorkspaceStageRequirementV1.Optional when stage == StrategyWorkspaceStageV1.Research =>
+                snapshot.State == StrategyWorkspaceStageStateV1.Completed ? "READY" : "OPTIONAL",
             _ => snapshot.State switch
             {
                 StrategyWorkspaceStageStateV1.NeedsReview => "REVIEW",

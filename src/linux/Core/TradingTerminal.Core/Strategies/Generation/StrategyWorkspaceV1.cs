@@ -2,7 +2,11 @@ using TradingTerminal.Core.Strategies.Definition;
 
 namespace TradingTerminal.Core.Strategies.Generation;
 
-/// <summary>The six user-visible stages of one authored chart or strategy.</summary>
+/// <summary>
+/// Workspace binding stages for one authored chart or strategy.
+/// Builder UI rail is Design → Build → Validate → Paper(Run) only;
+/// Brief and Research remain in the aggregate for hash bindings / optional Studio work.
+/// </summary>
 public enum StrategyWorkspaceStageV1
 {
     Brief = 0,

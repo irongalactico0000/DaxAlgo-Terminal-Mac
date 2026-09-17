@@ -64,7 +64,7 @@ Wireframes below are **structural** (layout regions + copy). Visual polish follo
 | **Invalid condition** | Apply fails with field-level error; Find similar stays off |
 | **Restored** | Symbol/TF/indicators/period from saved finding |
 
-**Observation select:** highlight period only. No auto-outcome, no required B/C/N, no auto-open Builder.
+**Observation select:** highlight period only. No auto-outcome, no required B/C/N (optional labels only), no auto-open Builder.
 
 ---
 
@@ -106,19 +106,17 @@ Wireframes below are **structural** (layout regions + copy). Visual polish follo
 
 ---
 
-## B1 — Builder: Design (rule editor) — **immediate target**
+## B1 — Builder: Design (rule editor)
 
 ```text
-┌─ Strategy Builder ────────────────────────────────────────┐
-│ Start: [Use saved research] [Start from rules] [Template] │
-├─ Design (default home) ───────────────────────────────────┤
-│ Instruments · data inputs                                 │
-│ Entry conditions   (cite indicator defs if linked)        │
-│ Exit conditions · sizing · risk · order instructions      │
-│ Linked findings ▸ (review panel, not the main empty state)│
-├─ Build │ Validate │ Run ──────────────────────────────────┤
-│ Hyperion ▾ companion                                      │
-└───────────────────────────────────────────────────────────┘
+┌─ Strategy Builder ── [Research Studio] (chrome link) ─────────────┐
+│ 1 Design → 2 Build → 3 Validate → 4 Run                           │
+├─ Design (default home) ───────────────────────────────────────────┤
+│ Instruments · data inputs                                         │
+│ Entry · Exit · Sizing · Risk · Orders                             │
+│ Linked findings ▸ (optional strip)                                │
+├─ Hyperion ▾ · optional templates (collapsed) ─────────────────────┤
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 | State | UI |

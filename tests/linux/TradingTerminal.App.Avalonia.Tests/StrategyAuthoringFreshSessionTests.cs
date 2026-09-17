@@ -293,12 +293,17 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignInspectorMinWidth.Should().Be(0);
         viewModel.ConversationColumnMaxWidth.Should().Be(double.PositiveInfinity);
         viewModel.MainWorkspaceColumnDefinitions.Should().Be("Auto,*,4,Auto");
-        viewModel.ResearchStageState.Should().Be("PENDING");
+        viewModel.ResearchStageState.Should().Be("OPTIONAL",
+            "Research is optional Studio work, not a numbered Builder stage");
         viewModel.DesignStageState.Should().Be("PENDING");
-        viewModel.ResearchStageState.Should().NotBe("OPTIONAL");
-        viewModel.DesignStageState.Should().NotBe("OPTIONAL");
         viewModel.StrategyWorkspace.WorkspaceId.Should().Be("myStrategy");
+        viewModel.WorkspaceStageBindingCount.Should().Be(6,
+            "workspace aggregate keeps Brief+Research for hash bindings");
         viewModel.StrategyWorkspace.Stages.Should().HaveCount(6);
+        StrategyAuthoringViewModel.BuilderRailStageCount.Should().Be(4);
+        viewModel.WorkingFlowMapText.Should().Contain("Research (optional)");
+        viewModel.WorkingFlowMapText.Should().Contain("1 Design");
+        viewModel.WorkingFlowMapText.Should().NotContain("1 Research");
         viewModel.ValidateStageState.Should().Be("LOCKED");
         viewModel.PaperStageState.Should().Be("LOCKED");
         viewModel.Messages.Should().BeEmpty();
@@ -466,7 +471,7 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.IsChartDesignStage.Should().BeTrue();
         viewModel.HasResearchDesignHandoff.Should().BeTrue();
         viewModel.CanOpenDesignScreen.Should().BeTrue();
-        viewModel.WorkingFlowMapText.Should().Contain("2 Design ✓");
+        viewModel.WorkingFlowMapText.Should().Contain("1 Design ✓");
         viewModel.Composer.Should().Contain("Use this saved Research finding in Design");
         viewModel.Composer.Should().Contain("MSFT");
         viewModel.Composer.Should().Contain("ema");

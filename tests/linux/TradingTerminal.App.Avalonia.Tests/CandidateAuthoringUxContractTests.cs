@@ -200,7 +200,7 @@ public sealed class CandidateAuthoringUxContractTests
     }
 
     [Fact]
-    public void Builder_exposes_five_workspace_stages_with_research_first()
+    public void Builder_exposes_four_rail_stages_with_research_as_chrome_link()
     {
         var root = LoadAuthoringWindow();
         var navigation = root.Descendants(Avalonia + "Border").Single(element =>
@@ -221,11 +221,12 @@ public sealed class CandidateAuthoringUxContractTests
         var paper = buttons.Single(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Open Paper screen");
 
-        research.Attribute("Content")!.Value.Should().Be("1  Research Studio");
-        design.Attribute("Content")!.Value.Should().Be("2  Design");
-        build.Attribute("Content")!.Value.Should().Be("3  Build");
-        validate.Attribute("Content")!.Value.Should().Be("4  Validate");
-        paper.Attribute("Content")!.Value.Should().Be("5  Run");
+        research.Attribute("Content")!.Value.Should().Be("Research Studio");
+        research.Attribute("Classes")!.Value.Should().Contain("ghost");
+        design.Attribute("Content")!.Value.Should().Be("1  Design");
+        build.Attribute("Content")!.Value.Should().Be("2  Build");
+        validate.Attribute("Content")!.Value.Should().Be("3  Validate");
+        paper.Attribute("Content")!.Value.Should().Be("4  Run");
 
         research.Attribute("Command")!.Value.Should().Be("{Binding OpenResearchScreenCommand}");
         research.Attribute("IsEnabled")!.Value.Should().Be("{Binding CanOpenResearchScreen}");
@@ -238,6 +239,10 @@ public sealed class CandidateAuthoringUxContractTests
         paper.Attribute("Command")!.Value.Should().Be("{Binding OpenPaperScreenCommand}");
         paper.Attribute("IsEnabled")!.Value.Should().Be("{Binding CanOpenPaperScreen}");
 
+        // Research is not a numbered pill with a PENDING/OPTIONAL eyebrow under it on the rail.
+        navigation.Descendants(Avalonia + "TextBlock").Should().NotContain(element =>
+            (string?)element.Attribute("Text") == "{Binding ResearchStageState}");
+
         var historicalValidation = root.Descendants(Avalonia + "Button").Single(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Run exact historical validation");
         historicalValidation.Attribute("Click")!.Value.Should().Be("OnHistoricalValidationRequested");
@@ -247,17 +252,18 @@ public sealed class CandidateAuthoringUxContractTests
                 "Bind validated strategy to selected Paper book" &&
             (string?)element.Attribute("Click") == "OnPaperHandoffRequested");
 
-        navigation.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
-            (string?)element.Attribute("Text") == "{Binding WorkspaceRevisionText}");
         foreach (var state in new[]
                  {
-                     "ResearchStageState", "DesignStageState",
+                     "DesignStageState",
                      "BuildStageState", "ValidateStageState", "PaperStageState",
                  })
         {
             navigation.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
                 (string?)element.Attribute("Text") == $"{{Binding {state}}}");
         }
+        navigation.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("Text") == "{Binding WorkspaceRevisionText}");
+
 
         var researchWorkspace = root.Descendants(Avalonia + "Border").Single(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Research event discovery workspace");
@@ -317,13 +323,20 @@ public sealed class CandidateAuthoringUxContractTests
             (string?)element.Attribute("AutomationProperties.Name") == "Research quick actions");
         root.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
             (string?)element.Attribute("Text") == "{Binding WorkingFlowNextActionText}");
+        researchWorkspace.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Research outcome labels optional hint");
         researchWorkspace.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("Command") == "{Binding MarkPreBreakoutCommand}" &&
-            (string?)element.Attribute("IsEnabled") == "{Binding HasResearchChartSelection}");
+            (string?)element.Attribute("IsEnabled") == "{Binding HasResearchChartSelection}" &&
+            ((string?)element.Attribute("Classes") ?? "").Contains("ghost"));
         researchWorkspace.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("Command") == "{Binding MarkPreCrashCommand}");
         researchWorkspace.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("Command") == "{Binding MarkNeutralCommand}");
+        // B/C/N remain available but are never forced (ghost, not aiAction primary).
+        researchWorkspace.Descendants(Avalonia + "Button").Should().NotContain(element =>
+            (string?)element.Attribute("Command") == "{Binding MarkPreBreakoutCommand}" &&
+            ((string?)element.Attribute("Classes") ?? "").Contains("aiAction"));
         researchWorkspace.Descendants(Avalonia + "ItemsControl").Should().Contain(element =>
             (string?)element.Attribute("ItemsSource") == "{Binding ResearchEventSamples}");
 
