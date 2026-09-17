@@ -83,7 +83,16 @@ public sealed record AuthoringSessionSnapshot(
     string? ResearchConditionSearchResultJson = null,
     string? ResearchAnalysisReferencesJson = null,
     string? ResearchChartSelectionJson = null,
-    string? ResearchIndicatorBindingsJson = null)
+    string? ResearchIndicatorBindingsJson = null,
+    string? DesignInstrumentText = null,
+    string? DesignTimeframeText = null,
+    string? DesignEvaluationTimingText = null,
+    string? DesignEntryRuleText = null,
+    string? DesignExitRuleText = null,
+    string? DesignSizingRuleText = null,
+    string? DesignRiskRuleText = null,
+    string? DesignOrderRuleText = null,
+    string? LastAppliedStarterId = null)
 {
     public const int CurrentAuthoringUxVersion = 3;
 

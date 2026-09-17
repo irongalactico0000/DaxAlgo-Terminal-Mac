@@ -416,6 +416,69 @@ public sealed class StrategyAuthoringFreshSessionTests
     }
 
     [Fact]
+    public void Strategy_template_creates_Design_draft_and_Investigate_is_separate()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.IsResearchStudioShell.Should().BeFalse();
+        var starter = viewModel.AllStarterBriefs.First(brief =>
+            !string.Equals(brief.Id, "starter.quote-l1-ema-smoke", StringComparison.Ordinal));
+
+        var researchRequested = 0;
+        viewModel.ResearchStudioRequested += (_, _) => researchRequested++;
+
+        viewModel.UseStarterPromptCommand.Execute(starter);
+
+        viewModel.IsChartDesignStage.Should().BeTrue(
+            "templates create a Design draft — they must not open Research");
+        viewModel.HasDesignRuleDraft.Should().BeTrue();
+        viewModel.DesignEntryRuleText.Should().NotBeNullOrWhiteSpace();
+        viewModel.LastAppliedStarterId.Should().Be(starter.Id);
+        researchRequested.Should().Be(0);
+        viewModel.CanInvestigateInResearchStudio.Should().BeTrue();
+
+        viewModel.InvestigateInResearchStudioCommand.Execute(null);
+        researchRequested.Should().Be(1);
+        viewModel.ResearchOpenedFromBuilder.Should().BeTrue();
+        viewModel.Composer.Should().StartWith("Investigate before writing trading rules:");
+        viewModel.DesignEntryRuleText.Should().NotBeNullOrWhiteSpace(
+            "Investigate must not clear the Design draft");
+    }
+
+    [Fact]
+    public void Restoring_saved_strategy_reopens_Design_rules_and_stage()
+    {
+        var repository = new MemoryAuthoringSessionRepository();
+        repository.Save(new AuthoringSessionSnapshot(
+            StrategyId: "strategyA",
+            DisplayName: "Strategy A",
+            Chat: [],
+            Thread: [],
+            Files: [new StrategyFile(StrategyFile.DefaultName, "// draft")],
+            ActiveScreen: StrategyAuthoringScreen.Design,
+            AuthoringUxVersion: AuthoringSessionSnapshot.CurrentAuthoringUxVersion,
+            UpdatedUtc: DateTime.UtcNow,
+            DesignInstrumentText: "ES",
+            DesignEntryRuleText: "A entry preserved"));
+
+        using var restored = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: repository);
+
+        restored.SelectedSavedSession = repository.List().Single(s => s.StrategyId == "strategyA");
+        restored.DesignEntryRuleText.Should().Be("A entry preserved");
+        restored.DesignInstrumentText.Should().Be("ES");
+        restored.IsChartDesignStage.Should().BeTrue();
+        restored.DisplayName.Should().Be("Strategy A");
+    }
+
+    [Fact]
     public void Hyperion_design_proposal_requires_Accept_before_overwriting_fields()
     {
         using var viewModel = new StrategyAuthoringViewModel(
@@ -557,6 +620,9 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.UseStarterPromptCommand.Execute(starter);
         viewModel.IsResearchStage.Should().BeTrue();
         viewModel.Composer.Should().StartWith("Investigate before writing trading rules:");
+        viewModel.HasDesignRuleDraft.Should().BeTrue(
+            "templates also seed Design rules even when already in Research Studio");
+        viewModel.DesignEntryRuleText.Should().NotBeNullOrWhiteSpace();
         viewModel.ConfirmedStrategyIntent.Should().BeNull(
             "templates seed a research question, not a confirmed strategy intent");
         viewModel.AuthoredUnitSpecification.Should().BeNull();

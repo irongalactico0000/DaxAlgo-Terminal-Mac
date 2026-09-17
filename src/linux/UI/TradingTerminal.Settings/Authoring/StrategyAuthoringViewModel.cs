@@ -302,15 +302,90 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     {
         if (brief is null) return;
 
-        // Research-led creation: templates seed an investigation question. They do not confirm a
-        // strategy profile or freeze executable rules — that happens only after Use in Design.
-        EnterResearchWorkspace();
-        Composer = BuildResearchQuestionFromStarter(brief);
-        AiStatus =
-            $"Research starter “{brief.Title}” loaded. Inspect the chart and save an observation before specifying trading rules.";
-        Status =
-            "Research question ready. No strategy specification, compile, or register yet.";
+        // Templates seed Design rules. Research is a separate Investigate action — never required
+        // to apply a template.
+        ApplyStarterBriefToDesignDraft(brief);
+        LastAppliedStarterId = brief.Id;
+        OnPropertyChanged(nameof(CanInvestigateInResearchStudio));
+        OnPropertyChanged(nameof(InvestigateInResearchStudioText));
+        InvestigateInResearchStudioCommand.NotifyCanExecuteChanged();
+
+        if (IsResearchStudioShell)
+        {
+            Composer = BuildResearchQuestionFromStarter(brief);
+            AiStatus =
+                $"Template “{brief.Title}” also loaded as a Research question — Design draft was updated.";
+            Status =
+                "Research question ready. Design rules were seeded from the template; save a finding before Add finding.";
+        }
+        else
+        {
+            ActiveScreen = StrategyAuthoringScreen.Design;
+            WorkbenchTab = 3;
+            AiStatus =
+                $"Template “{brief.Title}” loaded into Design. Investigate in Research Studio when you need chart evidence.";
+            Status =
+                "Design draft created from the template. Investigate in Research Studio is optional and separate.";
+        }
+
         NotifyWorkingFlowMapChanged();
+        NotifyDesignDraftChanged();
+        Save();
+    }
+
+    [ObservableProperty] private string? _lastAppliedStarterId;
+
+    public bool CanInvestigateInResearchStudio =>
+        GenerateCandidateFirst &&
+        !IsGenerating &&
+        !IsResearchStudioShell &&
+        (HasDesignRuleDraft || !string.IsNullOrWhiteSpace(LastAppliedStarterId));
+
+    public string InvestigateInResearchStudioText =>
+        string.IsNullOrWhiteSpace(DisplayName)
+            ? "Investigate in Research Studio"
+            : $"Investigate in Research Studio";
+
+    /// <summary>
+    /// Opens Research as a side trip from the current Design draft. Does not replace Design fields.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanInvestigateInResearchStudio))]
+    private void InvestigateInResearchStudio()
+    {
+        if (!CanInvestigateInResearchStudio) return;
+
+        StrategyStarterBrief? brief = null;
+        if (!string.IsNullOrWhiteSpace(LastAppliedStarterId))
+        {
+            brief = AllStarterBriefs.FirstOrDefault(b =>
+                string.Equals(b.Id, LastAppliedStarterId, StringComparison.Ordinal));
+        }
+
+        Composer = brief is not null
+            ? BuildResearchQuestionFromStarter(brief)
+            : "Investigate the working Design draft on the chart before changing trading rules.\n\n" +
+              DesignRulesReviewText;
+
+        MarkResearchOpenedFromBuilder();
+        Status =
+            $"Opening Research Studio for {StrategyReturnDisplayName}. ← Back returns without transferring a finding.";
+        ResearchStudioRequested?.Invoke(this, EventArgs.Empty);
+        NotifyWorkingFlowMapChanged();
+    }
+
+    private void ApplyStarterBriefToDesignDraft(StrategyStarterBrief brief)
+    {
+        var summary = brief.Summary.Trim();
+        var prompt = brief.Prompt.Trim();
+        if (string.IsNullOrWhiteSpace(DesignEntryRuleText))
+            DesignEntryRuleText = string.IsNullOrWhiteSpace(summary) ? brief.Title : summary;
+        if (string.IsNullOrWhiteSpace(DesignExitRuleText) && prompt.Length > 0)
+            DesignExitRuleText = "Unresolved — define exit from template context / chart evidence.";
+        if (string.IsNullOrWhiteSpace(DesignRiskRuleText))
+            DesignRiskRuleText = "Unresolved — set risk limits before Build.";
+        if (string.IsNullOrWhiteSpace(DesignOrderRuleText))
+            DesignOrderRuleText = "Unresolved — set order type / TIF before Build.";
+        // Instrument / timeframe / evaluation stay unresolved until chosen — matches acceptance example.
     }
 
     /// <summary>
@@ -1712,6 +1787,8 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         NotifyHyperionDesignProposalCommandsChanged();
         ReturnToStrategyBuilderCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanReturnToStrategyBuilder));
+        InvestigateInResearchStudioCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanInvestigateInResearchStudio));
     }
 
     partial void OnComposerChanged(string value)
@@ -3661,6 +3738,17 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             ConfirmedStrategyIntent = null;
             ConfirmedStrategyIntentHash = null;
             HasResearchDesignHandoff = false;
+            DesignInstrumentText = "";
+            DesignTimeframeText = "";
+            DesignEvaluationTimingText = "";
+            DesignEntryRuleText = "";
+            DesignExitRuleText = "";
+            DesignSizingRuleText = "";
+            DesignRiskRuleText = "";
+            DesignOrderRuleText = "";
+            PendingHyperionDesignProposalText = "";
+            LastAppliedStarterId = null;
+            AwaitingHyperionDesignProposal = false;
             OnPropertyChanged(nameof(HasChartReferences));
             NotifyDesignInspectorLayoutChanged();
             OnPropertyChanged(nameof(HasChartReferenceInspections));
@@ -4007,30 +4095,61 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
                 Files.Count > 0 &&
                 Files.All(static file => file.Name.EndsWith(".cs", StringComparison.OrdinalIgnoreCase));
             EditorOriginatedFromCombinedTradeIr = session.EditorOriginatedFromCombinedTradeIr;
-            ActiveScreen = GenerateCandidateFirst &&
-                           session.ActiveScreen == StrategyAuthoringScreen.Build && CanEnterFourLaneConformance
-                ? StrategyAuthoringScreen.Build
-                : session.ActiveScreen is StrategyAuthoringScreen.Brief or StrategyAuthoringScreen.Design
-                    ? session.ActiveScreen
-                    : session.ActiveScreen == StrategyAuthoringScreen.Research && IsResearchStudioShell
-                        ? StrategyAuthoringScreen.Research
-                        : StrategyAuthoringScreen.Design;
             CoerceLegacyExecutionFidelitySettings();
             RestoreStrategyWorkspace(session, ref restoreWarning);
+            RestoreDesignDraftFields(session);
+            ActiveScreen = ResolveRestoredActiveScreen(session.ActiveScreen);
             WorkbenchTab = GenerateCandidateFirst ? 3 : 0;
             CloseReview();
             _registeredBaseline.Clear();   // the diff baseline is per-process; a restored review starts from "all new"
             _filesEditedByUser = false;
 
             SelectedSavedSession = SavedSessions.FirstOrDefault(s => s.StrategyId == session.StrategyId);
-            Status = restoreWarning ?? (Messages.Count > 0
-                ? $"Restored the chat for '{session.DisplayName}' ({session.Age}). Carry on where you left off."
+            Status = restoreWarning ?? (Messages.Count > 0 || HasDesignRuleDraft
+                ? $"Restored '{session.DisplayName}' at {ActiveScreenTitle} ({session.Age}). Carry on where you left off."
                 : "Describe the idea to check four strategy-generation lanes, or switch to Expert Code for direct C# authoring.");
         }
         finally
         {
             _restoring = false;
         }
+    }
+
+    private void RestoreDesignDraftFields(AuthoringSessionSnapshot session)
+    {
+        DesignInstrumentText = session.DesignInstrumentText ?? "";
+        DesignTimeframeText = session.DesignTimeframeText ?? "";
+        DesignEvaluationTimingText = session.DesignEvaluationTimingText ?? "";
+        DesignEntryRuleText = session.DesignEntryRuleText ?? "";
+        DesignExitRuleText = session.DesignExitRuleText ?? "";
+        DesignSizingRuleText = session.DesignSizingRuleText ?? "";
+        DesignRiskRuleText = session.DesignRiskRuleText ?? "";
+        DesignOrderRuleText = session.DesignOrderRuleText ?? "";
+        LastAppliedStarterId = session.LastAppliedStarterId;
+        OnPropertyChanged(nameof(CanInvestigateInResearchStudio));
+        InvestigateInResearchStudioCommand.NotifyCanExecuteChanged();
+        NotifyDesignDraftChanged();
+    }
+
+    private StrategyAuthoringScreen ResolveRestoredActiveScreen(StrategyAuthoringScreen saved)
+    {
+        if (IsResearchStudioShell)
+            return saved == StrategyAuthoringScreen.Research
+                ? StrategyAuthoringScreen.Research
+                : StrategyAuthoringScreen.Design;
+
+        return saved switch
+        {
+            StrategyAuthoringScreen.Brief or StrategyAuthoringScreen.Design => saved,
+            StrategyAuthoringScreen.Build when CanOpenBuildScreen => StrategyAuthoringScreen.Build,
+            StrategyAuthoringScreen.Validate when IsRegistered ||
+                StrategyWorkspace.Bindings.BuildArtifactHashSha256 is not null =>
+                StrategyAuthoringScreen.Validate,
+            StrategyAuthoringScreen.Paper when StrategyWorkspace.Bindings.ValidationEvidenceHashSha256 is not null =>
+                StrategyAuthoringScreen.Paper,
+            StrategyAuthoringScreen.Research => StrategyAuthoringScreen.Design,
+            _ => StrategyAuthoringScreen.Design,
+        };
     }
 
     private static string? RecoverParallelCandidatePrompt(AuthoringSessionSnapshot session) =>
@@ -4177,7 +4296,8 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         if (Messages.Count == 0 && !_filesEditedByUser && StrategyIntentDraft is null &&
             ChartReferences.Count == 0 && AuthoredUnitSpecification is null && ResearchDatasetDefinition is null &&
             PendingStrategyDraft is null && PendingResearchCondition is null &&
-            PendingResearchChartSelection is null && _researchAnalysisReferences.Count == 0)
+            PendingResearchChartSelection is null && _researchAnalysisReferences.Count == 0 &&
+            !HasDesignRuleDraft && string.IsNullOrWhiteSpace(LastAppliedStarterId))
             return;   // nothing worth a file yet
 
         SynchronizeStrategyWorkspace();
@@ -4255,7 +4375,16 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
                 : ExecutableStrategyDefinitionCanonicalJson.Serialize(PendingResearchChartSelection),
             ResearchIndicatorBindingsJson: PendingResearchIndicatorBindings.Count == 0
                 ? null
-                : ExecutableStrategyDefinitionCanonicalJson.Serialize(PendingResearchIndicatorBindings));
+                : ExecutableStrategyDefinitionCanonicalJson.Serialize(PendingResearchIndicatorBindings),
+            DesignInstrumentText: NullIfWhiteSpace(DesignInstrumentText),
+            DesignTimeframeText: NullIfWhiteSpace(DesignTimeframeText),
+            DesignEvaluationTimingText: NullIfWhiteSpace(DesignEvaluationTimingText),
+            DesignEntryRuleText: NullIfWhiteSpace(DesignEntryRuleText),
+            DesignExitRuleText: NullIfWhiteSpace(DesignExitRuleText),
+            DesignSizingRuleText: NullIfWhiteSpace(DesignSizingRuleText),
+            DesignRiskRuleText: NullIfWhiteSpace(DesignRiskRuleText),
+            DesignOrderRuleText: NullIfWhiteSpace(DesignOrderRuleText),
+            LastAppliedStarterId: NullIfWhiteSpace(LastAppliedStarterId));
 
         if (!_sessionRepository.Save(snapshot))
         {
@@ -4265,6 +4394,9 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
 
         RefreshSavedSessions();
     }
+
+    private static string? NullIfWhiteSpace(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     // ── Compile & register (the review gate) ────────────────────────────────────────────────────────
 

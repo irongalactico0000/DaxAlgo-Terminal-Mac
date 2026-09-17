@@ -142,6 +142,8 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(DesignUnresolvedChecklistText));
         PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
         ReviewDesignRulesCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanInvestigateInResearchStudio));
+        InvestigateInResearchStudioCommand.NotifyCanExecuteChanged();
         NotifyWorkingFlowMapChanged();
     }
 

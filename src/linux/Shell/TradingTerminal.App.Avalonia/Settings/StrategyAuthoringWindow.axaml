@@ -503,7 +503,7 @@
                        HorizontalAlignment="Center" />
             <Button Classes="ghost" Content="Use template ▾"
                     HorizontalAlignment="Center" Margin="0,14,0,0"
-                    ToolTip.Tip="Insert a strategy-rule starter into the Design fields via the composer. Research studies open from Research Studio."
+                    ToolTip.Tip="Create a Design draft from a strategy-rule starter. Research is optional via Investigate in Research Studio."
                     IsVisible="{Binding AiHasProvider}">
               <Button.Flyout>
                 <Flyout Placement="Bottom">
@@ -2051,6 +2051,11 @@
                       <TextBlock Text="{Binding CandidateEmptyText}" Classes="caption" TextWrapping="Wrap"
                                  Opacity="0.9" />
                       <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Classes="ghost" Content="Investigate in Research Studio"
+                                Command="{Binding InvestigateInResearchStudioCommand}"
+                                IsEnabled="{Binding CanInvestigateInResearchStudio}"
+                                ToolTip.Tip="Open Research Studio for chart evidence. Does not change Design fields — use ← Back or Add finding from Research."
+                                AutomationProperties.Name="Investigate in Research Studio" />
                         <Button Classes="aiAction" Content="Review strategy"
                                 Command="{Binding ReviewDesignRulesCommand}"
                                 IsEnabled="{Binding CanReviewDesignRules}"

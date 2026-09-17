@@ -288,6 +288,9 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("STRATEGY TEMPLATES");
         root.ToString().Should().Contain("Use template");
         root.ToString().Should().Contain("Design rule editor");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Investigate in Research Studio" &&
+            (string?)element.Attribute("Command") == "{Binding InvestigateInResearchStudioCommand}");
         root.ToString().Should().Contain("DesignInstrumentText");
         root.ToString().Should().Contain("DesignTimeframeText");
         root.ToString().Should().Contain("DesignEvaluationTimingText");
