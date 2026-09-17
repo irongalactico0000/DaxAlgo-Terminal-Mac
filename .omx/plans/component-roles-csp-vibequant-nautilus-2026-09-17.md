@@ -13,9 +13,9 @@
 
 ## Proven fixture (first-party L1)
 
-`L1ExecutionLifecycleFixtureTests`: target **+50** → market 50 → one touch fills **25** → cancel → final position **+25**.
+`L1ExecutionLifecycleFixtureV1` (Infrastructure): target **+50** → market 50 → one touch fills **25** → cancel → final position **+25**.
 
-Attached via `UpsertExecutionLifecycleResult` into **Saved results for this strategy** (`StrategyVersionResultKind.ExecutionLifecycle`).
+**Validate UI:** **Attach L1 lifecycle demo** → `AttachL1ExecutionLifecycleDemoCommand` → `UpsertExecutionLifecycleResult` into Saved results (`StrategyVersionResultKind.ExecutionLifecycle`). Explicit fixed fixture — not extracted from the historical run; not Nautilus.
 
 ## Compare panels (task-typed)
 

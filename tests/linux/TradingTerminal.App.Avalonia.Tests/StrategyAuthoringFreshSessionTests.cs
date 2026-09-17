@@ -507,19 +507,17 @@ public sealed class StrategyAuthoringFreshSessionTests
             sessionRepository: repository);
 
         viewModel.DisplayName = "Liquidity sweep demo";
-        // Mirror the headless L1 fixture outcome without referencing the Engine internals assembly.
-        const string evidenceJson =
-            """{"targetPosition":50,"finalPosition":25,"filledQuantity":25,"canceledRemaining":25,"dataModeToken":"L1TouchFillModel|book=L1|queue=off|liq=off|partials=max25|latencyMs=0|fixture=target50-fill25-cancel","honestyNote":"First-party L1TouchFillModel — not Nautilus"}""";
-        viewModel.UpsertExecutionLifecycleResult(
-            "target50-fill25-cancel",
-            "Target +50 → fill 25 → cancel → position +25 · L1TouchFillModel (not Nautilus)",
-            evidenceJson);
+        viewModel.CanAttachL1ExecutionLifecycleDemo.Should().BeTrue();
+        viewModel.AttachL1ExecutionLifecycleDemoCommand.CanExecute(null).Should().BeTrue();
+        viewModel.AttachL1ExecutionLifecycleDemoCommand.Execute(null);
 
         viewModel.HasStrategyVersionResults.Should().BeTrue();
         var item = viewModel.StrategyVersionResults.Should().ContainSingle().Subject;
         item.Kind.Should().Be(StrategyVersionResultKind.ExecutionLifecycle);
         item.Summary.Should().Contain("+25");
         item.Summary.Should().Contain("not Nautilus");
+        item.EvidenceJson.Should().Contain("finalPosition\":25");
+        viewModel.Status.Should().Contain("Fixed fixture");
         viewModel.NativeStrategyEvidencePanels.Should().Contain(p =>
             p.Title.Contains("CSP", StringComparison.Ordinal) &&
             p.Authority.Contains("not a trading backtest", StringComparison.OrdinalIgnoreCase));
@@ -529,7 +527,7 @@ public sealed class StrategyAuthoringFreshSessionTests
 
         viewModel.OpenStrategyVersionResultCommand.Execute(item);
         viewModel.ActiveScreen.Should().Be(StrategyAuthoringScreen.Validate);
-        viewModel.Status.Should().Contain("L1TouchFillModel");
+        viewModel.Status.Should().Contain("L1FillModel");
         viewModel.Status.Should().Contain("not claimed");
 
         repository.Save(new AuthoringSessionSnapshot(

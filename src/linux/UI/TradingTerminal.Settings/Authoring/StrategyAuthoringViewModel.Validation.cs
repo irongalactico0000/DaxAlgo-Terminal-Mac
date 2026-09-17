@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using TradingTerminal.Core.Strategies.Authoring;
 using TradingTerminal.Core.Strategies.Generation;
+using TradingTerminal.Infrastructure.Backtest;
 
 namespace TradingTerminal.App.Authoring;
 
@@ -64,6 +66,13 @@ public sealed partial class StrategyAuthoringViewModel
         StrategyWorkspace.Bindings.BuildArtifactHashSha256 is not null &&
         !IsGenerating &&
         TryGetAppliedExecutionFidelity(out _, out _);
+
+    /// <summary>
+    /// Attach the fixed L1 +50→+25 partial-fill/cancel demo to Saved results.
+    /// Pedagogical fixture — not extracted from the historical run; not Nautilus.
+    /// </summary>
+    public bool CanAttachL1ExecutionLifecycleDemo =>
+        !IsGenerating && TryGetAppliedExecutionFidelity(out _, out _);
 
     /// <summary>
     /// Lane 3 · export registered authored unit as installable <c>.daxalgostrategy</c>.
@@ -202,6 +211,28 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(ExecutionFidelityChecklistText));
         OnPropertyChanged(nameof(ExecutionFidelityDataModeText));
         OnPropertyChanged(nameof(CanRunHistoricalValidation));
+        OnPropertyChanged(nameof(CanAttachL1ExecutionLifecycleDemo));
+        AttachL1ExecutionLifecycleDemoCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanAttachL1ExecutionLifecycleDemo))]
+    private void AttachL1ExecutionLifecycleDemo()
+    {
+        if (!CanAttachL1ExecutionLifecycleDemo) return;
+
+        var report = L1ExecutionLifecycleFixtureV1.RunTarget50PartialFillCancel();
+        UpsertExecutionLifecycleResult(
+            L1ExecutionLifecycleFixtureV1.ReportId,
+            L1ExecutionLifecycleFixtureV1.Summary(report),
+            L1ExecutionLifecycleFixtureV1.Serialize(report));
+        if (OpenValidateScreenCommand.CanExecute(null))
+            OpenValidateScreenCommand.Execute(null);
+        else
+            ActiveScreen = StrategyAuthoringScreen.Validate;
+        Status =
+            $"Attached L1 lifecycle demo · {L1ExecutionLifecycleFixtureV1.Summary(report)}. " +
+            "Fixed fixture — not from your historical run; queue/liquidity/Nautilus not claimed.";
+        NotifyWorkingFlowMapChanged();
     }
 
     /// <summary>

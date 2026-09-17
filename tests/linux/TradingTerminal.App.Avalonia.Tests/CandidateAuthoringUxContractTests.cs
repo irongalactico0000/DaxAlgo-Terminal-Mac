@@ -280,6 +280,9 @@ public sealed class CandidateAuthoringUxContractTests
         root.Descendants(Avalonia + "TextBox").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Execution latency ms" &&
             (string?)element.Attribute("IsEnabled") == "{Binding ExecutionPartialsAndLatencyAvailable}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Attach L1 execution lifecycle demo" &&
+            (string?)element.Attribute("Command") == "{Binding AttachL1ExecutionLifecycleDemoCommand}");
         root.ToString().Should().Contain("Return to Design from Build");
         root.ToString().Should().Contain("Strategy version result list");
         root.ToString().Should().Contain("Run comparison for native strategy run");

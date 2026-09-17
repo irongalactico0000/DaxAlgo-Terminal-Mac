@@ -262,6 +262,10 @@
                     Click="OnExportOpenPackage"
                     ToolTip.Tip="Save a .daxalgostrategy → Strategy Manager → Install open package…. Software on their machine — not follow/pool/ETF."
                     AutomationProperties.Name="Export open package" />
+            <Button Classes="ghost" Content="Attach L1 lifecycle demo"
+                    Command="{Binding AttachL1ExecutionLifecycleDemoCommand}"
+                    ToolTip.Tip="Fixed L1FillModel fixture: target +50 → fill 25 → cancel → position +25. Not from your historical run. Not Nautilus queue/liquidity."
+                    AutomationProperties.Name="Attach L1 execution lifecycle demo" />
             <Button Classes="aiAction" Content="Run historical validation"
                     IsEnabled="{Binding CanRunHistoricalValidation}"
                     Click="OnHistoricalValidationRequested"

@@ -103,13 +103,13 @@ public sealed partial class StrategyAuthoringViewModel
                 break;
 
             case StrategyVersionResultKind.ExecutionLifecycle:
-                Status =
-                    $"Reopened execution report · {item.Title} · {item.Summary}. " +
-                    "L1TouchFillModel only — queue/liquidity/Nautilus matching are not claimed.";
                 if (OpenValidateScreenCommand.CanExecute(null))
                     OpenValidateScreenCommand.Execute(null);
                 else
                     ActiveScreen = StrategyAuthoringScreen.Validate;
+                Status =
+                    $"Reopened execution report · {item.Title} · {item.Summary}. " +
+                    "L1FillModel only — queue/liquidity/Nautilus matching are not claimed.";
                 break;
         }
 
