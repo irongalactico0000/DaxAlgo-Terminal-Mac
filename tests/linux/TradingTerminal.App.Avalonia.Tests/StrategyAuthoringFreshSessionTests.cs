@@ -285,6 +285,11 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.ShowImplementationTabs.Should().BeFalse(
             "Design must not expose Strategy.cs / Code — that belongs in Build");
         viewModel.ActiveArtifactKindText.Should().NotBeNullOrWhiteSpace();
+        viewModel.ShowDesignInspector.Should().BeTrue(
+            "Design must open the rule workbench immediately");
+        viewModel.ShowDesignRuleEditor.Should().BeTrue();
+        viewModel.ShowWorkbenchPanel.Should().BeTrue();
+        viewModel.DesignInspectorWidth.Should().Be(390);
         viewModel.DesignInspectorMinWidth.Should().Be(0);
         viewModel.ConversationColumnMaxWidth.Should().Be(double.PositiveInfinity);
         viewModel.MainWorkspaceColumnDefinitions.Should().Be("Auto,*,4,Auto");
@@ -314,7 +319,8 @@ public sealed class StrategyAuthoringFreshSessionTests
             "starting a new strategy must release transient raw provider output");
         viewModel.Files.Should().ContainSingle(file => file.Name == StrategyFile.DefaultName);
         viewModel.SelectedFile.Should().BeSameAs(viewModel.Files[0]);
-        viewModel.Status.Should().Contain("Research Studio");
+        viewModel.Status.Should().Contain("rules");
+        viewModel.CandidateEmptyTitle.Should().Be("Trading rules");
         viewModel.AuthoredUnitSpecification.Should().BeNull();
         viewModel.ConfirmedStrategyIntent.Should().BeNull();
         viewModel.CanUseObservationInDesign.Should().BeFalse(

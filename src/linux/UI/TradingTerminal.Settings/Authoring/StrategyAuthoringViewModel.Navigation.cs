@@ -51,15 +51,20 @@ public sealed partial class StrategyAuthoringViewModel
     public int WorkbenchGridColumnSpan => IsDesignScreen ? 1 : 3;
 
     /// <summary>
-    /// Right inspector stays collapsed on Brief/Design until there is something to inspect.
+    /// Design always shows the rule workbench. Brief/Research still wait for inspectable content.
     /// Build/Validate/Paper always show the workbench.
     /// </summary>
     public bool ShowDesignInspector =>
-        IsDesignScreen &&
-        GenerateCandidateFirst &&
-        (HasCandidate || HasStrategyIntentReview || HasChartReferences || ShowResearchWorkspace);
+        IsChartDesignStage ||
+        (IsDesignScreen &&
+         GenerateCandidateFirst &&
+         (HasCandidate || HasStrategyIntentReview || HasChartReferences || ShowResearchWorkspace));
 
     public bool ShowWorkbenchPanel => !IsDesignScreen || ShowDesignInspector || !GenerateCandidateFirst;
+
+    /// <summary>Editable Design rule draft when no Hyperion candidate is open yet.</summary>
+    public bool ShowDesignRuleEditor =>
+        IsChartDesignStage && !HasCandidate && !IsResearchStudioShell;
 
     /// <summary>
     /// Research stretches the inspector so the embedded chart can dominate; Design stays compact;
@@ -363,13 +368,17 @@ public sealed partial class StrategyAuthoringViewModel
 
     public string CandidateTabHeader => IsDesignScreen ? "Request" : "Compare";
 
-    public string CandidateEmptyTitle => IsDesignScreen
-        ? "Waiting for your first message"
-        : "No implementation run yet";
+    public string CandidateEmptyTitle => IsChartDesignStage
+        ? "Trading rules"
+        : IsDesignScreen
+            ? "Waiting for your first message"
+            : "No implementation run yet";
 
-    public string CandidateEmptyText => IsDesignScreen
-        ? "Send a message in the composer. The interpreted request will open here when ready."
-        : "Start implementation when you want workers to generate code for the confirmed request.";
+    public string CandidateEmptyText => IsChartDesignStage
+        ? "Edit entry, exit, sizing, risk, and order instructions here. Research findings are optional — open Research Studio when you need chart evidence."
+        : IsDesignScreen
+            ? "Send a message in the composer. The interpreted request will open here when ready."
+            : "Start implementation when you want workers to generate code for the confirmed request.";
 
     [RelayCommand(CanExecute = nameof(CanOpenBriefScreenAction))]
     private void OpenBriefScreen()
@@ -559,6 +568,7 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(ShowBuildBusyStop));
         OnPropertyChanged(nameof(ShowBuildCandidateResults));
         OnPropertyChanged(nameof(ShowCandidateEmptyState));
+        OnPropertyChanged(nameof(ShowDesignRuleEditor));
         OnPropertyChanged(nameof(ShowStartImplementationAction));
         OnPropertyChanged(nameof(ShowCliWorkspaceFooter));
         OnPropertyChanged(nameof(ShowNativeStrategyRunPanel));

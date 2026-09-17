@@ -8,11 +8,36 @@ namespace TradingTerminal.App.Authoring;
 
 /// <summary>
 /// Host-owned chart strategy draft (stop/target). Read-only summary in Research; never submits orders.
+/// Design also hosts a blank rule-editor draft (entry/exit/size/risk/orders) before Hyperion candidates.
 /// </summary>
 public sealed partial class StrategyAuthoringViewModel
 {
     [ObservableProperty]
     private StrategyDraftV1? _pendingStrategyDraft;
+
+    [ObservableProperty] private string _designEntryRuleText = "";
+    [ObservableProperty] private string _designExitRuleText = "";
+    [ObservableProperty] private string _designSizingRuleText = "";
+    [ObservableProperty] private string _designRiskRuleText = "";
+    [ObservableProperty] private string _designOrderRuleText = "";
+
+    public bool HasDesignRuleDraft =>
+        !string.IsNullOrWhiteSpace(DesignEntryRuleText) ||
+        !string.IsNullOrWhiteSpace(DesignExitRuleText) ||
+        !string.IsNullOrWhiteSpace(DesignSizingRuleText) ||
+        !string.IsNullOrWhiteSpace(DesignRiskRuleText) ||
+        !string.IsNullOrWhiteSpace(DesignOrderRuleText);
+
+    public string DesignRuleEditorHint =>
+        HasResearchDesignHandoff
+            ? "Linked Research finding is in the composer — turn it into explicit rules below."
+            : "Start from rules here, or open Research Studio for chart evidence. Templates remain optional in the left pane.";
+
+    partial void OnDesignEntryRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));
+    partial void OnDesignExitRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));
+    partial void OnDesignSizingRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));
+    partial void OnDesignRiskRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));
+    partial void OnDesignOrderRuleTextChanged(string value) => OnPropertyChanged(nameof(HasDesignRuleDraft));
 
     public bool HasStrategyDraft => PendingStrategyDraft is not null;
 

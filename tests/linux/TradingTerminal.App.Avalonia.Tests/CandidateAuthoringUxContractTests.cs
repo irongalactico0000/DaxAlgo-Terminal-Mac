@@ -269,7 +269,15 @@ public sealed class CandidateAuthoringUxContractTests
             (string?)element.Attribute("Content") == "Queue position (unavailable)" &&
             (string?)element.Attribute("IsEnabled") == "{Binding ExecutionUnsupportedOptionsAvailable}");
         root.Descendants(Avalonia + "CheckBox").Should().Contain(element =>
-            (string?)element.Attribute("Content") == "Partial fills (unavailable)");
+            (string?)element.Attribute("Content") == "Partial fills (max 4 per touch)" &&
+            (string?)element.Attribute("IsEnabled") == "{Binding ExecutionPartialsAndLatencyAvailable}");
+        root.Descendants(Avalonia + "TextBox").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Execution latency ms" &&
+            (string?)element.Attribute("IsEnabled") == "{Binding ExecutionPartialsAndLatencyAvailable}");
+        root.ToString().Should().Contain("Design rule editor");
+        root.ToString().Should().Contain("DesignEntryRuleText");
+        root.ToString().Should().Contain("OPTIONAL RESEARCH TEMPLATES");
+        root.ToString().Should().Contain("Write trading rules");
         researchWorkspace.Descendants(Avalonia + "Border").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Research embedded chart surface");
         researchWorkspace.Descendants(Avalonia + "Border").Should().Contain(element =>
@@ -678,7 +686,8 @@ public sealed class CandidateAuthoringUxContractTests
             (string?)element.Attribute("Content") == "Table" &&
             (string?)element.Attribute("Command") == "{Binding SetResearchScreenViewModeCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
-            (string?)element.Attribute("Content") == "Chart grid");
+            (string?)element.Attribute("Content") == "Compare" &&
+            (string?)element.Attribute("Command") == "{Binding SetResearchScreenViewModeCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("Content") == "Open chart" &&
             (string?)element.Attribute("Command") == "{Binding OpenSelectedScreenChartsCommand}");

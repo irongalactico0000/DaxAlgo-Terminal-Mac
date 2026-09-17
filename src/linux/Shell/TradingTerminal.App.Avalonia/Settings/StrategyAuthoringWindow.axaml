@@ -503,13 +503,22 @@
               <TextBlock Text="DA" FontSize="16" FontWeight="Bold" Foreground="White"
                          HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
-            <TextBlock Text="Strategy Builder"
+            <TextBlock Text="Strategy Builder · Design"
                        Classes="header" FontSize="16.5" HorizontalAlignment="Center" Margin="0,14,0,4" />
-            <TextBlock Text="Open Research to investigate on a chart before writing trading rules. Optional templates seed a research question only."
+            <TextBlock Text="Write trading rules in the Request panel (entry, exit, sizing, risk, orders). Research Studio is optional for chart evidence."
                        Classes="muted" FontSize="11.5" TextWrapping="Wrap" TextAlignment="Center"
                        HorizontalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,14,0,0">
+              <Button Classes="aiAction" Content="Focus rule editor"
+                      Command="{Binding OpenDesignScreenCommand}"
+                      ToolTip.Tip="Keep Design open and edit rules in the Request panel." />
+              <Button Classes="ghost" Content="Open Research Studio"
+                      Command="{Binding OpenResearchScreenCommand}"
+                      IsEnabled="{Binding CanOpenResearchScreen}"
+                      ToolTip.Tip="Optional — investigate on a chart, then hand a finding back to Design." />
+            </StackPanel>
 
-            <Grid Margin="0,16,0,0" RowDefinitions="Auto,Auto,Auto,*"
+            <Grid Margin="0,18,0,0" RowDefinitions="Auto,Auto,Auto,*"
                   IsVisible="{Binding AiHasProvider}">
               <TextBox Grid.Row="0" Text="{Binding StarterSearchText, Mode=TwoWay}"
                        Watermark="{Binding StarterSearchWatermark}"
@@ -526,11 +535,11 @@
                         Command="{Binding ClearStarterFiltersCommand}" />
               </Grid>
               <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="2,7,2,3">
-                <TextBlock Text="TEMPLATES (OPTIONAL)" Classes="eyebrow" />
+                <TextBlock Text="OPTIONAL RESEARCH TEMPLATES" Classes="eyebrow" />
                 <TextBlock Grid.Column="1" Text="{Binding StarterResultText}"
                            Classes="caption" FontFamily="{StaticResource Font.Data}" />
               </Grid>
-              <ListBox Grid.Row="3" Classes="chromeLess" MaxHeight="180"
+              <ListBox Grid.Row="3" Classes="chromeLess" MaxHeight="140"
                        ItemsSource="{Binding VisibleStarterBriefs}"
                        ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <ListBox.Styles>
@@ -1985,9 +1994,51 @@
                 </Border>
 
                 <Grid Grid.Row="1" IsVisible="{Binding ShowCandidateEmptyState}">
-                  <StackPanel IsVisible="{Binding !IsGeneratingCandidates}"
+                  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                HorizontalScrollBarVisibility="Disabled"
+                                IsVisible="{Binding ShowDesignRuleEditor}">
+                    <StackPanel Margin="10,8" Spacing="8"
+                                AutomationProperties.Name="Design rule editor">
+                      <TextBlock Text="{Binding CandidateEmptyTitle}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding DesignRuleEditorHint}" Classes="caption" TextWrapping="Wrap" />
+                      <TextBlock Text="ENTRY" Classes="eyebrow" />
+                      <TextBox Text="{Binding DesignEntryRuleText, Mode=TwoWay}"
+                               Watermark="When do you enter? (instrument, signal, confirmation)"
+                               TextWrapping="Wrap" MinHeight="44"
+                               AutomationProperties.Name="Design entry rule" />
+                      <TextBlock Text="EXIT" Classes="eyebrow" />
+                      <TextBox Text="{Binding DesignExitRuleText, Mode=TwoWay}"
+                               Watermark="When do you exit or cancel? (target, stop, time)"
+                               TextWrapping="Wrap" MinHeight="44"
+                               AutomationProperties.Name="Design exit rule" />
+                      <TextBlock Text="SIZING" Classes="eyebrow" />
+                      <TextBox Text="{Binding DesignSizingRuleText, Mode=TwoWay}"
+                               Watermark="How much size / exposure per signal?"
+                               TextWrapping="Wrap" MinHeight="36"
+                               AutomationProperties.Name="Design sizing rule" />
+                      <TextBlock Text="RISK" Classes="eyebrow" />
+                      <TextBox Text="{Binding DesignRiskRuleText, Mode=TwoWay}"
+                               Watermark="Max loss, daily stop, forbidden regimes…"
+                               TextWrapping="Wrap" MinHeight="36"
+                               AutomationProperties.Name="Design risk rule" />
+                      <TextBlock Text="ORDERS" Classes="eyebrow" />
+                      <TextBox Text="{Binding DesignOrderRuleText, Mode=TwoWay}"
+                               Watermark="Market/limit, TIF, replace/cancel rules"
+                               TextWrapping="Wrap" MinHeight="36"
+                               AutomationProperties.Name="Design order instructions" />
+                      <TextBlock Text="{Binding CandidateEmptyText}" Classes="caption" TextWrapping="Wrap"
+                                 Opacity="0.9" />
+                      <Button Classes="ghost" Content="Open Research Studio"
+                              Command="{Binding OpenResearchScreenCommand}"
+                              IsEnabled="{Binding CanOpenResearchScreen}"
+                              HorizontalAlignment="Left"
+                              ToolTip.Tip="Optional chart investigation — findings hand off into Design." />
+                    </StackPanel>
+                  </ScrollViewer>
+                  <StackPanel IsVisible="{Binding !ShowDesignRuleEditor}"
                               VerticalAlignment="Center" HorizontalAlignment="Center"
                               MaxWidth="300" Spacing="7">
+                    <StackPanel IsVisible="{Binding !IsGeneratingCandidates}" Spacing="7">
                     <StackPanel IsVisible="{Binding !HasCandidateRestoreWarning}" Spacing="7">
                       <TextBlock Text="{Binding CandidateEmptyTitle}" FontWeight="SemiBold"
                                  HorizontalAlignment="Center" />
@@ -2030,6 +2081,7 @@
                                 AutomationProperties.Name="Review recovered strategy request" />
                       </StackPanel>
                     </Border>
+                    </StackPanel>
                   </StackPanel>
                 </Grid>
 

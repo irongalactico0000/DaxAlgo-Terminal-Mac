@@ -24,7 +24,7 @@ Someone who already knows their rules starts in Builder (**Start from rules** / 
 
 | Current Builder Design behaviour | Target |
 |----------------------------------|--------|
-| Design selected but main pane says “Open Research” + research templates | Design opens **editable trading rules** immediately |
+| Design opens editable entry/exit/sizing/risk/orders; Research optional | Design opens **editable trading rules** immediately |
 | “Attach chart” mixes appearance, indicators, historical patterns, related instruments | Split: appearance → chart settings; indicators → chart tools; patterns/similar → Research; related symbols → Research screener; existing finding → Builder “Use saved research” |
 
 ---
@@ -157,7 +157,7 @@ On small Mac windows: collapse/reflow panels; keep the **current task** usable.
 
 ## 4. Implementation priority (from this map)
 
-1. **Builder Design** = rule editor first (remove research-template-as-home conflict).  
+1. **Builder Design** = rule editor first (**shipped MVP**: entry/exit/sizing/risk/orders fields; templates demoted).  
 2. **Research compare** = real multi-chart tiles (MVP shipped: numeric strip + focus chart).  
 3. **Indicator develop** = editable params → live series → versioned definition for findings.  
 4. **Validate** = L1 + optional capped partials + latency applied; Nautilus-class queue/L2 remain a separate engine lane.

@@ -160,6 +160,7 @@ public sealed partial class StrategyAuthoringViewModel
     {
         NotifyWorkingFlowMapChanged();
         NotifyAuthoringScreenStateChanged();
+        OnPropertyChanged(nameof(DesignRuleEditorHint));
     }
 
     public int ResearchEventSampleCount => ResearchDatasetDefinition?.Samples.Count ?? 0;

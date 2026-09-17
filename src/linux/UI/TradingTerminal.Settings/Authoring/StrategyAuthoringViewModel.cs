@@ -220,7 +220,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         // so Strategy Builder is not confused with Research Studio.
         RefreshSavedSessions();
         ActiveScreen = StrategyAuthoringScreen.Design;
-        Status = "New strategy project. Open Research Studio to investigate charts, or describe rules here.";
+        Status = "Design is open — edit entry, exit, sizing, risk, and order rules. Research Studio is optional.";
     }
 
     /// <summary>True when the AI builder is wired at all — drives the chat pane's visibility. When wired
