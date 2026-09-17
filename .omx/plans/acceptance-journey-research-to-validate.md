@@ -79,14 +79,14 @@ Real multi-chart tiles: Compare hosts up to **3 live chart tiles** + numeric str
 
 | | |
 |--|--|
-| Build / commit | |
-| Operator | |
-| Date | |
-| A (Research) | PASS / FAIL |
-| B (Compare) | PASS / FAIL / BLOCKED |
-| C (Builder) | PASS / FAIL |
-| D (Validate) | PASS / FAIL |
-| E (Direct rules) | PASS / FAIL |
-| Notes | |
+| Build / commit | `0d66819` + follow-up acceptance tests/evidence |
+| Operator | Automated gates green; human click-path open |
+| Date | 2026-09-17 |
+| A (Research) | PASS (automated) / UI pending |
+| B (Compare) | PASS (contract tiles) / paint pending |
+| C (Builder) | PASS (automated) / handoff click pending |
+| D (Validate) | PASS (automated L1 honesty) / run click pending |
+| E (Direct rules) | PASS (automated) |
+| Notes | See [`Acceptance_Evidence_2026-09-17.md`](Acceptance_Evidence_2026-09-17.md). Desktop launcher: `~/Desktop/DaxAlgo Terminal.app`. |
 
 **Done means:** A + C + D pass on Mac with notes. B = strip + up to 3 compare chart tiles (focus chart still available). E must pass so known-rules users are not forced through Research.

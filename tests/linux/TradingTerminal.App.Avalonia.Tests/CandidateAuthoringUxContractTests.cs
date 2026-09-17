@@ -205,7 +205,7 @@ public sealed class CandidateAuthoringUxContractTests
         var root = LoadAuthoringWindow();
         var navigation = root.Descendants(Avalonia + "Border").Single(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Authoring screen navigation");
-        navigation.Descendants(Avalonia + "StackPanel").Should().Contain(element =>
+        navigation.Descendants(Avalonia + "WrapPanel").Should().Contain(element =>
             (string?)element.Attribute("IsVisible") == "{Binding ShowScreenNavigation}");
         var buttons = navigation.Descendants(Avalonia + "Button").ToArray();
         buttons.Should().NotContain(element =>
@@ -285,6 +285,10 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("OPTIONAL RESEARCH TEMPLATES");
         root.ToString().Should().Contain("Write trading rules");
         root.ToString().Should().Contain("top chrome");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Promote design rules to request" &&
+            (string?)element.Attribute("Command") == "{Binding PromoteDesignRulesToRequestCommand}");
+        root.ToString().Should().Contain("does not invent TradeIR");
         // Single Research Studio CTA lives on the stage chrome — not duplicated in empty/rule panes.
         root.Descendants(Avalonia + "Button")
             .Count(element =>
@@ -735,11 +739,30 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("ResearchIndicatorCompareText");
         root.ToString().Should().Contain("ResearchLinkedContextText");
         root.ToString().Should().Contain("OpenResearchScreenRowCommand");
+        root.Descendants(Avalonia + "UniformGrid").Should().Contain(element =>
+            (string?)element.Attribute(Xaml + "Name") == "CompareChartTilesHost",
+            "Compare must host real multi-chart tiles, not strip-only.");
+        root.Descendants(Avalonia + "ContentControl").Should().Contain(element =>
+            (string?)element.Attribute(Xaml + "Name") == "ResearchChartHost");
         root.Descendants(Avalonia + "Grid").Should().Contain(element =>
             (string?)element.Attribute(Xaml + "Name") == "MainWorkspaceGrid" &&
             ((string?)element.Attribute("ColumnDefinitions"))!.Contains("52"));
         root.ToString().Should().Contain("HyperionCollapsed");
         root.ToString().Should().Contain("ClipToBounds");
+    }
+
+    [Fact]
+    public void Chart_rail_exposes_editable_sma_and_ema_periods()
+    {
+        var root = XDocument.Load(Fixture("ChartsPanel.axaml")).Root
+            ?? throw new InvalidOperationException("The Charts panel fixture has no root element.");
+
+        root.Descendants(Avalonia + "NumericUpDown").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "SMA period" &&
+            (string?)element.Attribute("Value") == "{Binding SmaPeriod}");
+        root.Descendants(Avalonia + "NumericUpDown").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "EMA period" &&
+            (string?)element.Attribute("Value") == "{Binding EmaPeriod}");
     }
 
     [Fact]

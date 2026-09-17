@@ -280,8 +280,18 @@ public sealed class StrategyAuthoringFreshSessionTests
         withPartials.LatencyMs.Should().Be(25);
         withPartials.DataModeToken.Should().Contain("partials=max4");
         withPartials.DataModeToken.Should().Contain("latencyMs=25");
+        viewModel.ExecutionUnsupportedOptionsExplanation.Should().Contain("Nautilus-class");
+        viewModel.ExecutionUnsupportedOptionsExplanation.Should().Contain("L1");
+        viewModel.ExecutionUnsupportedOptionsAvailable.Should().BeFalse();
         viewModel.ExecutionEnablePartialFills = false;
         viewModel.ExecutionLatencyMs = 0;
+        viewModel.DesignEntryRuleText = "close crosses above EMA 20";
+        viewModel.DesignExitRuleText = "close crosses below EMA 20";
+        viewModel.CanPromoteDesignRulesToRequest.Should().BeTrue();
+        viewModel.PromoteDesignRulesToRequestCommand.Execute(null);
+        viewModel.Composer.Should().Contain("Design rules draft");
+        viewModel.Composer.Should().Contain("ENTRY: close crosses above EMA 20");
+        viewModel.Composer.Should().Contain("not compiled TradeIR yet");
         viewModel.ShowImplementationTabs.Should().BeFalse(
             "Design must not expose Strategy.cs / Code — that belongs in Build");
         viewModel.ActiveArtifactKindText.Should().NotBeNullOrWhiteSpace();
