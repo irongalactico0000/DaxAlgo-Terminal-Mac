@@ -652,10 +652,12 @@ public sealed class StrategyAuthoringFreshSessionTests
             CodegenRole.Assistant,
             "INSTRUMENT: NQ\nTIMEFRAME: 15m\nEVALUATION: Completed bar\nENTRY: EMA 20 crosses above EMA 50\nEXIT: EMA 20 crosses below EMA 50\nSIZING: 1 contract\nRISK: 1% daily stop\nORDERS: market IOC"));
         viewModel.CanStageLastHyperionAsDesignProposal.Should().BeTrue();
-        viewModel.StageLastHyperionAsDesignProposalCommand.Execute(null);
-        viewModel.HasPendingHyperionDesignProposal.Should().BeTrue();
+        // Ask Hyperion sets Awaiting — the assistant reply auto-stages into the Design proposal panel.
+        viewModel.HasPendingHyperionDesignProposal.Should().BeTrue(
+            "chat result must connect to Design automatically when awaiting a rules reply");
+        viewModel.AwaitingHyperionDesignProposal.Should().BeFalse();
         viewModel.DesignEntryRuleText.Should().Be("close crosses above EMA 20",
-            "staging must not overwrite Design fields");
+            "auto-stage must not overwrite Design fields until Accept");
 
         viewModel.AcceptHyperionDesignProposalCommand.Execute(null);
         viewModel.DesignInstrumentText.Should().Be("NQ");

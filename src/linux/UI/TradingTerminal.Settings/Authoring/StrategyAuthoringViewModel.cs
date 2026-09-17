@@ -238,6 +238,24 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         OnPropertyChanged(nameof(HasConversation));
         OnPropertyChanged(nameof(ShowConversationEmptyState));
         OnPropertyChanged(nameof(ShowResearchComposerHint));
+        NotifyHyperionDesignProposalCommandsChanged();
+
+        // Chat ↔ form: when Design asked Hyperion for rule edits, the reply becomes a staged
+        // proposal automatically. Accept still required before structured fields change.
+        if (AwaitingHyperionDesignProposal &&
+            e.Action == NotifyCollectionChangedAction.Add &&
+            e.NewItems is not null)
+        {
+            foreach (var item in e.NewItems)
+            {
+                if (item is AuthoringMessage { IsAssistant: true } msg &&
+                    !string.IsNullOrWhiteSpace(msg.Text))
+                {
+                    TryAutoStageHyperionDesignReply(msg.Text);
+                    break;
+                }
+            }
+        }
     }
 
     private const string AllStarterFamilies = "All families";

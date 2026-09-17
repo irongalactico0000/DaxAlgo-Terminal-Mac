@@ -97,10 +97,12 @@ public sealed partial class StrategyAuthoringViewModel
         HasPendingFindingDesignProposal
             ? "Review the finding → Design rules proposal below. Apply writes fields; Discard keeps your draft."
             : HasPendingHyperionDesignProposal
-            ? "Review Hyperion’s proposal. Accept writes the same fields and structured indicators/conditions you can edit."
+            ? "Chat result is staged below — Accept writes the strategy form; Discard keeps your current draft."
+            : AwaitingHyperionDesignProposal
+            ? "Waiting on Hyperion — the next assistant reply will appear here as a proposal (Accept still required)."
             : HasResearchDesignHandoff
-            ? "Linked research is below — Apply finding (review first), add indicators/conditions, or Ask Hyperion. Chat and controls share one draft."
-            : "Chat progressively specifies the strategy; Accept applies proposals into these controls. Edit the same rules here — do not retype what Hyperion already proposed.";
+            ? "Linked research is below — Apply finding (review first), edit the form, or Ask Hyperion. Chat and form share one draft."
+            : "Chat and the strategy form are connected: Ask Hyperion from these rules, Accept the reply into the same controls, edit here, chat again.";
 
     [ObservableProperty] private string _pendingFindingDesignProposalText = "";
 
@@ -296,6 +298,9 @@ public sealed partial class StrategyAuthoringViewModel
     partial void OnDesignTimeframeProvenanceChanged(DesignValueProvenance value) =>
         OnPropertyChanged(nameof(DesignTimeframeProvenanceLabel));
 
+    partial void OnAwaitingHyperionDesignProposalChanged(bool value) =>
+        OnPropertyChanged(nameof(DesignRuleEditorHint));
+
     partial void OnPendingHyperionDesignProposalTextChanged(string value)
     {
         OnPropertyChanged(nameof(HasPendingHyperionDesignProposal));
@@ -382,11 +387,21 @@ public sealed partial class StrategyAuthoringViewModel
     {
         var last = Messages.LastOrDefault(static m => m.IsAssistant && !string.IsNullOrWhiteSpace(m.Text));
         if (last is null) return;
-        PendingHyperionDesignProposalText = last.Text.Trim();
+        TryAutoStageHyperionDesignReply(last.Text);
+    }
+
+    /// <summary>
+    /// Stages a chat reply into the Design proposal panel. Does not mutate fields until Accept.
+    /// </summary>
+    internal void TryAutoStageHyperionDesignReply(string assistantText)
+    {
+        if (string.IsNullOrWhiteSpace(assistantText)) return;
+        PendingHyperionDesignProposalText = assistantText.Trim();
         AwaitingHyperionDesignProposal = false;
         Status =
-            "Hyperion reply staged for review. Accept to write into Design fields, or Discard to keep the current draft.";
+            "Hyperion reply connected to Design — review the proposal, then Accept into the strategy form or Discard.";
         StageLastHyperionAsDesignProposalCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(DesignRuleEditorHint));
     }
 
     [RelayCommand(CanExecute = nameof(CanAcceptHyperionDesignProposal))]
