@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using TradingTerminal.Core.MarketData;
 
 namespace TradingTerminal.Core.Strategies.Generation;
 
@@ -176,45 +177,42 @@ public static class DesignConditionChartPreviewEvaluatorV1
         var closes = bars.Select(static b => b.Close).ToArray();
         return kind switch
         {
-            "sma" => SmaSeries(closes, period),
-            _ => EmaSeries(closes, period),
+            "sma" => SeriesFromStreaming(closes, period, sma: true),
+            _ => SeriesFromStreaming(closes, period, sma: false),
         };
     }
 
-    private static double[] SmaSeries(IReadOnlyList<double> closes, int period)
+    /// <summary>
+    /// Same streaming SMA/EMA as Charts (<see cref="TradingTerminal.Core.MarketData.Indicators"/>).
+    /// </summary>
+    private static double[] SeriesFromStreaming(IReadOnlyList<double> closes, int period, bool sma)
     {
         var result = new double[closes.Count];
         Array.Fill(result, double.NaN);
-        if (period < 1 || closes.Count < period)
+        if (period < 1 || closes.Count == 0)
             return result;
-        double sum = 0;
-        for (var i = 0; i < closes.Count; i++)
+
+        if (sma)
         {
-            sum += closes[i];
-            if (i >= period)
-                sum -= closes[i - period];
-            if (i >= period - 1)
-                result[i] = sum / period;
+            var ind = new Indicators.SimpleMovingAverage(period);
+            for (var i = 0; i < closes.Count; i++)
+            {
+                ind.Push(closes[i]);
+                if (ind.IsReady)
+                    result[i] = ind.Value;
+            }
+        }
+        else
+        {
+            var ind = new Indicators.ExponentialMovingAverage(period);
+            for (var i = 0; i < closes.Count; i++)
+            {
+                ind.Push(closes[i]);
+                if (ind.IsReady)
+                    result[i] = ind.Value;
+            }
         }
 
-        return result;
-    }
-
-    private static double[] EmaSeries(IReadOnlyList<double> closes, int period)
-    {
-        var result = new double[closes.Count];
-        Array.Fill(result, double.NaN);
-        if (period < 1 || closes.Count < period)
-            return result;
-
-        double seed = 0;
-        for (var i = 0; i < period; i++)
-            seed += closes[i];
-        seed /= period;
-        result[period - 1] = seed;
-        var k = 2.0 / (period + 1);
-        for (var i = period; i < closes.Count; i++)
-            result[i] = closes[i] * k + result[i - 1] * (1 - k);
         return result;
     }
 
