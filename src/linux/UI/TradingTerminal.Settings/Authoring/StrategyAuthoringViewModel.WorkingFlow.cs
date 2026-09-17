@@ -3,13 +3,13 @@ namespace TradingTerminal.App.Authoring;
 /// <summary>
 /// Strategy Builder workflow vocabulary:
 /// Design → Build → Validate → Run (numbered stages).
-/// Research Studio is optional chrome (not a numbered stage). Brief is project metadata, not a rail stage.
+/// Research Studio is an optional separate workspace (not a numbered Builder stage). Brief is project metadata, not a rail stage.
 /// </summary>
 public sealed partial class StrategyAuthoringViewModel
 {
     private bool _showWorkflowHelp;
 
-    /// <summary>Expanded help only — never permanent top chrome.</summary>
+    /// <summary>Expanded help only — not a permanent header strip.</summary>
     public bool ShowWorkingFlowMap => GenerateCandidateFirst && _showWorkflowHelp;
 
     public bool ShowWorkflowHelp

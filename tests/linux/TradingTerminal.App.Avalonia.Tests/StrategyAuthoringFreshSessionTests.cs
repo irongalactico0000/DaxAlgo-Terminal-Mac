@@ -289,9 +289,12 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignExitRuleText = "close crosses below EMA 20";
         viewModel.CanPromoteDesignRulesToRequest.Should().BeTrue();
         viewModel.PromoteDesignRulesToRequestCommand.Execute(null);
-        viewModel.Composer.Should().Contain("Design rules draft");
+        viewModel.Composer.Should().Contain("composer prompt");
         viewModel.Composer.Should().Contain("ENTRY: close crosses above EMA 20");
-        viewModel.Composer.Should().Contain("not compiled TradeIR yet");
+        viewModel.Composer.Should().Contain("Hyperion may reinterpret");
+        viewModel.ReviewDesignRulesCommand.Execute(null);
+        viewModel.Status.Should().Contain("Working draft rules reviewed");
+        viewModel.DesignRulesReviewText.Should().Contain("ENTRY: close crosses above EMA 20");
         viewModel.ShowImplementationTabs.Should().BeFalse(
             "Design must not expose Strategy.cs / Code — that belongs in Build");
         viewModel.ActiveArtifactKindText.Should().NotBeNullOrWhiteSpace();
@@ -299,10 +302,12 @@ public sealed class StrategyAuthoringFreshSessionTests
             "Design must open the rule workbench immediately");
         viewModel.ShowDesignRuleEditor.Should().BeTrue();
         viewModel.ShowWorkbenchPanel.Should().BeTrue();
-        viewModel.DesignInspectorWidth.Should().Be(390);
-        viewModel.DesignInspectorMinWidth.Should().Be(0);
-        viewModel.ConversationColumnMaxWidth.Should().Be(double.PositiveInfinity);
-        viewModel.MainWorkspaceColumnDefinitions.Should().Be("Auto,*,4,Auto");
+        viewModel.DesignInspectorWidth.Should().Be(double.NaN,
+            "Design rules fill the center column");
+        viewModel.DesignInspectorMinWidth.Should().Be(420);
+        viewModel.ConversationColumnMaxWidth.Should().Be(360);
+        viewModel.MainWorkspaceColumnDefinitions.Should().Be("Auto,Auto,4,*",
+            "Design: Hyperion Auto, rules star — not chat-dominated center");
         viewModel.ResearchStageState.Should().Be("OPTIONAL",
             "Research is optional Studio work, not a numbered Builder stage");
         viewModel.DesignStageState.Should().Be("PENDING");

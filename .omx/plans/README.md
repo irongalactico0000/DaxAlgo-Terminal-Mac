@@ -28,15 +28,16 @@ Code: `ResearchAnalysisReferenceV1` · session restore · `UseObservationInDesig
 
 ## Canon (read in this order)
 
-1. **[`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md)** — Research / Builder / event-driven Validate criteria + IOC fixture.
-2. **[`task-to-interface-map.md`](task-to-interface-map.md)** — what users accomplish in Research vs Builder; outputs; local gaps.
-3. **[`interaction-states-wireframes.md`](interaction-states-wireframes.md)** — empty/loading/success/unavailable/restored states + a11y.
-4. **[`acceptance-journey-research-to-validate.md`](acceptance-journey-research-to-validate.md)** — runnable Mac checklist.
-5. **[`research-strategy-reference-spine.md`](research-strategy-reference-spine.md)** — Research↔Strategy via **saved findings**.
-6. **[`research-strategy-backtest-reference-map.md`](research-strategy-backtest-reference-map.md)** — lanes + fill fidelity.
-7. **[`TSD_DaxAlgo_Dolpago_Requirements_v1.md`](TSD_DaxAlgo_Dolpago_Requirements_v1.md)** — locked G/U/S/C/Q/V product IDs.
-8. **[`TSD_DaxAlgo_Dolpago_Implementation_Checklist.md`](TSD_DaxAlgo_Dolpago_Implementation_Checklist.md)** — progress only.
-9. **[`research-continuity-matrix.md`](research-continuity-matrix.md)** — short pointer.
+1. **[`design-workspace-authoring-problem-2026-09-17.md`](design-workspace-authoring-problem-2026-09-17.md)** — main remaining issue: Design rules as center + shared draft vs Hyperion prompt.
+2. **[`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md)** — Research / Builder / event-driven Validate criteria + IOC fixture.
+3. **[`task-to-interface-map.md`](task-to-interface-map.md)** — what users accomplish in Research vs Builder; outputs; local gaps.
+4. **[`interaction-states-wireframes.md`](interaction-states-wireframes.md)** — empty/loading/success/unavailable/restored states + a11y.
+5. **[`acceptance-journey-research-to-validate.md`](acceptance-journey-research-to-validate.md)** — runnable Mac checklist.
+6. **[`research-strategy-reference-spine.md`](research-strategy-reference-spine.md)** — Research↔Strategy via **saved findings**.
+7. **[`research-strategy-backtest-reference-map.md`](research-strategy-backtest-reference-map.md)** — lanes + fill fidelity.
+8. **[`TSD_DaxAlgo_Dolpago_Requirements_v1.md`](TSD_DaxAlgo_Dolpago_Requirements_v1.md)** — locked G/U/S/C/Q/V product IDs.
+9. **[`TSD_DaxAlgo_Dolpago_Implementation_Checklist.md`](TSD_DaxAlgo_Dolpago_Implementation_Checklist.md)** — progress only.
+10. **[`research-continuity-matrix.md`](research-continuity-matrix.md)** — short pointer.
 
 ## Immediate design targets
 

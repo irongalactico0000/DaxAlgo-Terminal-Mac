@@ -5,10 +5,10 @@
 **Companion deliverables:** [`interaction-states-wireframes.md`](interaction-states-wireframes.md) · [`acceptance-journey-research-to-validate.md`](acceptance-journey-research-to-validate.md)
 
 **Immediate product targets:**  
-> Complete multi-chart indicator research and its **handoff to Strategy Builder**; develop and verify **realistic execution simulation alongside it**.
+> Make the **rule editor the Design workspace** (center), with Research→Builder handoff into the same editable draft; develop event-driven Validate **alongside**.
 
-Three parallel workstreams (Validate does **not** wait for multi-chart UI):  
-[`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md).
+Stage navigation is corrected. See [`design-workspace-authoring-problem-2026-09-17.md`](design-workspace-authoring-problem-2026-09-17.md).  
+Three parallel workstreams: [`workstreams-research-builder-validate.md`](workstreams-research-builder-validate.md).
 
 Do not assign success probabilities; completion is measured by acceptance journeys + declared fixtures.
 
@@ -29,8 +29,10 @@ Someone who already knows their rules starts in Builder (**Start from rules** / 
 
 | Current Builder Design behaviour | Target |
 |----------------------------------|--------|
-| Design opens editable entry/exit/sizing/risk/orders; Research optional | Design opens **editable trading rules** immediately |
-| “Attach chart” mixes appearance, indicators, historical patterns, related instruments | Split: appearance → chart settings; indicators → chart tools; patterns/similar → Research; related symbols → Research screener; existing finding → Builder “Use saved research” |
+| ~~Design opens editable rules but chat/templates dominate center~~ → **rules now star column; Hyperion narrow** | Keep **Trading rules** as central working area; templates behind Use template |
+| “Focus rule editor” | Removed — Design opens with editor usable |
+| “Use rules as request” ambiguous | Split: **Review strategy** (shared draft) vs **Ask Hyperion from these rules** (prompt; may reinterpret) |
+| Research templates labeled in Builder | Renamed **STRATEGY TEMPLATES**; Research via Research Studio link |
 
 ---
 

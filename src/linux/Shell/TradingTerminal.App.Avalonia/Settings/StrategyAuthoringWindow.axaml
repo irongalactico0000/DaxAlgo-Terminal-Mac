@@ -495,107 +495,71 @@
           </ScrollViewer>
 
           <StackPanel IsVisible="{Binding ShowConversationEmptyState}" VerticalAlignment="Center"
-                      HorizontalAlignment="Center" MaxWidth="600">
-            <Border Width="46" Height="46" Background="{StaticResource Gradient.Ai}"
-                    CornerRadius="12" HorizontalAlignment="Center">
-              <TextBlock Text="DA" FontSize="16" FontWeight="Bold" Foreground="White"
-                         HorizontalAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <TextBlock Text="Strategy Builder · Design"
-                       Classes="header" FontSize="16.5" HorizontalAlignment="Center" Margin="0,14,0,4" />
-            <TextBlock Text="Write trading rules in the Request panel (entry, exit, sizing, risk, orders). Use Research Studio in the top chrome when you need chart evidence."
+                      HorizontalAlignment="Stretch" MaxWidth="340" Margin="12,0">
+            <TextBlock Text="Hyperion"
+                       Classes="header" FontSize="14" HorizontalAlignment="Center" Margin="0,0,0,4" />
+            <TextBlock Text="Propose changes to the trading rules in the center. The Design fields are the working draft — review Hyperion’s reply before Build."
                        Classes="muted" FontSize="11.5" TextWrapping="Wrap" TextAlignment="Center"
                        HorizontalAlignment="Center" />
-            <Button Classes="aiAction" Content="Focus rule editor"
-                    Command="{Binding OpenDesignScreenCommand}"
+            <Button Classes="ghost" Content="Use template ▾"
                     HorizontalAlignment="Center" Margin="0,14,0,0"
-                    ToolTip.Tip="Keep Design open and edit rules in the Request panel." />
-
-            <Grid Margin="0,18,0,0" RowDefinitions="Auto,Auto,Auto,*"
-                  IsVisible="{Binding AiHasProvider}">
-              <TextBox Grid.Row="0" Text="{Binding StarterSearchText, Mode=TwoWay}"
-                       Watermark="{Binding StarterSearchWatermark}"
-                       MinHeight="32" />
-              <Grid Grid.Row="1" ColumnDefinitions="*,*,*,Auto" Margin="0,7,0,0">
-                <ComboBox Grid.Column="0" ItemsSource="{Binding StarterFamilyOptions}"
-                          SelectedItem="{Binding SelectedStarterFamily, Mode=TwoWay}"
-                          MinWidth="150" Margin="0,0,6,0" />
-                <ComboBox Grid.Column="1" ItemsSource="{Binding StarterHorizonOptions}"
-                          SelectedItem="{Binding SelectedStarterHorizon, Mode=TwoWay}" Margin="0,0,6,0" />
-                <ComboBox Grid.Column="2" ItemsSource="{Binding StarterDataOptions}"
-                          SelectedItem="{Binding SelectedStarterData, Mode=TwoWay}" Margin="0,0,6,0" />
-                <Button Grid.Column="3" Classes="ghost" Content="Clear"
-                        Command="{Binding ClearStarterFiltersCommand}" />
-              </Grid>
-              <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="2,7,2,3">
-                <TextBlock Text="OPTIONAL RESEARCH TEMPLATES" Classes="eyebrow" />
-                <TextBlock Grid.Column="1" Text="{Binding StarterResultText}"
-                           Classes="caption" FontFamily="{StaticResource Font.Data}" />
-              </Grid>
-              <ListBox Grid.Row="3" Classes="chromeLess" MaxHeight="140"
-                       ItemsSource="{Binding VisibleStarterBriefs}"
-                       ScrollViewer.VerticalScrollBarVisibility="Auto">
-                <ListBox.Styles>
-                  <Style Selector="ListBoxItem">
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    <Setter Property="Padding" Value="0" />
-                  </Style>
-                </ListBox.Styles>
-                <ListBox.ItemTemplate>
-                  <DataTemplate>
-                    <Button Classes="pill" Margin="0,3" Padding="11,8"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                            Tag="{Binding}" Click="OnUseStarter">
-                      <Grid RowDefinitions="Auto,Auto,Auto">
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-                          <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="11.5"
-                                     TextTrimming="CharacterEllipsis" />
-                          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
-                            <TextBlock Text="{Binding AxisLabels.Horizon}" Classes="caption"
-                                       FontFamily="{StaticResource Font.Data}" />
-                            <TextBlock Text="{Binding AxisLabels.Topology}" Classes="caption"
-                                       FontFamily="{StaticResource Font.Data}" />
-                          </StackPanel>
-                        </Grid>
-                        <TextBlock Grid.Row="1" Text="{Binding Summary}" Classes="caption"
-                                   TextWrapping="Wrap" MaxLines="2" Margin="0,3,0,0" />
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,5,0,0">
-                          <ItemsControl ItemsSource="{Binding FamilyLabels}">
-                            <ItemsControl.ItemsPanel>
-                              <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                              <DataTemplate>
-                                <Border Classes="chip" Margin="0,0,4,0">
-                                  <TextBlock Text="{Binding}" FontSize="9" />
-                                </Border>
-                              </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                          </ItemsControl>
-                          <ItemsControl ItemsSource="{Binding AxisLabels.Data}">
-                            <ItemsControl.ItemsPanel>
-                              <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                              <DataTemplate>
-                                <TextBlock Text="{Binding}" Classes="caption" Margin="0,0,5,0" />
-                              </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                          </ItemsControl>
-                        </StackPanel>
+                    ToolTip.Tip="Insert a strategy-rule starter into the Design fields via the composer. Research studies open from Research Studio."
+                    IsVisible="{Binding AiHasProvider}">
+              <Button.Flyout>
+                <Flyout Placement="Bottom">
+                  <Border MinWidth="320" MaxWidth="420" MaxHeight="360" Padding="10"
+                          Background="{StaticResource Background.Surface}"
+                          BorderBrush="{StaticResource Border.Strong}" BorderThickness="1" CornerRadius="7">
+                    <Grid RowDefinitions="Auto,Auto,Auto,*">
+                      <TextBlock Text="STRATEGY TEMPLATES" Classes="eyebrow" />
+                      <TextBox Grid.Row="1" Text="{Binding StarterSearchText, Mode=TwoWay}"
+                               Watermark="Search templates…"
+                               MinHeight="32" Margin="0,6,0,6" />
+                      <Grid Grid.Row="2" ColumnDefinitions="*,*,*" Margin="0,0,0,6">
+                        <ComboBox Grid.Column="0" ItemsSource="{Binding StarterFamilyOptions}"
+                                  SelectedItem="{Binding SelectedStarterFamily, Mode=TwoWay}"
+                                  Margin="0,0,4,0" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding StarterHorizonOptions}"
+                                  SelectedItem="{Binding SelectedStarterHorizon, Mode=TwoWay}"
+                                  Margin="0,0,4,0" />
+                        <ComboBox Grid.Column="2" ItemsSource="{Binding StarterDataOptions}"
+                                  SelectedItem="{Binding SelectedStarterData, Mode=TwoWay}" />
                       </Grid>
-                    </Button>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
-            </Grid>
-
+                      <ListBox Grid.Row="3" Classes="chromeLess"
+                               ItemsSource="{Binding VisibleStarterBriefs}"
+                               ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.Styles>
+                          <Style Selector="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="0" />
+                          </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                          <DataTemplate>
+                            <Button Classes="pill" Margin="0,3" Padding="11,8"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                    Tag="{Binding}" Click="OnUseStarter">
+                              <StackPanel Spacing="3">
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="11.5"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Summary}" Classes="caption"
+                                           TextWrapping="Wrap" MaxLines="2" />
+                              </StackPanel>
+                            </Button>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                    </Grid>
+                  </Border>
+                </Flyout>
+              </Button.Flyout>
+            </Button>
             <Border Background="{StaticResource Ai.Soft}" BorderBrush="{StaticResource Ai.Glow.Brush}"
                     BorderThickness="1" CornerRadius="7" Padding="12,10" Margin="0,18,0,0"
                     IsVisible="{Binding !AiHasProvider}">
               <TextBlock TextWrapping="Wrap" FontSize="11.5">
                 <Run Text="No AI provider is set up yet. " FontWeight="SemiBold" />
-                <Run Text="Add an API key or install an agent CLI under Settings → AI providers, then come back — or write the strategy yourself in the workbench and press Compile &amp; Register." />
+                <Run Text="Add an API key or install an agent CLI under Settings → AI providers, then come back — or write trading rules in the center panel and continue to Build." />
               </TextBlock>
             </Border>
           </StackPanel>
@@ -921,8 +885,8 @@
               </StackPanel>
 
               <StackPanel Spacing="7" IsVisible="{Binding ShowDesignRequestHeader}">
-              <TextBlock Text="REQUEST" Classes="eyebrow" />
-              <TextBlock Text="Review the interpreted idea and confirm before Build."
+              <TextBlock Text="RULES" Classes="eyebrow" />
+              <TextBlock Text="Center panel is the working strategy draft. Hyperion proposes changes; review them before Build."
                          Classes="caption" TextWrapping="Wrap" />
               <Border Background="{StaticResource Ai.Soft}"
                       BorderBrush="{StaticResource Ai.Glow.Brush}" BorderThickness="1"
@@ -1998,9 +1962,20 @@
                                 AutomationProperties.Name="Design rule editor">
                       <TextBlock Text="{Binding CandidateEmptyTitle}" FontWeight="SemiBold" />
                       <TextBlock Text="{Binding DesignRuleEditorHint}" Classes="caption" TextWrapping="Wrap" />
+                      <Border IsVisible="{Binding HasResearchDesignHandoff}"
+                              Background="{StaticResource Background.Elevated}"
+                              BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                              CornerRadius="4" Padding="8,6"
+                              AutomationProperties.Name="Linked research finding">
+                        <StackPanel Spacing="2">
+                          <TextBlock Text="LINKED RESEARCH" Classes="eyebrow" />
+                          <TextBlock Text="{Binding LinkedResearchSummaryText}" Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+                      </Border>
                       <TextBlock Text="ENTRY" Classes="eyebrow" />
                       <TextBox Text="{Binding DesignEntryRuleText, Mode=TwoWay}"
-                               Watermark="When do you enter? (instrument, signal, confirmation)"
+                               Watermark="When do you enter? (instrument, signal, confirmation, evaluation time)"
                                TextWrapping="Wrap" MinHeight="44"
                                AutomationProperties.Name="Design entry rule" />
                       <TextBlock Text="EXIT" Classes="eyebrow" />
@@ -2023,14 +1998,23 @@
                                Watermark="Market/limit, TIF, replace/cancel rules"
                                TextWrapping="Wrap" MinHeight="36"
                                AutomationProperties.Name="Design order instructions" />
+                      <TextBlock Text="{Binding DesignRulesReviewText}" Classes="caption" TextWrapping="Wrap"
+                                 FontFamily="{StaticResource Font.Data}"
+                                 AutomationProperties.Name="Design rules review summary" />
                       <TextBlock Text="{Binding CandidateEmptyText}" Classes="caption" TextWrapping="Wrap"
                                  Opacity="0.9" />
-                      <Button Classes="aiAction" Content="Use rules as request"
-                              Command="{Binding PromoteDesignRulesToRequestCommand}"
-                              IsEnabled="{Binding CanPromoteDesignRulesToRequest}"
-                              HorizontalAlignment="Left"
-                              ToolTip.Tip="Copy entry/exit/sizing/risk/orders into the Hyperion request composer. Still requires Build — does not invent TradeIR."
-                              AutomationProperties.Name="Promote design rules to request" />
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Classes="aiAction" Content="Review strategy"
+                                Command="{Binding ReviewDesignRulesCommand}"
+                                IsEnabled="{Binding CanReviewDesignRules}"
+                                ToolTip.Tip="Confirm these Design fields as the working draft for Build. Does not call Hyperion or invent TradeIR."
+                                AutomationProperties.Name="Review design rules for build" />
+                        <Button Classes="ghost" Content="Ask Hyperion from these rules"
+                                Command="{Binding PromoteDesignRulesToRequestCommand}"
+                                IsEnabled="{Binding CanPromoteDesignRulesToRequest}"
+                                ToolTip.Tip="Copies the fields into the Hyperion prompt only. Send may reinterpret — review the reply against these fields before Build."
+                                AutomationProperties.Name="Promote design rules to request" />
+                      </StackPanel>
                     </StackPanel>
                   </ScrollViewer>
                   <StackPanel IsVisible="{Binding !ShowDesignRuleEditor}"

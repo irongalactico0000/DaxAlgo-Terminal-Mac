@@ -30,16 +30,59 @@ public sealed partial class StrategyAuthoringViewModel
 
     public string DesignRuleEditorHint =>
         HasResearchDesignHandoff
-            ? "Linked Research finding is in the composer — turn it into explicit rules below."
-            : "Start from rules here, or use Research Studio in the top chrome for chart evidence. Templates remain optional in the left pane.";
+            ? "Linked research finding is below — turn it into explicit entry, exit, sizing, risk, and order rules."
+            : "Edit the working strategy draft here. Hyperion proposes changes to this same draft; Build uses the reviewed definition.";
 
     public bool CanPromoteDesignRulesToRequest => HasDesignRuleDraft && !IsGenerating;
+
+    public bool CanReviewDesignRules => HasDesignRuleDraft && !IsGenerating;
+
+    public string DesignRulesReviewText
+    {
+        get
+        {
+            if (!HasDesignRuleDraft)
+                return "Add at least one rule field, then Review strategy to confirm the working draft before Build.";
+
+            static string Line(string key, string value) =>
+                string.IsNullOrWhiteSpace(value) ? $"{key}: (unresolved)" : $"{key}: {value.Trim()}";
+
+            return string.Join('\n', new[]
+            {
+                "Working strategy draft (same fields Hyperion and Build should share):",
+                Line("ENTRY", DesignEntryRuleText),
+                Line("EXIT", DesignExitRuleText),
+                Line("SIZING", DesignSizingRuleText),
+                Line("RISK", DesignRiskRuleText),
+                Line("ORDERS", DesignOrderRuleText),
+                "",
+                "Unresolved items stay visible until you fill them. Changing EMA 20 → EMA 30 here must be what Build uses for the next revision.",
+            });
+        }
+    }
+
+    public string LinkedResearchSummaryText
+    {
+        get
+        {
+            if (!HasResearchDesignHandoff)
+                return "";
+            var indicators = PendingResearchIndicatorsText;
+            var condition = HasPendingResearchCondition
+                ? PendingResearchConditionText
+                : "no condition yet";
+            return $"Finding linked · indicators: {indicators} · condition: {condition}";
+        }
+    }
 
     partial void OnDesignEntryRuleTextChanged(string value)
     {
         OnPropertyChanged(nameof(HasDesignRuleDraft));
         OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
+        OnPropertyChanged(nameof(CanReviewDesignRules));
+        OnPropertyChanged(nameof(DesignRulesReviewText));
         PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
+        ReviewDesignRulesCommand.NotifyCanExecuteChanged();
         NotifyWorkingFlowMapChanged();
     }
 
@@ -47,7 +90,10 @@ public sealed partial class StrategyAuthoringViewModel
     {
         OnPropertyChanged(nameof(HasDesignRuleDraft));
         OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
+        OnPropertyChanged(nameof(CanReviewDesignRules));
+        OnPropertyChanged(nameof(DesignRulesReviewText));
         PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
+        ReviewDesignRulesCommand.NotifyCanExecuteChanged();
         NotifyWorkingFlowMapChanged();
     }
 
@@ -55,7 +101,10 @@ public sealed partial class StrategyAuthoringViewModel
     {
         OnPropertyChanged(nameof(HasDesignRuleDraft));
         OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
+        OnPropertyChanged(nameof(CanReviewDesignRules));
+        OnPropertyChanged(nameof(DesignRulesReviewText));
         PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
+        ReviewDesignRulesCommand.NotifyCanExecuteChanged();
         NotifyWorkingFlowMapChanged();
     }
 
@@ -63,7 +112,10 @@ public sealed partial class StrategyAuthoringViewModel
     {
         OnPropertyChanged(nameof(HasDesignRuleDraft));
         OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
+        OnPropertyChanged(nameof(CanReviewDesignRules));
+        OnPropertyChanged(nameof(DesignRulesReviewText));
         PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
+        ReviewDesignRulesCommand.NotifyCanExecuteChanged();
         NotifyWorkingFlowMapChanged();
     }
 
@@ -71,13 +123,32 @@ public sealed partial class StrategyAuthoringViewModel
     {
         OnPropertyChanged(nameof(HasDesignRuleDraft));
         OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
+        OnPropertyChanged(nameof(CanReviewDesignRules));
+        OnPropertyChanged(nameof(DesignRulesReviewText));
         PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
+        ReviewDesignRulesCommand.NotifyCanExecuteChanged();
         NotifyWorkingFlowMapChanged();
     }
 
     /// <summary>
-    /// Honest Design → request handoff: fills the composer with explicit rules.
-    /// Does not synthesize TradeIR or skip Build — user still confirms and builds.
+    /// Confirms the five Design fields as the visible working draft before Build.
+    /// Does not invent TradeIR and does not re-interpret via the LLM.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanReviewDesignRules))]
+    private void ReviewDesignRules()
+    {
+        if (!HasDesignRuleDraft) return;
+        Status =
+            "Working draft rules reviewed. These fields are the strategy definition for the next Build. " +
+            "Ask Hyperion only if you want proposed edits — that path copies text into the prompt and may reinterpret.";
+        OnPropertyChanged(nameof(DesignRulesReviewText));
+        NotifyWorkingFlowMapChanged();
+    }
+
+    /// <summary>
+    /// Prompt path only: copies Design fields into the Hyperion composer.
+    /// Does not update a separate structured IR — Hyperion may reinterpret on Send.
+    /// Prefer <see cref="ReviewDesignRules"/> when the fields themselves are the build input.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanPromoteDesignRulesToRequest))]
     private void PromoteDesignRulesToRequest()
@@ -88,20 +159,20 @@ public sealed partial class StrategyAuthoringViewModel
 
         var body = string.Join('\n', new[]
         {
-            "Design rules draft (explicit — not compiled TradeIR yet):",
+            "Design rules draft (composer prompt — Hyperion may reinterpret on Send):",
             Line("ENTRY", DesignEntryRuleText),
             Line("EXIT", DesignExitRuleText),
             Line("SIZING", DesignSizingRuleText),
             Line("RISK", DesignRiskRuleText),
             Line("ORDERS", DesignOrderRuleText),
             "",
-            "Next: confirm meaning in Request, then Build to generate/compile. Validate uses that revision hash.",
+            "Prefer editing the Design fields directly. After Hyperion replies, review any changed interpretation before Build.",
         }.Where(static s => s.Length == 0 || !string.IsNullOrWhiteSpace(s)));
 
         Composer = body;
         Status =
-            "Design rules copied into the request composer. Confirm the request, then Build — " +
-            "this does not create TradeIR by itself.";
+            "Copied rules into the Hyperion prompt. This is not a silent TradeIR compile — " +
+            "Send may reinterpret. Review Hyperion’s reply against the Design fields before Build.";
         NotifyWorkingFlowMapChanged();
     }
 

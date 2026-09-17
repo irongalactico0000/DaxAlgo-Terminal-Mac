@@ -280,15 +280,23 @@ public sealed class CandidateAuthoringUxContractTests
         root.Descendants(Avalonia + "TextBox").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Execution latency ms" &&
             (string?)element.Attribute("IsEnabled") == "{Binding ExecutionPartialsAndLatencyAvailable}");
+        root.ToString().Should().Contain("CandidateEmptyTitle");
+        root.ToString().Should().Contain("working draft");
+        root.ToString().Should().NotContain("OPTIONAL RESEARCH TEMPLATES");
+        root.ToString().Should().NotContain("top chrome");
+        root.ToString().Should().NotContain("Focus rule editor");
+        root.ToString().Should().Contain("STRATEGY TEMPLATES");
+        root.ToString().Should().Contain("Use template");
         root.ToString().Should().Contain("Design rule editor");
         root.ToString().Should().Contain("DesignEntryRuleText");
-        root.ToString().Should().Contain("OPTIONAL RESEARCH TEMPLATES");
-        root.ToString().Should().Contain("Write trading rules");
-        root.ToString().Should().Contain("top chrome");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Review design rules for build" &&
+            (string?)element.Attribute("Command") == "{Binding ReviewDesignRulesCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Promote design rules to request" &&
             (string?)element.Attribute("Command") == "{Binding PromoteDesignRulesToRequestCommand}");
-        root.ToString().Should().Contain("does not invent TradeIR");
+        root.ToString().Should().Contain("may reinterpret");
+        root.ToString().Should().Contain("Linked research finding");
         // Single Research Studio CTA lives on the stage chrome — not duplicated in empty/rule panes.
         root.Descendants(Avalonia + "Button")
             .Count(element =>

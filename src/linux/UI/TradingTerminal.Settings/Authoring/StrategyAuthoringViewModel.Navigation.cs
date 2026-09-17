@@ -67,43 +67,53 @@ public sealed partial class StrategyAuthoringViewModel
         IsChartDesignStage && !HasCandidate && !IsResearchStudioShell;
 
     /// <summary>
-    /// Research stretches the inspector so the embedded chart can dominate; Design stays compact;
-    /// Build uses NaN so the panel can fill.
-    /// </summary>
-    public double DesignInspectorWidth =>
-        IsDesignScreen
-            ? (ShowDesignInspector ? (IsResearchStage ? double.NaN : 390) : 0)
-            : double.NaN;
-
-    public double DesignInspectorMinWidth =>
-        IsResearchStage && ShowDesignInspector ? 480 : 0;
-
-    /// <summary>
-    /// Research Studio / Research stage: chart gets the star column; Hyperion is Auto + capped.
-    /// Strategy Builder Design keeps Hyperion as the star column.
+    /// Research Studio / Design: chart or rules get the star column; Hyperion is Auto + capped.
+    /// Build keeps Hyperion as the star when used.
     /// </summary>
     public string MainWorkspaceColumnDefinitions =>
-        (IsResearchStudioShell || (IsResearchStage && ShowDesignInspector))
+        (IsResearchStudioShell || (IsResearchStage && ShowDesignInspector) || IsChartDesignStage)
             ? "Auto,Auto,4,*"
             : "Auto,*,4,Auto";
 
     /// <summary>
-    /// Hyperion width in Research Studio: collapsed strip or a practical narrow pane (not competing with the chart).
+    /// Research stretches the inspector so the embedded chart can dominate; Design rules fill the
+    /// center column; Build uses NaN so the panel can fill.
+    /// </summary>
+    public double DesignInspectorWidth =>
+        IsChartDesignStage
+            ? double.NaN
+            : IsDesignScreen
+                ? (ShowDesignInspector ? (IsResearchStage ? double.NaN : 390) : 0)
+                : double.NaN;
+
+    public double DesignInspectorMinWidth =>
+        IsChartDesignStage
+            ? 420
+            : IsResearchStage && ShowDesignInspector ? 480 : 0;
+
+    /// <summary>
+    /// Hyperion width: Research Studio / Design keep a practical narrow pane so rules or chart dominate.
     /// </summary>
     public double ConversationColumnMaxWidth =>
         IsResearchStudioShell
             ? (HyperionCollapsed ? 52 : 320)
-            : IsResearchStage ? 420 : double.PositiveInfinity;
+            : IsChartDesignStage
+                ? 360
+                : IsResearchStage ? 420 : double.PositiveInfinity;
 
     public double ConversationColumnMinWidth =>
         IsResearchStudioShell
             ? (HyperionCollapsed ? 52 : 240)
-            : IsResearchStage ? 420 : 0;
+            : IsChartDesignStage
+                ? 260
+                : IsResearchStage ? 420 : 0;
 
     public double ConversationColumnWidth =>
         IsResearchStudioShell
             ? (HyperionCollapsed ? 52 : 280)
-            : IsResearchStage && ShowDesignInspector ? 420 : double.NaN;
+            : IsChartDesignStage
+                ? 300
+                : IsResearchStage && ShowDesignInspector ? 420 : double.NaN;
 
     public bool ShowConversationEmptyState =>
         !HasConversation && !IsResearchStage && !IsResearchStudioShell;
@@ -354,7 +364,7 @@ public sealed partial class StrategyAuthoringViewModel
                 StrategyAuthoringScreen.Research =>
                     "Chart-first investigation. Findings hand off into Design — Research is not a Builder stage.",
                 StrategyAuthoringScreen.Design =>
-                    "Edit entry, exit, sizing, risk, and order rules. Research Studio is optional chrome.",
+                    "Edit entry, exit, sizing, risk, and order rules in the center. Open Research Studio when you need chart evidence.",
                 StrategyAuthoringScreen.Build when ShowNativeStrategyRunPanel =>
                     "Inspect a retained native research → compare run.",
                 StrategyAuthoringScreen.Build =>
@@ -366,7 +376,7 @@ public sealed partial class StrategyAuthoringViewModel
                 _ => "Confirm rules, then Build.",
             };
 
-    public string CandidateTabHeader => IsDesignScreen ? "Request" : "Compare";
+    public string CandidateTabHeader => IsDesignScreen ? "Rules" : "Compare";
 
     public string CandidateEmptyTitle => IsChartDesignStage
         ? "Trading rules"
@@ -375,9 +385,9 @@ public sealed partial class StrategyAuthoringViewModel
             : "No implementation run yet";
 
     public string CandidateEmptyText => IsChartDesignStage
-        ? "Edit entry, exit, sizing, risk, and order instructions here. Research findings are optional — open Research Studio when you need chart evidence."
+        ? "These fields are the working draft shared with Build after you review. Open Research Studio when you need chart evidence. Strategy templates are under Use template."
         : IsDesignScreen
-            ? "Send a message in the composer. The interpreted request will open here when ready."
+            ? "Send a message in Hyperion. Proposed changes appear here for review before they become the build input."
             : "Start implementation when you want workers to generate code for the confirmed request.";
 
     [RelayCommand(CanExecute = nameof(CanOpenBriefScreenAction))]
