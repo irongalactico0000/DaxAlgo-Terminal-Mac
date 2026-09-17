@@ -92,10 +92,26 @@ public sealed partial class StrategyAuthoringViewModel
                 return "Next: confirm the design, then open Build to compile and register.";
             }
 
+            if (IsBuildScreen)
+            {
+                if (ShowBuildDesignBlockers)
+                    return BuildDesignBlockerText;
+                if (!(IsRegistered || StrategyWorkspace.Bindings.BuildArtifactHashSha256 is not null))
+                {
+                    if (AuthoredUnitSpecification is null && !HasCandidate)
+                        return "Next: generate or compile this Design revision, then register.";
+                    return "Next: compile and register — Validate will bind to this exact build.";
+                }
+
+                if (HasStrategyVersionResults)
+                    return "Next: open a saved result below, or Validate this registered build.";
+                return "Next: Validate this registered build — results will appear in the strategy result list.";
+            }
+
             if (!(IsRegistered || StrategyWorkspace.Bindings.BuildArtifactHashSha256 is not null))
             {
                 if (AuthoredUnitSpecification is null && !HasCandidate)
-                    return "Next: finish Design rules, then open Build.";
+                    return "Next: finish Design rules (instrument + entry), then open Build.";
                 return "Next: open Build → compile and register.";
             }
 

@@ -3749,6 +3749,8 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             PendingHyperionDesignProposalText = "";
             LastAppliedStarterId = null;
             AwaitingHyperionDesignProposal = false;
+            ClearStrategyVersionResults();
+            HistoricalValidationEvidence = null;
             OnPropertyChanged(nameof(HasChartReferences));
             NotifyDesignInspectorLayoutChanged();
             OnPropertyChanged(nameof(HasChartReferenceInspections));
@@ -4098,6 +4100,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             CoerceLegacyExecutionFidelitySettings();
             RestoreStrategyWorkspace(session, ref restoreWarning);
             RestoreDesignDraftFields(session);
+            RestoreStrategyVersionResults(session);
             ActiveScreen = ResolveRestoredActiveScreen(session.ActiveScreen);
             WorkbenchTab = GenerateCandidateFirst ? 3 : 0;
             CloseReview();
@@ -4384,7 +4387,13 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             DesignSizingRuleText: NullIfWhiteSpace(DesignSizingRuleText),
             DesignRiskRuleText: NullIfWhiteSpace(DesignRiskRuleText),
             DesignOrderRuleText: NullIfWhiteSpace(DesignOrderRuleText),
-            LastAppliedStarterId: NullIfWhiteSpace(LastAppliedStarterId));
+            LastAppliedStarterId: NullIfWhiteSpace(LastAppliedStarterId),
+            HistoricalValidationEvidenceJson: HistoricalValidationEvidence is null
+                ? null
+                : HistoricalValidationEvidenceCanonicalJsonV1.Serialize(HistoricalValidationEvidence),
+            BoundNativeRunId: NullIfWhiteSpace(BoundNativeRunId),
+            BoundNativeSessionId: NullIfWhiteSpace(BoundNativeSessionId),
+            StrategyVersionResultsJson: SerializeStrategyVersionResults());
 
         if (!_sessionRepository.Save(snapshot))
         {

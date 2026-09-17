@@ -375,7 +375,10 @@ public sealed partial class StrategyAuthoringViewModel
             StrategyWorkspace.Bindings with { ValidationEvidenceHashSha256 = evidenceHash },
             StrategyWorkspaceStageV1.Validate,
             revisionReason: "Exact historical validation completed");
-        Status = "Historical validation is bound to this exact compiled revision. Next: Paper → Bind selected book → Harness.";
+        UpsertHistoricalValidationResult(evidence);
+        Status =
+            "Historical validation is bound to this exact compiled revision. " +
+            "The report is in this strategy’s saved results — reopen it from the list without typing paths.";
         Save();
         reason = string.Empty;
         return true;

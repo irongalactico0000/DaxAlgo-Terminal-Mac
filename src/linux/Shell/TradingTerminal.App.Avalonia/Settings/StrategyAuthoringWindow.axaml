@@ -1613,6 +1613,51 @@
                   </Grid>
                 </Border>
 
+                <Border Grid.Row="0"
+                        IsVisible="{Binding ShowLegacyBuildResultSpine}"
+                        Background="{StaticResource Background.Elevated}"
+                        BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                        CornerRadius="6" Padding="10" Margin="0,0,0,8"
+                        AutomationProperties.Name="Build strategy result spine">
+                  <StackPanel Spacing="8">
+                    <Border IsVisible="{Binding ShowBuildDesignBlockers}"
+                            Background="{StaticResource Warning.Soft}"
+                            BorderBrush="{StaticResource Warning.Brush}" BorderThickness="1"
+                            CornerRadius="5" Padding="8,7"
+                            AutomationProperties.Name="Build design blockers">
+                      <StackPanel Spacing="6">
+                        <TextBlock Text="{Binding BuildDesignBlockerText}" Classes="caption"
+                                   TextWrapping="Wrap" />
+                        <Button Classes="aiAction" Content="Return to Design"
+                                Command="{Binding ReturnToDesignFromBuildCommand}"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.Name="Return to Design from Build" />
+                      </StackPanel>
+                    </Border>
+                    <TextBlock Text="SAVED RESULTS FOR THIS STRATEGY" Classes="eyebrow" />
+                    <TextBlock Text="{Binding StrategyVersionResultsEmptyText}" Classes="caption"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding !HasStrategyVersionResults}" />
+                    <ListBox Classes="chromeLess"
+                             ItemsSource="{Binding StrategyVersionResults}"
+                             SelectedItem="{Binding SelectedStrategyVersionResult, Mode=TwoWay}"
+                             IsVisible="{Binding HasStrategyVersionResults}"
+                             MaxHeight="120"
+                             AutomationProperties.Name="Strategy version result list">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate>
+                          <StackPanel Spacing="2" Margin="0,2">
+                            <TextBlock Text="{Binding ListLabel}" FontWeight="SemiBold"
+                                       FontSize="11" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Summary}" Classes="caption"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </StackPanel>
+                </Border>
+
                 <Border Grid.Row="0" Grid.RowSpan="2"
                         IsVisible="{Binding ShowNativeStrategyRunPanel}"
                         Background="{StaticResource Background.Base}"
@@ -1622,22 +1667,64 @@
                   <ScrollViewer VerticalScrollBarVisibility="Auto"
                                 HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Spacing="10" Margin="0,0,4,0">
+                      <Border IsVisible="{Binding ShowBuildDesignBlockers}"
+                              Background="{StaticResource Warning.Soft}"
+                              BorderBrush="{StaticResource Warning.Brush}" BorderThickness="1"
+                              CornerRadius="5" Padding="8,7"
+                              AutomationProperties.Name="Build design blockers">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="{Binding BuildDesignBlockerText}" Classes="caption"
+                                     TextWrapping="Wrap" />
+                          <Button Classes="aiAction" Content="Return to Design"
+                                  Command="{Binding ReturnToDesignFromBuildCommand}"
+                                  HorizontalAlignment="Left"
+                                  AutomationProperties.Name="Return to Design from Build" />
+                        </StackPanel>
+                      </Border>
+                      <Border Background="{StaticResource Background.Elevated}"
+                              BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                              CornerRadius="5" Padding="8,7"
+                              AutomationProperties.Name="Strategy version results">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="SAVED RESULTS FOR THIS STRATEGY" Classes="eyebrow" />
+                          <TextBlock Text="{Binding StrategyVersionResultsEmptyText}" Classes="caption"
+                                     TextWrapping="Wrap"
+                                     IsVisible="{Binding !HasStrategyVersionResults}" />
+                          <ListBox Classes="chromeLess"
+                                   ItemsSource="{Binding StrategyVersionResults}"
+                                   SelectedItem="{Binding SelectedStrategyVersionResult, Mode=TwoWay}"
+                                   IsVisible="{Binding HasStrategyVersionResults}"
+                                   MaxHeight="120"
+                                   AutomationProperties.Name="Strategy version result list">
+                            <ListBox.ItemTemplate>
+                              <DataTemplate>
+                                <StackPanel Spacing="2" Margin="0,2">
+                                  <TextBlock Text="{Binding ListLabel}" FontWeight="SemiBold"
+                                             FontSize="11" TextWrapping="Wrap" />
+                                  <TextBlock Text="{Binding Summary}" Classes="caption"
+                                             TextWrapping="Wrap" />
+                                </StackPanel>
+                              </DataTemplate>
+                            </ListBox.ItemTemplate>
+                          </ListBox>
+                        </StackPanel>
+                      </Border>
                       <Border Background="{StaticResource Warning.Soft}"
                               BorderBrush="{StaticResource Warning.Brush}" BorderThickness="1"
                               CornerRadius="5" Padding="8,7"
                               AutomationProperties.Name="Native strategy UI limitation">
                         <StackPanel Spacing="2">
-                          <TextBlock Text="RETAINED RUN BRIDGE · PARTIAL UI WIRING"
+                          <TextBlock Text="COMPARE · LOAD SAVED RUN OR ADVANCED ID"
                                      Foreground="{StaticResource Warning.Brush}"
                                      FontWeight="SemiBold" FontSize="10" />
-                          <TextBlock Text="Chart selection, frozen-context research chat, and user confirmation are not connected to this screen yet. Load an already confirmed run ID; every status, event, error, artifact hash, and report below comes from the native service."
+                          <TextBlock Text="{Binding NativeRunLoadStatus}"
                                      Classes="caption" TextWrapping="Wrap" />
                         </StackPanel>
                       </Border>
 
                       <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                         <TextBox Grid.Column="0" Text="{Binding NativeRunId, Mode=TwoWay}"
-                                 Watermark="Confirmed retained run ID"
+                                 Watermark="Advanced: retained run ID (prefer Saved results above)"
                                  FontFamily="{StaticResource Font.Data}"
                                  AutomationProperties.Name="Native strategy run ID" />
                         <Button Grid.Column="1" Classes="aiAction" Content="Load run"
@@ -1646,9 +1733,10 @@
                         <Button Grid.Column="2" Classes="ghost" Content="Refresh"
                                 Command="{Binding RefreshNativeRunCommand}" Margin="7,0,0,0"
                                 AutomationProperties.Name="Refresh retained native strategy run" />
-                        <Button Grid.Column="3" Classes="ghost" Content="Start"
+                        <Button Grid.Column="3" Classes="ghost" Content="Run comparison"
                                 Command="{Binding StartNativeRunCommand}" Margin="7,0,0,0"
-                                AutomationProperties.Name="Start confirmed native strategy run" />
+                                ToolTip.Tip="Start the loaded comparison for this retained run. Does not place live trades."
+                                AutomationProperties.Name="Run comparison for native strategy run" />
                         <Button Grid.Column="4" Classes="ghost" Content="Request cancel"
                                 Command="{Binding CancelNativeRunCommand}" Margin="7,0,0,0"
                                 AutomationProperties.Name="Request native strategy run cancellation" />

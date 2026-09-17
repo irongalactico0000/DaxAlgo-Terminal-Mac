@@ -144,6 +144,7 @@ public sealed partial class StrategyAuthoringViewModel
         ReviewDesignRulesCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanInvestigateInResearchStudio));
         InvestigateInResearchStudioCommand.NotifyCanExecuteChanged();
+        NotifyBuildDesignBlockerStateChanged();
         NotifyWorkingFlowMapChanged();
     }
 

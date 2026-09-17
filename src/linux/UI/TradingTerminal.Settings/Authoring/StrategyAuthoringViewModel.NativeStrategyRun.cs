@@ -33,6 +33,8 @@ public sealed partial class StrategyAuthoringViewModel
         IsBuildScreen && GenerateCandidateFirst && IsNativeStrategyAgentWired;
     public bool ShowLegacyCandidateBoundary =>
         GenerateCandidateFirst && !ShowNativeStrategyRunPanel;
+    public bool ShowLegacyBuildResultSpine =>
+        IsBuildScreen && GenerateCandidateFirst && !ShowNativeStrategyRunPanel;
 
     [ObservableProperty]
     private string _nativeRunId = string.Empty;
@@ -60,7 +62,7 @@ public sealed partial class StrategyAuthoringViewModel
 
     [ObservableProperty]
     private string _nativeRunLoadStatus =
-        "Chart capture, research confirmation, and run creation are not wired to this screen yet. Enter an already confirmed retained run ID.";
+        "Prefer Saved results for this strategy above. Advanced: enter a retained run ID only when the run is not listed yet.";
 
     [ObservableProperty]
     private string _nativeEventDisplayBoundary =
@@ -301,6 +303,16 @@ public sealed partial class StrategyAuthoringViewModel
 
         OnPropertyChanged(nameof(NativeRunIdentityText));
         NotifyNativeRunCommands();
+        UpsertNativeCompareResult(
+            run.RunId,
+            run.SessionId,
+            run.Status,
+            run.Comparison is null
+                ? $"Run {run.RunId} · evidence {run.EvidenceStatus ?? "not reported"}"
+                : $"{run.Comparison.RelativePath} · SHA-256 {run.Comparison.Sha256}");
+        if (run.Comparison is not null)
+            NativeArtifactPath = run.Comparison.RelativePath;
+        Save();
     }
 
     private void ApplyNativeLane(

@@ -92,7 +92,11 @@ public sealed record AuthoringSessionSnapshot(
     string? DesignSizingRuleText = null,
     string? DesignRiskRuleText = null,
     string? DesignOrderRuleText = null,
-    string? LastAppliedStarterId = null)
+    string? LastAppliedStarterId = null,
+    string? HistoricalValidationEvidenceJson = null,
+    string? BoundNativeRunId = null,
+    string? BoundNativeSessionId = null,
+    string? StrategyVersionResultsJson = null)
 {
     public const int CurrentAuthoringUxVersion = 3;
 

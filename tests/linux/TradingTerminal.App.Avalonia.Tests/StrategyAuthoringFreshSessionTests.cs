@@ -416,6 +416,87 @@ public sealed class StrategyAuthoringFreshSessionTests
     }
 
     [Fact]
+    public void Build_shows_Design_blockers_and_validation_result_survives_restore()
+    {
+        var repository = new MemoryAuthoringSessionRepository();
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: repository);
+
+        viewModel.ActiveScreen = StrategyAuthoringScreen.Build;
+        viewModel.IsBuildScreen.Should().BeTrue();
+        viewModel.ShowBuildDesignBlockers.Should().BeTrue(
+            "Build without instrument/entry must show blockers");
+        viewModel.BuildDesignBlockerText.Should().Contain("Entry");
+        viewModel.ReturnToDesignFromBuildCommand.Execute(null);
+        viewModel.IsChartDesignStage.Should().BeTrue();
+
+        viewModel.DesignInstrumentText = "ES";
+        viewModel.DesignEntryRuleText = "EMA 20 crosses above EMA 50";
+        viewModel.ActiveScreen = StrategyAuthoringScreen.Build;
+        viewModel.ShowBuildDesignBlockers.Should().BeFalse();
+
+        var buildHash = new string('b', 64);
+        var evidence = new HistoricalValidationEvidenceV1(
+            HistoricalValidationEvidenceV1.CurrentSchemaVersion,
+            new HistoricalValidationContextV1(
+                viewModel.StrategyWorkspace.WorkspaceId,
+                new string('a', 64),
+                buildHash,
+                null),
+            new string('c', 64),
+            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc),
+            "L1TouchFillModel",
+            "synthetic",
+            TradeCount: 3,
+            StartingCash: 100_000,
+            EndingCash: 100_150,
+            TotalFees: 12,
+            CompletedUtc: new DateTime(2026, 1, 2, 1, 0, 0, DateTimeKind.Utc));
+
+        viewModel.UpsertHistoricalValidationResult(evidence);
+        viewModel.HasStrategyVersionResults.Should().BeTrue();
+        viewModel.StrategyVersionResults.Should().ContainSingle()
+            .Which.Kind.Should().Be(StrategyVersionResultKind.HistoricalValidate);
+
+        var json = HistoricalValidationEvidenceCanonicalJsonV1.Serialize(evidence);
+        repository.Save(new AuthoringSessionSnapshot(
+            StrategyId: viewModel.StrategyId,
+            DisplayName: viewModel.DisplayName,
+            Chat: [],
+            Thread: [],
+            Files: [new StrategyFile(StrategyFile.DefaultName, "// draft")],
+            ActiveScreen: StrategyAuthoringScreen.Build,
+            AuthoringUxVersion: AuthoringSessionSnapshot.CurrentAuthoringUxVersion,
+            UpdatedUtc: DateTime.UtcNow,
+            DesignInstrumentText: "ES",
+            DesignEntryRuleText: "EMA 20 crosses above EMA 50",
+            HistoricalValidationEvidenceJson: json,
+            StrategyVersionResultsJson: System.Text.Json.JsonSerializer.Serialize(
+                new[]
+                {
+                    StrategyVersionResultSnapshot.FromItem(viewModel.StrategyVersionResults[0]),
+                })));
+
+        using var restored = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: repository);
+
+        restored.SelectedSavedSession = repository.List().Single(s => s.StrategyId == viewModel.StrategyId);
+        restored.HasStrategyVersionResults.Should().BeTrue();
+        restored.StrategyVersionResults[0].Kind.Should().Be(StrategyVersionResultKind.HistoricalValidate);
+        restored.HistoricalValidationEvidence.Should().NotBeNull();
+        restored.OpenStrategyVersionResultCommand.Execute(restored.StrategyVersionResults[0]);
+        restored.HistoricalValidationEvidence!.TradeCount.Should().Be(3);
+        restored.DesignEntryRuleText.Should().Be("EMA 20 crosses above EMA 50");
+    }
+
+    [Fact]
     public void Strategy_template_creates_Design_draft_and_Investigate_is_separate()
     {
         using var viewModel = new StrategyAuthoringViewModel(

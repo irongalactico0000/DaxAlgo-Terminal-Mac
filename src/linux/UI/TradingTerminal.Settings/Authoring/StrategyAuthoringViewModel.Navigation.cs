@@ -683,10 +683,12 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(ShowCliWorkspaceFooter));
         OnPropertyChanged(nameof(ShowNativeStrategyRunPanel));
         OnPropertyChanged(nameof(ShowLegacyCandidateBoundary));
+        OnPropertyChanged(nameof(ShowLegacyBuildResultSpine));
         OnPropertyChanged(nameof(ActiveScreenTitle));
         OnPropertyChanged(nameof(ActiveScreenDescription));
         OnPropertyChanged(nameof(CandidateTabHeader));
         OnPropertyChanged(nameof(CandidateEmptyTitle));
+        NotifyBuildDesignBlockerStateChanged();
         NotifyWorkingFlowMapChanged();
         OnPropertyChanged(nameof(CandidateEmptyText));
         OpenDesignScreenCommand.NotifyCanExecuteChanged();
