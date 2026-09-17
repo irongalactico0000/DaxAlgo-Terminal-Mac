@@ -148,6 +148,18 @@ public sealed partial class StrategyAuthoringViewModel
          HasPendingResearchCondition);
 
     /// <summary>
+    /// Staged Add-finding review — Design is unchanged until Confirm link.
+    /// Navigation (Back) clears this without transferring.
+    /// </summary>
+    [ObservableProperty] private string _pendingAddFindingReviewText = "";
+
+    public bool HasPendingAddFindingReview =>
+        !string.IsNullOrWhiteSpace(PendingAddFindingReviewText);
+
+    public bool CanConfirmAddFindingToStrategy =>
+        HasPendingAddFindingReview && !IsGenerating;
+
+    /// <summary>
     /// True after the user explicitly promotes Research evidence into Design. Existing drafts with
     /// confirmed intent or a strategy specification also count as Design-ready without this flag.
     /// </summary>
@@ -508,7 +520,7 @@ public sealed partial class StrategyAuthoringViewModel
     {
         if (!CanUseObservationInDesign) return;
 
-        // Transfer only — navigation back is ReturnToStrategyBuilder (independent).
+        // Stage review only — ConfirmAddFindingToStrategy mutates Design; Back clears without transfer.
         if (PendingResearchCondition is not null)
         {
             if (!HasResearchFinding1)
@@ -543,22 +555,47 @@ public sealed partial class StrategyAuthoringViewModel
                 : "none locked yet";
         var condition = PendingResearchConditionText;
         var selection = ResearchChartSelectionText;
-        var evidence =
-            $"Add this saved Research finding to {StrategyReturnDisplayName} Design for {eventSymbol}.\n\n" +
+        PendingAddFindingReviewText =
+            $"Review before linking to {StrategyReturnDisplayName} Design for {eventSymbol}.\n\n" +
             $"Saved finding: {activeFinding}\n" +
             $"Selection: {selection}\n" +
             $"Analysis indicators (candidates — include only what Design confirms): {indicators}\n" +
             $"Candidate condition: {condition}\n" +
             $"Chart instrument binding: {ResearchChartInstrumentText ?? "unset"}\n" +
             $"Samples labeled: {ResearchEventSampleCount}\n\n" +
-            "Write explicit entry, confirmation, exit, sizing, and risk rules from this evidence. " +
-            "Do not treat analysis-only indicators as strategy rules until confirmed here.";
+            "Confirm links this finding. Cancel or ← Back leaves Design unchanged.";
+        Status =
+            $"Review the finding before linking it to {StrategyReturnDisplayName}. " +
+            "Confirm changes the draft; ← Back does not.";
+        OnPropertyChanged(nameof(HasPendingAddFindingReview));
+        OnPropertyChanged(nameof(CanConfirmAddFindingToStrategy));
+        ConfirmAddFindingToStrategyCommand.NotifyCanExecuteChanged();
+        DiscardAddFindingReviewCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(AddFindingTransferPreviewText));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanConfirmAddFindingToStrategy))]
+    private void ConfirmAddFindingToStrategy()
+    {
+        if (!CanConfirmAddFindingToStrategy) return;
+
+        var evidence = PendingAddFindingReviewText
+            .Replace(
+                "Review before linking to",
+                "Add this saved Research finding to",
+                StringComparison.Ordinal)
+            .Replace(
+                "Confirm links this finding. Cancel or ← Back leaves Design unchanged.",
+                "Write explicit entry, confirmation, exit, sizing, and risk rules from this evidence. " +
+                "Do not treat analysis-only indicators as strategy rules until confirmed here.",
+                StringComparison.Ordinal);
 
         if (string.IsNullOrWhiteSpace(Composer) || Composer.StartsWith("Investigate before writing", StringComparison.Ordinal))
             Composer = evidence;
         else
             Composer = evidence + "\n\n---\n\n" + Composer.Trim();
 
+        PendingAddFindingReviewText = "";
         HasResearchDesignHandoff = true;
         AiStatus = $"Finding attached to {StrategyReturnDisplayName}. Confirm which conditions become strategy rules.";
         Status = IsResearchStudioShell
@@ -567,7 +604,7 @@ public sealed partial class StrategyAuthoringViewModel
         Append(AuthoringMessage.Tool(
             "Ok",
             UseInStrategyBuilderText,
-            $"Saved finding · {eventSymbol} · indicators [{indicators}] · samples {ResearchEventSampleCount}."));
+            $"Linked finding · samples {ResearchEventSampleCount}."));
         Save();
 
         ActiveScreen = StrategyAuthoringScreen.Design;
@@ -579,8 +616,44 @@ public sealed partial class StrategyAuthoringViewModel
 
         NotifyWorkingFlowMapChanged();
         NotifyAuthoringScreenStateChanged();
+        OnPropertyChanged(nameof(HasPendingAddFindingReview));
+        OnPropertyChanged(nameof(CanConfirmAddFindingToStrategy));
         OnPropertyChanged(nameof(AddFindingTransferPreviewText));
+        ConfirmAddFindingToStrategyCommand.NotifyCanExecuteChanged();
+        DiscardAddFindingReviewCommand.NotifyCanExecuteChanged();
         UseObservationInDesignCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(HasPendingAddFindingReview))]
+    private void DiscardAddFindingReview()
+    {
+        if (!HasPendingAddFindingReview) return;
+        PendingAddFindingReviewText = "";
+        Status =
+            $"Canceled linking to {StrategyReturnDisplayName}. Design draft unchanged — use ← Back or review again.";
+        OnPropertyChanged(nameof(HasPendingAddFindingReview));
+        OnPropertyChanged(nameof(CanConfirmAddFindingToStrategy));
+        ConfirmAddFindingToStrategyCommand.NotifyCanExecuteChanged();
+        DiscardAddFindingReviewCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnPendingAddFindingReviewTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasPendingAddFindingReview));
+        OnPropertyChanged(nameof(CanConfirmAddFindingToStrategy));
+        ConfirmAddFindingToStrategyCommand.NotifyCanExecuteChanged();
+        DiscardAddFindingReviewCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Clear staged Add-finding review without transferring (navigation preserve).</summary>
+    internal void ClearPendingAddFindingReview()
+    {
+        if (!HasPendingAddFindingReview) return;
+        PendingAddFindingReviewText = "";
+        OnPropertyChanged(nameof(HasPendingAddFindingReview));
+        OnPropertyChanged(nameof(CanConfirmAddFindingToStrategy));
+        ConfirmAddFindingToStrategyCommand.NotifyCanExecuteChanged();
+        DiscardAddFindingReviewCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Raised when Research Studio asks MainWindow to open Strategy Builder with this handoff.</summary>

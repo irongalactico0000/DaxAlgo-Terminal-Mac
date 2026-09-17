@@ -759,6 +759,12 @@ public sealed class CandidateAuthoringUxContractTests
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("Command") == "{Binding UseObservationInDesignCommand}" &&
             (string?)element.Attribute("IsEnabled") == "{Binding CanUseObservationInDesign}");
+        root.ToString().Should().Contain("Add finding review before link");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Command") == "{Binding ConfirmAddFindingToStrategyCommand}" &&
+            (string?)element.Attribute("AutomationProperties.Name") == "Confirm add finding to strategy");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("Command") == "{Binding DiscardAddFindingReviewCommand}");
         root.ToString().Should().Contain("PendingConditionMultipleText");
         root.ToString().Should().Contain("ApplyPendingResearchConditionCommand");
         root.ToString().Should().Contain("SaveResearchFinding1Command");

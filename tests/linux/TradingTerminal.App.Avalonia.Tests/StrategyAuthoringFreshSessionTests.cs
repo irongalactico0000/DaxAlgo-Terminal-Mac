@@ -802,7 +802,14 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.ShowImplementationTabs.Should().BeFalse();
 
         viewModel.UseObservationInDesignCommand.Execute(null);
+        viewModel.HasPendingAddFindingReview.Should().BeTrue(
+            "Add finding stages a review — Design is unchanged until Confirm");
+        viewModel.HasResearchDesignHandoff.Should().BeFalse();
+        viewModel.Composer.Should().NotContain("Add this saved Research finding");
 
+        viewModel.ConfirmAddFindingToStrategyCommand.Execute(null);
+
+        viewModel.HasPendingAddFindingReview.Should().BeFalse();
         viewModel.IsChartDesignStage.Should().BeTrue();
         viewModel.HasResearchDesignHandoff.Should().BeTrue();
         viewModel.CanOpenDesignScreen.Should().BeTrue();
@@ -820,6 +827,54 @@ public sealed class StrategyAuthoringFreshSessionTests
             s.Contains("No compile or register", StringComparison.Ordinal) ||
             s.Contains("opening Design", StringComparison.Ordinal) ||
             s.Contains("Added finding", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Add_finding_review_cancel_and_Back_leave_Design_unchanged()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.DisplayName = "Momentum";
+        viewModel.DesignEntryRuleText = "Keep this entry";
+        viewModel.OpenDesignScreenCommand.Execute(null);
+        viewModel.OpenResearchScreenCommand.Execute(null);
+        viewModel.IsResearchStudioShell = true;
+
+        var start = new DateTimeOffset(2026, 3, 10, 14, 30, 0, TimeSpan.Zero);
+        viewModel.SetResearchChartSelection(
+            new ResearchChartSelectionV1(
+                new InstrumentId(7),
+                "MSFT",
+                BarSize.FiveMinutes,
+                start,
+                start.AddHours(4),
+                start.AddHours(4),
+                start.AddHours(8),
+                StrategyDataRequirement.Bars),
+            indicatorBindings: [new ResearchIndicatorBindingV1("ema-20", "ema", 20)]);
+        viewModel.PendingConditionMultipleText = "2";
+        viewModel.PendingConditionLookbackText = "20";
+        viewModel.ApplyPendingResearchConditionCommand.Execute(null);
+        viewModel.SaveResearchFinding1Command.Execute(null);
+
+        viewModel.UseObservationInDesignCommand.Execute(null);
+        viewModel.HasPendingAddFindingReview.Should().BeTrue();
+        viewModel.DiscardAddFindingReviewCommand.Execute(null);
+        viewModel.HasPendingAddFindingReview.Should().BeFalse();
+        viewModel.HasResearchDesignHandoff.Should().BeFalse();
+        viewModel.DesignEntryRuleText.Should().Be("Keep this entry");
+
+        viewModel.UseObservationInDesignCommand.Execute(null);
+        viewModel.HasPendingAddFindingReview.Should().BeTrue();
+        viewModel.ReturnToStrategyBuilderCommand.Execute(null);
+        viewModel.HasPendingAddFindingReview.Should().BeFalse();
+        viewModel.HasResearchDesignHandoff.Should().BeFalse();
+        viewModel.DesignEntryRuleText.Should().Be("Keep this entry");
+        viewModel.IsResearchStudioShell.Should().BeFalse();
     }
 
     [Fact]

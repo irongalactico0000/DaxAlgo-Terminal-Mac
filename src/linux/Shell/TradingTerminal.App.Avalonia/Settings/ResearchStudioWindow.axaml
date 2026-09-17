@@ -119,6 +119,31 @@
                      IsVisible="{Binding ResearchOpenedFromBuilder}"
                      Text="{Binding AddFindingTransferPreviewText}"
                      AutomationProperties.Name="Add finding transfer preview" />
+          <Border IsVisible="{Binding HasPendingAddFindingReview}"
+                  Background="{StaticResource Ai.Soft}"
+                  BorderBrush="{StaticResource Ai.Glow.Brush}" BorderThickness="1"
+                  CornerRadius="4" Padding="8,6" Margin="0,8,0,0"
+                  MaxWidth="720" HorizontalAlignment="Left"
+                  AutomationProperties.Name="Add finding review before link">
+            <StackPanel Spacing="6">
+              <TextBlock Text="ADD FINDING — REVIEW BEFORE LINK" Classes="eyebrow" />
+              <TextBox Text="{Binding PendingAddFindingReviewText, Mode=OneWay}"
+                       IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                       MinHeight="72" MaxHeight="140"
+                       FontFamily="{StaticResource Font.Data}" FontSize="11"
+                       AutomationProperties.Name="Pending add finding review text" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Classes="aiAction" Content="Confirm link to Design"
+                        Command="{Binding ConfirmAddFindingToStrategyCommand}"
+                        IsEnabled="{Binding CanConfirmAddFindingToStrategy}"
+                        AutomationProperties.Name="Confirm add finding to strategy" />
+                <Button Classes="ghost" Content="Cancel"
+                        Command="{Binding DiscardAddFindingReviewCommand}"
+                        IsEnabled="{Binding HasPendingAddFindingReview}"
+                        AutomationProperties.Name="Cancel add finding review" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
         </StackPanel>
       </Border>
     </StackPanel>

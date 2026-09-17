@@ -1203,7 +1203,7 @@
                         BorderBrush="{StaticResource Ai.Glow.Brush}" BorderThickness="1"
                         CornerRadius="6" Padding="8"
                         AutomationProperties.Name="Research event discovery workspace">
-                  <Grid RowDefinitions="Auto,*">
+                  <Grid RowDefinitions="Auto,Auto,*">
                     <DockPanel Grid.Row="0" Margin="0,0,0,8">
                       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6"
                                   VerticalAlignment="Center" Margin="10,0,0,0">
@@ -1245,7 +1245,34 @@
                                             </Grid>
                     </DockPanel>
 
-                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto"
+                    <Border Grid.Row="1"
+                            Margin="0,0,0,8"
+                            IsVisible="{Binding HasPendingAddFindingReview}"
+                            Background="{StaticResource Ai.Soft}"
+                            BorderBrush="{StaticResource Ai.Glow.Brush}" BorderThickness="1"
+                            CornerRadius="4" Padding="8,6"
+                            AutomationProperties.Name="Add finding review before link">
+                      <StackPanel Spacing="6">
+                        <TextBlock Text="ADD FINDING — REVIEW BEFORE LINK" Classes="eyebrow" />
+                        <TextBox Text="{Binding PendingAddFindingReviewText, Mode=OneWay}"
+                                 IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                                 MinHeight="72" MaxHeight="140"
+                                 FontFamily="{StaticResource Font.Data}" FontSize="11"
+                                 AutomationProperties.Name="Pending add finding review text" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <Button Classes="aiAction" Content="Confirm link to Design"
+                                  Command="{Binding ConfirmAddFindingToStrategyCommand}"
+                                  IsEnabled="{Binding CanConfirmAddFindingToStrategy}"
+                                  AutomationProperties.Name="Confirm add finding to strategy" />
+                          <Button Classes="ghost" Content="Cancel"
+                                  Command="{Binding DiscardAddFindingReviewCommand}"
+                                  IsEnabled="{Binding HasPendingAddFindingReview}"
+                                  AutomationProperties.Name="Cancel add finding review" />
+                        </StackPanel>
+                      </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto"
                           AutomationProperties.Name="Research chart-first layout">
                       <Border Grid.Column="0" Margin="0,0,6,0"
                               Background="{StaticResource Background.Elevated}"

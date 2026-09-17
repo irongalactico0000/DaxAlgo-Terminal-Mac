@@ -58,6 +58,7 @@ Success = acceptance journey + fixture evidence — no invented % probabilities.
 | [`TSD_MS_Source_Audit_2026-09-15.md`](TSD_MS_Source_Audit_2026-09-15.md) | Source audit notes |
 | [`Volume_Rehearsal_Evidence_2026-09-15.md`](Volume_Rehearsal_Evidence_2026-09-15.md) | Volume-condition rehearsal + Nautilus posture |
 | [`component-roles-csp-vibequant-nautilus-2026-09-17.md`](component-roles-csp-vibequant-nautilus-2026-09-17.md) | CSP / VibeQuant / Nautilus vs L1 Validate roles |
+| [`research-design-controls-2026-09-17.md`](research-design-controls-2026-09-17.md) | Research × Design button contracts (nav vs mutate) |
 | [`daxalgo-windows-to-macos-execution-parity.md`](daxalgo-windows-to-macos-execution-parity.md) | Execution lifecycle parity checklist |
 
 ## Agent reporting rule

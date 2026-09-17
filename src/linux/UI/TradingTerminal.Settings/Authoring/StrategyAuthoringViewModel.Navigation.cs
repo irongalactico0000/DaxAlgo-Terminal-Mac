@@ -491,6 +491,7 @@ public sealed partial class StrategyAuthoringViewModel
 
         Status =
             $"Returned to {StrategyReturnDisplayName}. Research chart, indicators, and conversation are kept — reopen Research Studio to continue.";
+        ClearPendingAddFindingReview();
         // Leave Research screen before clearing shell mode so OnActiveScreenChanged does not re-open Studio.
         ActiveScreen = target;
         WorkbenchTab = 3;

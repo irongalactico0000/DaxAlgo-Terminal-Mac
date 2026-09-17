@@ -1,0 +1,63 @@
+# Research × Strategy Design — control contract (2026-09-17)
+
+**Rule:** Navigation preserves work. Mutating actions (`Add finding`, `Accept` Hyperion, `Confirm link`, `Use template`) explicitly change the draft.
+
+**Clickable proposal:** [`research-design-controls-proposal-2026-09-17.html`](research-design-controls-proposal-2026-09-17.html) (illustrative; does not modify the app).
+
+## Central distinction
+
+| Kind | Examples | Effect on draft |
+|------|----------|-----------------|
+| **Navigate** | ← Back to Momentum · Investigate in Research · Design / Build / Validate stages | Preserves Design fields, findings, Hyperion pending state (except staged Add-finding review clears on Back) |
+| **Mutate** | Save finding · Add finding → Confirm link · Accept into Design · Use template · Discard Hyperion | Changes saved findings, linked research, or Design fields |
+
+## Strategy Design controls
+
+| Control | Acts on | Takes user | Mutates? |
+|---------|---------|------------|----------|
+| **Use template** | Starter catalog → Design fields | Stays on Design rule editor | **Yes** — seeds instrument/rules |
+| **Investigate in Research Studio** | Opens Studio with `ResearchOpenedFromBuilder` | Research Studio | **No** |
+| **Ask Hyperion from these rules** | Copies Design → composer prompt | Stays on Design | **No** (prompt only) |
+| **Stage last Hyperion reply** | Last assistant message → pending proposal | Design review panel | **No** until Accept |
+| **Accept into Design fields** | Pending Hyperion proposal → Design fields | Stays on Design | **Yes** |
+| **Discard** (Hyperion) | Clears pending proposal | Stays on Design | Clears proposal only |
+| **Review strategy** | Draft fields | Stays on Design | Confirm draft; no LLM |
+| Stage pills Design→Build→Validate→Run | Authoring stage | Named stage | **No** (unless Build requires blockers) |
+
+## Research Studio controls
+
+| Control | Acts on | Takes user | Mutates? |
+|---------|---------|------------|----------|
+| **← Back to {strategy}** | Navigation to prior Builder stage | Strategy Design (same draft) | **No** — also clears staged Add-finding review |
+| **Save finding 1 / 2** | Chart + condition → finding slots | Stays in Research | **Yes** — findings only |
+| **Add finding to {strategy}** | Stages review panel | Stays in Research | **No** until Confirm |
+| **Confirm link to Design** | Review package → linked research + composer evidence | Design | **Yes** |
+| **Cancel** (Add finding review) | Clears staged review | Stays in Research | **No** |
+| Rank / Open chart / Find similar | Research evidence | Chart / results | Research state only |
+
+## Journeys (acceptance)
+
+### A — Design → Investigate → Back
+
+1. Design: edit Momentum entry rule.  
+2. **Investigate in Research Studio**.  
+3. Optionally explore chart; do **not** Confirm link.  
+4. **← Back to Momentum**.  
+5. **Expect:** same entry rule; no linked finding; no composer evidence append.
+
+### B — Research → Save → Add → Confirm
+
+1. From Builder or Studio: apply condition, **Save finding 1**.  
+2. **Add finding to {strategy}** → review panel.  
+3. **Confirm link to Design**.  
+4. **Expect:** Design open; linked research; evidence in composer; prior Design fields preserved unless user edits.
+
+## Shipped code map
+
+| Behavior | Code |
+|----------|------|
+| Back without finding | `ReturnToStrategyBuilder` + `ClearPendingAddFindingReview` |
+| Stage Add finding | `UseObservationInDesign` → `PendingAddFindingReviewText` |
+| Confirm / Cancel | `ConfirmAddFindingToStrategy` / `DiscardAddFindingReview` |
+| Hyperion Accept | `AcceptHyperionDesignProposal` |
+| Investigate | `InvestigateInResearchStudio` |

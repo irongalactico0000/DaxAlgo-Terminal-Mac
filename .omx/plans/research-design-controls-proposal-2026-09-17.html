@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Research × Design controls — clickable proposal</title>
+  <style>
+    :root {
+      --bg: #1a1c1e;
+      --panel: #232629;
+      --elev: #2c3034;
+      --line: #3d4349;
+      --text: #e8eaed;
+      --muted: #9aa0a6;
+      --accent: #6ea8fe;
+      --warn: #c9a227;
+      --ok: #6abf69;
+      --mutate: #e07a5f;
+      --nav: #6ea8fe;
+      --font: "IBM Plex Sans", "Segoe UI", sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+      font: 14px/1.45 var(--font);
+    }
+    header {
+      padding: 16px 20px; border-bottom: 1px solid var(--line);
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between;
+    }
+    header h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.02em; }
+    header p { margin: 0; color: var(--muted); font-size: 12px; max-width: 52ch; }
+    .rule {
+      margin: 12px 20px 0; padding: 10px 12px; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 4px; font-size: 13px;
+    }
+    .rule strong { color: var(--warn); }
+    .journeys {
+      display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px;
+    }
+    .journeys button {
+      background: var(--elev); color: var(--text); border: 1px solid var(--line);
+      padding: 8px 12px; border-radius: 4px; cursor: pointer; font: inherit;
+    }
+    .journeys button.active { border-color: var(--accent); color: var(--accent); }
+    .shell {
+      margin: 0 20px 24px; border: 1px solid var(--line); border-radius: 6px;
+      background: var(--panel); overflow: hidden; min-height: 420px;
+    }
+    .chrome {
+      display: flex; gap: 8px; align-items: center; padding: 10px 12px;
+      border-bottom: 1px solid var(--line); background: var(--elev); flex-wrap: wrap;
+    }
+    .chrome .pill {
+      padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line);
+      font-size: 12px; color: var(--muted);
+    }
+    .chrome .pill.on { color: var(--text); border-color: var(--accent); }
+    .body { display: grid; grid-template-columns: 1fr 220px; min-height: 360px; }
+    @media (max-width: 800px) { .body { grid-template-columns: 1fr; } }
+    .main { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .side {
+      border-left: 1px solid var(--line); padding: 12px; background: var(--elev);
+      font-size: 12px; color: var(--muted);
+    }
+    label.field { display: block; font-size: 10px; letter-spacing: 0.08em; color: var(--muted); margin-top: 6px; }
+    .box {
+      margin-top: 4px; padding: 8px; background: var(--bg); border: 1px solid var(--line);
+      border-radius: 4px; font-family: var(--mono); font-size: 12px; min-height: 36px;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    button.ctrl {
+      border: 1px solid var(--line); background: var(--bg); color: var(--text);
+      padding: 7px 11px; border-radius: 4px; cursor: pointer; font: inherit; font-size: 12px;
+    }
+    button.ctrl:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.ctrl.nav { border-color: var(--nav); color: var(--nav); }
+    button.ctrl.mutate { border-color: var(--mutate); color: var(--mutate); }
+    button.ctrl.primary { background: var(--accent); color: #0b1020; border-color: var(--accent); font-weight: 600; }
+    .banner {
+      padding: 10px; border: 1px dashed var(--warn); border-radius: 4px; background: #2a2618;
+      font-size: 12px; display: none;
+    }
+    .banner.show { display: block; }
+    .status { font-size: 12px; color: var(--muted); min-height: 1.4em; }
+    .legend { padding: 0 20px 20px; font-size: 12px; color: var(--muted); }
+    .legend span { margin-right: 14px; }
+    .legend .n { color: var(--nav); }
+    .legend .m { color: var(--mutate); }
+    .hidden { display: none !important; }
+    .chart {
+      height: 120px; border: 1px solid var(--line); border-radius: 4px;
+      background: repeating-linear-gradient(-45deg, var(--bg), var(--bg) 8px, var(--elev) 8px, var(--elev) 16px);
+      display: grid; place-items: center; color: var(--muted); font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Research × Strategy Design — control proposal</h1>
+      <p>Illustrative only. Does not modify DaxAlgo. Navigation preserves work; Confirm / Accept / Use template mutate.</p>
+    </div>
+  </header>
+
+  <div class="rule"><strong>Rule:</strong> Navigation preserves your work; actions such as “Add finding” and “Apply edit” explicitly change it.</div>
+
+  <div class="journeys">
+    <button type="button" id="jA" class="active">Journey A · Design → Investigate → Back</button>
+    <button type="button" id="jB">Journey B · Save finding → Add → Confirm</button>
+  </div>
+
+  <div class="shell" id="designView">
+    <div class="chrome">
+      <span class="pill">Research Studio</span>
+      <span class="pill on">Design</span>
+      <span class="pill">Build</span>
+      <span class="pill">Validate</span>
+      <span class="pill">Run</span>
+      <span style="margin-left:auto;font-size:12px;color:var(--muted)">Strategy: <strong id="stratName" style="color:var(--text)">Momentum</strong></span>
+    </div>
+    <div class="body">
+      <div class="main">
+        <div class="status" id="designStatus">Design · edit rules. Investigate does not change fields.</div>
+        <label class="field">ENTRY</label>
+        <div class="box" id="entryRule" contenteditable="true">EMA 20 crosses above EMA 50 on completed 5m bar</div>
+        <label class="field">EXIT</label>
+        <div class="box" id="exitRule">Trail 1.5× ATR · time stop 12 bars</div>
+        <div class="banner" id="linkedBanner">LINKED RESEARCH · Finding 1 · MSFT volume ≥ 2×20 · not applied until you edit rules</div>
+        <div class="banner" id="hyperionBanner">
+          HYPERION PROPOSAL — REVIEW BEFORE ACCEPT<br />
+          <span style="color:var(--text)">On completed 5m bar, enter when close crosses above EMA 20.</span>
+          <div class="actions">
+            <button type="button" class="ctrl primary mutate" id="acceptHyperion">Accept into Design fields</button>
+            <button type="button" class="ctrl" id="discardHyperion">Discard</button>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" class="ctrl mutate" id="useTemplate">Use template · Momentum</button>
+          <button type="button" class="ctrl nav" id="investigate">Investigate in Research Studio</button>
+          <button type="button" class="ctrl" id="askHyperion">Ask Hyperion from these rules</button>
+          <button type="button" class="ctrl" id="stageHyperion">Stage last Hyperion reply</button>
+        </div>
+      </div>
+      <aside class="side">
+        <div>Control kind</div>
+        <p><span class="n">Blue outline</span> = navigate / preserve</p>
+        <p><span class="m">Coral outline</span> = mutate draft</p>
+        <p>Hyperion text never overwrites ENTRY until Accept.</p>
+      </aside>
+    </div>
+  </div>
+
+  <div class="shell hidden" id="researchView">
+    <div class="chrome">
+      <span class="pill on">Research Studio</span>
+      <span style="margin-left:auto;font-size:12px;color:var(--muted)">Opened from Builder</span>
+    </div>
+    <div class="body">
+      <div class="main">
+        <div class="status" id="researchStatus">Research · explore freely. Back returns without a finding.</div>
+        <div class="chart">Illustrative chart · MSFT · 5m</div>
+        <div class="banner" id="reviewBanner">
+          ADD FINDING — REVIEW BEFORE LINK<br />
+          <span style="color:var(--text)" id="reviewText">Finding 1 · MSFT · volume ≥ 2× avg(20) · EMA 20 on chart</span>
+          <div class="actions">
+            <button type="button" class="ctrl primary mutate" id="confirmLink">Confirm link to Design</button>
+            <button type="button" class="ctrl" id="cancelReview">Cancel</button>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" class="ctrl nav" id="backDesign">← Back to Momentum</button>
+          <button type="button" class="ctrl mutate" id="saveFinding">Save finding 1</button>
+          <button type="button" class="ctrl mutate" id="addFinding" disabled>Add finding to Momentum</button>
+        </div>
+      </div>
+      <aside class="side">
+        <div>Finding slot</div>
+        <p id="findingSlot">None saved yet</p>
+        <p>Add finding opens review. Confirm mutates Design link. Back never does.</p>
+      </aside>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="n">■ Navigate</span>
+    <span class="m">■ Mutate</span>
+    <span>Open this file in a browser to click through Journeys A and B.</span>
+  </div>
+
+  <script>
+    const state = {
+      entry: "EMA 20 crosses above EMA 50 on completed 5m bar",
+      exit: "Trail 1.5× ATR · time stop 12 bars",
+      finding: null,
+      review: false,
+      linked: false,
+      hyperion: false,
+      journey: "A",
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const show = (el, on) => el.classList.toggle("show", !!on);
+    const hideShell = (design) => {
+      $("designView").classList.toggle("hidden", !design);
+      $("researchView").classList.toggle("hidden", design);
+    };
+
+    function render() {
+      $("entryRule").textContent = state.entry;
+      $("exitRule").textContent = state.exit;
+      show($("linkedBanner"), state.linked);
+      show($("hyperionBanner"), state.hyperion);
+      show($("reviewBanner"), state.review);
+      $("findingSlot").textContent = state.finding || "None saved yet";
+      $("addFinding").disabled = !state.finding || state.review;
+      $("jA").classList.toggle("active", state.journey === "A");
+      $("jB").classList.toggle("active", state.journey === "B");
+    }
+
+    function goDesign(msg) {
+      hideShell(true);
+      $("designStatus").textContent = msg;
+      render();
+    }
+    function goResearch(msg) {
+      hideShell(false);
+      $("researchStatus").textContent = msg;
+      render();
+    }
+
+    $("jA").onclick = () => {
+      state.journey = "A";
+      state.finding = null;
+      state.review = false;
+      state.linked = false;
+      state.hyperion = false;
+      state.entry = "EMA 20 crosses above EMA 50 on completed 5m bar";
+      goDesign("Journey A ready · edit ENTRY, then Investigate, then Back.");
+    };
+    $("jB").onclick = () => {
+      state.journey = "B";
+      state.finding = null;
+      state.review = false;
+      state.linked = false;
+      state.hyperion = false;
+      goResearch("Journey B ready · Save finding, Add finding, Confirm link.");
+    };
+
+    $("investigate").onclick = () =>
+      goResearch("Investigating from Design · Momentum draft preserved. Back requires no finding.");
+    $("backDesign").onclick = () => {
+      state.review = false;
+      goDesign("Returned to Momentum · ENTRY unchanged · no finding linked.");
+    };
+    $("saveFinding").onclick = () => {
+      state.finding = "Finding 1 · MSFT · volume ≥ 2× avg(20)";
+      $("researchStatus").textContent = "Finding saved · Add finding stages review (does not link yet).";
+      render();
+    };
+    $("addFinding").onclick = () => {
+      state.review = true;
+      $("researchStatus").textContent = "Review before link · Confirm mutates; Cancel / Back do not.";
+      render();
+    };
+    $("cancelReview").onclick = () => {
+      state.review = false;
+      $("researchStatus").textContent = "Review canceled · Design unchanged.";
+      render();
+    };
+    $("confirmLink").onclick = () => {
+      state.review = false;
+      state.linked = true;
+      goDesign("Finding linked · review evidence in LINKED RESEARCH · edit rules explicitly.");
+    };
+    $("useTemplate").onclick = () => {
+      state.entry = "Template Momentum · close > EMA 20 · pullback entry";
+      state.exit = "Template · stop under swing · target 2R";
+      $("designStatus").textContent = "Use template mutated Design fields (illustrative).";
+      render();
+    };
+    $("askHyperion").onclick = () => {
+      state.hyperion = false;
+      $("designStatus").textContent = "Ask Hyperion · prompt only · Design fields unchanged.";
+      render();
+    };
+    $("stageHyperion").onclick = () => {
+      state.hyperion = true;
+      $("designStatus").textContent = "Hyperion reply staged · Accept required to write ENTRY.";
+      render();
+    };
+    $("acceptHyperion").onclick = () => {
+      state.entry = "On completed 5m bar, enter when close crosses above EMA 20.";
+      state.hyperion = false;
+      $("designStatus").textContent = "Accepted Hyperion into ENTRY · explicit mutate.";
+      render();
+    };
+    $("discardHyperion").onclick = () => {
+      state.hyperion = false;
+      $("designStatus").textContent = "Discarded Hyperion proposal · ENTRY unchanged.";
+      render();
+    };
+
+    $("entryRule").addEventListener("input", () => {
+      state.entry = $("entryRule").textContent || "";
+    });
+
+    render();
+  </script>
+</body>
+</html>
