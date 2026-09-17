@@ -35,6 +35,7 @@ public sealed record AuthoringChatEntry(
 /// <param name="ResearchAnalysisReferencesJson">Named in-app research findings 1/2/… (canon R13; ReferenceId stays A/B).</param>
 /// <param name="ResearchChartSelectionJson">Pending chart brush (U03) — survives reopen without re-selecting on the chart.</param>
 /// <param name="ResearchIndicatorBindingsJson">Pending indicator bindings captured with the chart brush (U04).</param>
+/// <param name="DesignIndicatorsJson">Design rule-editor indicator rows (binding + input + provenance) so formula/version survive reopen.</param>
 public sealed record AuthoringSessionSnapshot(
     string StrategyId,
     string DisplayName,
@@ -84,6 +85,7 @@ public sealed record AuthoringSessionSnapshot(
     string? ResearchAnalysisReferencesJson = null,
     string? ResearchChartSelectionJson = null,
     string? ResearchIndicatorBindingsJson = null,
+    string? DesignIndicatorsJson = null,
     string? DesignInstrumentText = null,
     string? DesignTimeframeText = null,
     string? DesignEvaluationTimingText = null,

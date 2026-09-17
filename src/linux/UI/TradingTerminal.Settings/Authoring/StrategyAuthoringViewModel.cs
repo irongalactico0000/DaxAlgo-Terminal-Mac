@@ -4276,9 +4276,29 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         DesignRiskRuleText = session.DesignRiskRuleText ?? "";
         DesignOrderRuleText = session.DesignOrderRuleText ?? "";
         LastAppliedStarterId = session.LastAppliedStarterId;
+        RestoreDesignIndicatorsFromSession(session.DesignIndicatorsJson);
         OnPropertyChanged(nameof(CanInvestigateInResearchStudio));
         InvestigateInResearchStudioCommand.NotifyCanExecuteChanged();
         NotifyDesignDraftChanged();
+    }
+
+    private void RestoreDesignIndicatorsFromSession(string? json)
+    {
+        DesignIndicators.Clear();
+        if (string.IsNullOrWhiteSpace(json))
+            return;
+        try
+        {
+            var rows = ExecutableStrategyDefinitionCanonicalJson.Deserialize<DesignIndicatorSessionV1[]>(json);
+            if (rows is null || rows.Length == 0)
+                return;
+            foreach (var row in rows)
+                DesignIndicators.Add(DesignIndicatorRow.FromSession(row));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not restore Design indicators from session");
+        }
     }
 
     private StrategyAuthoringScreen ResolveRestoredActiveScreen(StrategyAuthoringScreen saved)
@@ -4526,6 +4546,10 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             ResearchIndicatorBindingsJson: PendingResearchIndicatorBindings.Count == 0
                 ? null
                 : ExecutableStrategyDefinitionCanonicalJson.Serialize(PendingResearchIndicatorBindings),
+            DesignIndicatorsJson: DesignIndicators.Count == 0
+                ? null
+                : ExecutableStrategyDefinitionCanonicalJson.Serialize(
+                    DesignIndicators.Select(static i => i.ToSession()).ToArray()),
             DesignInstrumentText: NullIfWhiteSpace(DesignInstrumentText),
             DesignTimeframeText: NullIfWhiteSpace(DesignTimeframeText),
             DesignEvaluationTimingText: NullIfWhiteSpace(DesignEvaluationTimingText),

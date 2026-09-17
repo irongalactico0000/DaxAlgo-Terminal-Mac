@@ -718,6 +718,9 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignTimeframeText.Should().Be("15m");
         viewModel.DesignTimeframeProvenanceLabel.Should().Contain("Hyperion");
         viewModel.DesignIndicators.Should().HaveCount(2);
+        viewModel.DesignIndicators[0].FormulaDetailText.Should().Contain("exponential moving average");
+        viewModel.DesignIndicators[0].FormulaDetailText.Should().Contain("ver ");
+        viewModel.DesignIndicators[0].Provenance.Should().Be(DesignValueProvenance.HyperionAccepted);
         viewModel.DesignEntryCondition.LeftOperand.Should().Be("ema(20)");
         viewModel.DesignEntryCondition.RightOperand.Should().Be("ema(50)");
         viewModel.DesignEntryCondition.OperatorKey.Should().Be("crosses above");
@@ -727,6 +730,63 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DesignEntryCondition.LeftOperand = "ema(30)";
         viewModel.DesignEntryRuleText.Should().Be("ema(30) crosses above ema(50)");
         viewModel.DesignEntryCondition.Provenance.Should().Be(DesignValueProvenance.Operator);
+    }
+
+    [Fact]
+    public void Hyperion_Accept_reuses_Research_binding_id_when_kind_and_period_match()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.PendingResearchIndicatorBindings =
+        [
+            new ResearchIndicatorBindingV1("host.ema-20", "ema", 20),
+            new ResearchIndicatorBindingV1("host.ema-50", "ema", 50),
+        ];
+        viewModel.Messages.Add(new AuthoringMessage(
+            CodegenRole.Assistant,
+            "INDICATORS: ema(20), ema(50)\nCONDITION: ema(20) crosses above ema(50)"));
+        viewModel.StageLastHyperionAsDesignProposalCommand.Execute(null);
+        viewModel.AcceptHyperionDesignProposalCommand.Execute(null);
+
+        viewModel.DesignIndicators.Should().Contain(i => i.BindingId == "host.ema-20");
+        viewModel.DesignIndicators.Should().Contain(i => i.BindingId == "host.ema-50");
+        viewModel.DesignIndicators.First(i => i.BindingId == "host.ema-20")
+            .FormulaDetailText.Should().Contain("ver ");
+    }
+
+    [Fact]
+    public void Design_indicators_survive_session_save_and_restore_with_formula_version()
+    {
+        var row = DesignIndicatorRow.Create("ema", 20, DesignValueProvenance.HyperionAccepted);
+        var sessions = new MemoryAuthoringSessionRepository();
+        sessions.Save(new AuthoringSessionSnapshot(
+            StrategyId: "ind-persist",
+            DisplayName: "Indicator persist",
+            Chat: [],
+            Thread: [],
+            Files: [new StrategyFile(StrategyFile.DefaultName, "// draft")],
+            AuthoringUxVersion: AuthoringSessionSnapshot.CurrentAuthoringUxVersion,
+            UpdatedUtc: DateTime.UtcNow,
+            DesignIndicatorsJson: TradingTerminal.Core.Strategies.Definition.ExecutableStrategyDefinitionCanonicalJson
+                .Serialize(new[] { row.ToSession() }),
+            DesignInstrumentText: "ES"));
+
+        using var restored = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: sessions);
+        restored.SelectedSavedSession = sessions.List().First(s => s.StrategyId == "ind-persist");
+        restored.DesignIndicators.Should().ContainSingle();
+        restored.DesignIndicators[0].Kind.Should().Be("ema");
+        restored.DesignIndicators[0].Period.Should().Be(20);
+        restored.DesignIndicators[0].Provenance.Should().Be(DesignValueProvenance.HyperionAccepted);
+        restored.DesignIndicators[0].FormulaDetailText.Should().Contain("ver ");
+        restored.DesignIndicators[0].FormulaDetailText.Should().Contain("exponential moving average");
     }
 
     [Fact]

@@ -1622,6 +1622,15 @@ public sealed partial class StrategyAuthoringViewModel
             return;
         }
 
+        // Prefer Research chart binding (stable BindingId + formula) when Hyperion names the same series.
+        var research = PendingResearchIndicatorBindings.FirstOrDefault(b =>
+            string.Equals(b.Kind, kind, StringComparison.OrdinalIgnoreCase) && b.Period == period);
+        if (research is not null)
+        {
+            DesignIndicators.Add(DesignIndicatorRow.FromBinding(research, provenance));
+            return;
+        }
+
         DesignIndicators.Add(DesignIndicatorRow.Create(kind, period, provenance));
     }
 

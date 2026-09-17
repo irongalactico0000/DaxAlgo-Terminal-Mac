@@ -313,6 +313,8 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("Hyperion design proposal review");
         root.ToString().Should().Contain("Finding design proposal review");
         root.ToString().Should().Contain("Design indicators editor");
+        root.ToString().Should().Contain("Design indicator formula detail");
+        root.ToString().Should().Contain("FormulaDetailText");
         root.ToString().Should().Contain("Design entry condition editor");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Add design indicator" &&

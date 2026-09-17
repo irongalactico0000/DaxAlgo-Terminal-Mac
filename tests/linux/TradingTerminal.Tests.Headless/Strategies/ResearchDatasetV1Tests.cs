@@ -79,6 +79,17 @@ public sealed class ResearchDatasetV1Tests
     }
 
     [Fact]
+    public void Indicator_binding_version_changes_when_period_changes()
+    {
+        var ema20 = new ResearchIndicatorBindingV1("host.ema", "ema", 20);
+        var ema25 = new ResearchIndicatorBindingV1("host.ema", "ema", 25);
+        Assert.NotEqual(ema20.VersionHashSha256, ema25.VersionHashSha256);
+        Assert.Equal(12, ema20.VersionShort.Length);
+        Assert.Contains("exponential moving average", ema20.FormulaDescription, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("period 20", ema20.SettingsSummary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Condition_version_changes_when_threshold_changes()
     {
         var two = ResearchConditionDefinitionV1.VolumeMultiple(2, 20);

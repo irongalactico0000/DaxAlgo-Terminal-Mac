@@ -23,6 +23,8 @@ public enum ResearchEventLabelSourceV1
 /// <summary>
 /// Exact indicator settings captured from the host chart for research continuity (R05/R12).
 /// Prefer this over host overlay catalog ids when computing or restoring.
+/// Kind + Period define the formula template; <see cref="VersionShort"/> is a parameter hash
+/// (same idea as research conditions) so Design can show more than a display name like ema(20).
 /// </summary>
 public sealed record ResearchIndicatorBindingV1(
     string BindingId,
@@ -31,7 +33,7 @@ public sealed record ResearchIndicatorBindingV1(
 {
     public string DisplayLabel => Period > 0 ? $"{Kind}({Period})" : Kind;
 
-    /// <summary>Human-readable formula for Research Studio inspect panel.</summary>
+    /// <summary>Human-readable formula for Research Studio / Design inspect panels.</summary>
     public string FormulaDescription
     {
         get
@@ -59,7 +61,25 @@ public sealed record ResearchIndicatorBindingV1(
                 : $"{DisplayLabel} — chart overlay";
         }
     }
+
+    /// <summary>Compact settings line (period / binding id) — not a second formula string.</summary>
+    public string SettingsSummary =>
+        Period > 0
+            ? $"period {Period} · id {BindingId}"
+            : $"id {BindingId}";
+
+    /// <summary>SHA-256 of BindingId + Kind + Period (parameter identity, same idea as conditions).</summary>
+    public string VersionHashSha256 =>
+        ExecutableStrategyDefinitionCanonicalJson.Hash(
+            new ResearchIndicatorBindingHashV1(BindingId, Kind, Period));
+
+    public string VersionShort => VersionHashSha256.Length >= 12
+        ? VersionHashSha256[..12]
+        : VersionHashSha256;
 }
+
+/// <summary>Hash payload only — excludes computed formula text so version tracks settings.</summary>
+internal sealed record ResearchIndicatorBindingHashV1(string BindingId, string Kind, int Period);
 
 /// <summary>
 /// One host-owned chart brush. The observation window is the only interval feature computation may

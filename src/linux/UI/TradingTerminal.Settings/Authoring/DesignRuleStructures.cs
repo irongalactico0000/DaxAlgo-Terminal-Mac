@@ -48,11 +48,20 @@ public sealed partial class DesignIndicatorRow : ObservableObject
 
     public string FormulaDescription => ToBinding().FormulaDescription;
 
+    public string SettingsSummary =>
+        $"input {(string.IsNullOrWhiteSpace(Input) ? "Close" : Input.Trim())} · {ToBinding().SettingsSummary}";
+
+    public string VersionShort => ToBinding().VersionShort;
+
     public string ProvenanceLabel => DesignValueProvenanceLabels.Label(Provenance);
 
     public string EditorSummary =>
         $"{DisplayLabel} · input {Input}" +
         (string.IsNullOrEmpty(ProvenanceLabel) ? "" : $" · {ProvenanceLabel}");
+
+    /// <summary>Formula + settings + version — what Hyperion Accept must leave on the row, not just ema(20).</summary>
+    public string FormulaDetailText =>
+        $"{FormulaDescription} · {SettingsSummary} · ver {VersionShort}";
 
     partial void OnKindChanged(string value) => NotifyDisplay();
     partial void OnPeriodChanged(int value)
@@ -68,13 +77,17 @@ public sealed partial class DesignIndicatorRow : ObservableObject
 
     partial void OnInputChanged(string value) => NotifyDisplay();
     partial void OnProvenanceChanged(DesignValueProvenance value) => NotifyDisplay();
+    partial void OnBindingIdChanged(string value) => NotifyDisplay();
 
     private void NotifyDisplay()
     {
         OnPropertyChanged(nameof(DisplayLabel));
         OnPropertyChanged(nameof(FormulaDescription));
+        OnPropertyChanged(nameof(SettingsSummary));
+        OnPropertyChanged(nameof(VersionShort));
         OnPropertyChanged(nameof(ProvenanceLabel));
         OnPropertyChanged(nameof(EditorSummary));
+        OnPropertyChanged(nameof(FormulaDetailText));
     }
 
     public ResearchIndicatorBindingV1 ToBinding() =>
@@ -104,7 +117,33 @@ public sealed partial class DesignIndicatorRow : ObservableObject
             Input = "Close",
             Provenance = provenance,
         };
+
+    public DesignIndicatorSessionV1 ToSession() =>
+        new(BindingId, Kind, Period, Input, Provenance.ToString());
+
+    public static DesignIndicatorRow FromSession(DesignIndicatorSessionV1 session)
+    {
+        var provenance = Enum.TryParse<DesignValueProvenance>(session.Provenance, ignoreCase: true, out var parsed)
+            ? parsed
+            : DesignValueProvenance.Operator;
+        return new DesignIndicatorRow
+        {
+            BindingId = session.BindingId,
+            Kind = session.Kind,
+            Period = session.Period,
+            Input = string.IsNullOrWhiteSpace(session.Input) ? "Close" : session.Input,
+            Provenance = provenance,
+        };
+    }
 }
+
+/// <summary>Persisted Design indicator row (formula identity + provenance) for session restore.</summary>
+public sealed record DesignIndicatorSessionV1(
+    string BindingId,
+    string Kind,
+    int Period,
+    string Input,
+    string Provenance);
 
 /// <summary>
 /// Structured entry/exit condition. "Crosses above" is distinct from "is above".

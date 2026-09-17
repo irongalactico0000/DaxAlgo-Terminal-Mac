@@ -2248,8 +2248,13 @@
                             <ItemsControl.ItemTemplate>
                               <DataTemplate>
                                 <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                                  <TextBlock Text="{Binding EditorSummary}" VerticalAlignment="Center"
-                                             TextWrapping="Wrap" />
+                                  <StackPanel Spacing="1">
+                                    <TextBlock Text="{Binding EditorSummary}" VerticalAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding FormulaDetailText}" Classes="caption"
+                                               TextWrapping="Wrap"
+                                               AutomationProperties.Name="Design indicator formula detail" />
+                                  </StackPanel>
                                   <Button Grid.Column="1" Classes="ghost" Content="Remove"
                                           Command="{Binding DataContext.RemoveDesignIndicatorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                           CommandParameter="{Binding}"
