@@ -305,6 +305,15 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("DesignUnresolvedChecklistText");
         root.ToString().Should().Contain("Hyperion design proposal review");
         root.ToString().Should().Contain("Finding design proposal review");
+        root.ToString().Should().Contain("Design indicators editor");
+        root.ToString().Should().Contain("Design entry condition editor");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Add design indicator" &&
+            (string?)element.Attribute("Command") == "{Binding AddDesignIndicatorCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Import research indicators to Design" &&
+            (string?)element.Attribute("Command") == "{Binding ImportResearchIndicatorsToDesignCommand}");
+        root.ToString().Should().Contain("Design entry left operand");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Propose Design rules from finding" &&
             (string?)element.Attribute("Command") == "{Binding StageFindingAsDesignProposalCommand}");

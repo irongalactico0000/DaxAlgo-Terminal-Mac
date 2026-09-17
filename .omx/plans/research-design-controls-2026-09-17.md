@@ -53,13 +53,15 @@
 3. **Confirm link to Design**.  
 4. **Expect:** Design open; `LinkedResearchSummaryText` shows finding linked; evidence in composer; Design rule fields unchanged until the operator edits them; `PendingStrategyDraft` carries **condition id + version hash** (created from chart selection when no chart draft existed).
 
-## Shipped code map
+## Progressive specification (2026-09-17 follow-on)
 
-| Behavior | Code |
-|----------|------|
-| Back without finding | `ReturnToStrategyBuilder` + `ClearPendingAddFindingReview` |
-| Stage Add finding | `UseObservationInDesign` → `PendingAddFindingReviewText` |
-| Confirm / Cancel | `ConfirmAddFindingToStrategy` / `DiscardAddFindingReview` |
-| Confirm binds condition | `TryBindResearchConditionIntoStrategyDraft(createDraftFromSelectionIfMissing: true)` |
-| Hyperion Accept | `AcceptHyperionDesignProposal` |
-| Investigate | `InvestigateInResearchStudio` |
+Chat and the Rules panel share one working draft. Hyperion **stages → Accept** still gates mutation.
+
+| Control | Role |
+|---------|------|
+| **INDICATORS (optional)** | Add / Remove / Reuse from Research — available for conditions; never auto-entry |
+| **ENTRY CONDITION** | Left operand · operator (`crosses above` ≠ `is above`) · right operand |
+| **Provenance captions** | You set this · From Hyperion (accepted) · From Research (available) · Suggested default |
+| **Ask Hyperion** | Prompt includes `INDICATORS` / `CONDITION` keys; Accept parses them into the same controls |
+
+

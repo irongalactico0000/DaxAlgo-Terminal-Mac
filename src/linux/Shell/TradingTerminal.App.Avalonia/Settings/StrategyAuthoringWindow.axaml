@@ -2156,17 +2156,91 @@
                                Watermark="Unresolved until selected (e.g. ES, BTC-USD)"
                                TextWrapping="Wrap" MinHeight="32"
                                AutomationProperties.Name="Design instrument" />
+                      <TextBlock Text="{Binding DesignInstrumentProvenanceLabel}" Classes="caption"
+                                 IsVisible="{Binding DesignInstrumentProvenanceLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                 AutomationProperties.Name="Design instrument provenance" />
                       <TextBlock Text="TIMEFRAME / DATA" Classes="eyebrow" />
                       <ComboBox ItemsSource="{Binding DesignTimeframeOptions}"
                                 SelectedItem="{Binding DesignTimeframeText, Mode=TwoWay}"
                                 MinWidth="120" HorizontalAlignment="Left"
                                 AutomationProperties.Name="Design timeframe" />
+                      <TextBlock Text="{Binding DesignTimeframeProvenanceLabel}" Classes="caption"
+                                 IsVisible="{Binding DesignTimeframeProvenanceLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                 AutomationProperties.Name="Design timeframe provenance" />
                       <TextBlock Text="EVALUATION TIMING" Classes="eyebrow" />
                       <ComboBox ItemsSource="{Binding DesignEvaluationTimingOptions}"
                                 SelectedItem="{Binding DesignEvaluationTimingText, Mode=TwoWay}"
                                 MinWidth="160" HorizontalAlignment="Left"
                                 AutomationProperties.Name="Design evaluation timing" />
-                      <TextBlock Text="ENTRY" Classes="eyebrow" />
+                      <Border Background="{StaticResource Background.Elevated}"
+                              BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                              CornerRadius="4" Padding="8,6"
+                              AutomationProperties.Name="Design indicators editor">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="INDICATORS (OPTIONAL)" Classes="eyebrow" />
+                          <TextBlock Text="{Binding DesignIndicatorsEmptyHint}" Classes="caption"
+                                     TextWrapping="Wrap" />
+                          <ItemsControl ItemsSource="{Binding DesignIndicators}"
+                                        AutomationProperties.Name="Design indicator list">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                  <TextBlock Text="{Binding EditorSummary}" VerticalAlignment="Center"
+                                             TextWrapping="Wrap" />
+                                  <Button Grid.Column="1" Classes="ghost" Content="Remove"
+                                          Command="{Binding DataContext.RemoveDesignIndicatorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          CommandParameter="{Binding}"
+                                          AutomationProperties.Name="Remove design indicator" />
+                                </Grid>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ComboBox ItemsSource="{Binding DesignIndicatorKindOptions}"
+                                      SelectedItem="{Binding NewDesignIndicatorKind, Mode=TwoWay}"
+                                      MinWidth="88" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="New design indicator kind" />
+                            <TextBox Text="{Binding NewDesignIndicatorPeriodText, Mode=TwoWay}"
+                                     Watermark="period" Width="64"
+                                     AutomationProperties.Name="New design indicator period" />
+                            <Button Classes="ghost" Content="Add indicator"
+                                    Command="{Binding AddDesignIndicatorCommand}"
+                                    IsEnabled="{Binding CanAddDesignIndicator}"
+                                    AutomationProperties.Name="Add design indicator" />
+                            <Button Classes="ghost" Content="Reuse from Research"
+                                    Command="{Binding ImportResearchIndicatorsToDesignCommand}"
+                                    IsEnabled="{Binding CanImportResearchIndicatorsToDesign}"
+                                    ToolTip.Tip="Copies Research chart bindings into Design as available indicators. Does not create an entry rule."
+                                    AutomationProperties.Name="Import research indicators to Design" />
+                          </StackPanel>
+                        </StackPanel>
+                      </Border>
+                      <Border Background="{StaticResource Background.Elevated}"
+                              BorderBrush="{StaticResource Border.Brush}" BorderThickness="1"
+                              CornerRadius="4" Padding="8,6"
+                              AutomationProperties.Name="Design entry condition editor">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="ENTRY CONDITION" Classes="eyebrow" />
+                          <TextBlock Text="Crosses above detects a transition; is above can stay true across bars."
+                                     Classes="caption" TextWrapping="Wrap" />
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox Text="{Binding DesignEntryCondition.LeftOperand, Mode=TwoWay}"
+                                     Watermark="e.g. ema(20)" MinWidth="100"
+                                     AutomationProperties.Name="Design entry left operand" />
+                            <ComboBox ItemsSource="{Binding DesignConditionOperatorOptions}"
+                                      SelectedItem="{Binding DesignEntryCondition.OperatorKey, Mode=TwoWay}"
+                                      MinWidth="130" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Design entry operator" />
+                            <TextBox Text="{Binding DesignEntryCondition.RightOperand, Mode=TwoWay}"
+                                     Watermark="e.g. ema(50)" MinWidth="100"
+                                     AutomationProperties.Name="Design entry right operand" />
+                          </StackPanel>
+                          <TextBlock Text="{Binding DesignEntryCondition.ProvenanceLabel}" Classes="caption"
+                                     IsVisible="{Binding DesignEntryCondition.ProvenanceLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                     AutomationProperties.Name="Design entry condition provenance" />
+                        </StackPanel>
+                      </Border>
+                      <TextBlock Text="ENTRY (SUMMARY / FREEFORM)" Classes="eyebrow" />
                       <TextBox Text="{Binding DesignEntryRuleText, Mode=TwoWay}"
                                Watermark="When do you enter? (signal, confirmation)"
                                TextWrapping="Wrap" MinHeight="44"

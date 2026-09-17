@@ -660,10 +660,19 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.AcceptHyperionDesignProposalCommand.Execute(null);
         viewModel.DesignInstrumentText.Should().Be("NQ");
         viewModel.DesignTimeframeText.Should().Be("15m");
-        viewModel.DesignEntryRuleText.Should().Be("EMA 20 crosses above EMA 50");
+        viewModel.DesignEntryRuleText.Should().Be("EMA(20) crosses above EMA(50)");
         viewModel.DesignSizingRuleText.Should().Be("1 contract");
         viewModel.HasPendingHyperionDesignProposal.Should().BeFalse();
         viewModel.DesignUnresolvedChecklistText.Should().Contain("All Design fields have text");
+        viewModel.DesignInstrumentProvenance.Should().Be(DesignValueProvenance.HyperionAccepted);
+        viewModel.DesignTimeframeProvenance.Should().Be(DesignValueProvenance.HyperionAccepted);
+        viewModel.DesignIndicators.Should().Contain(i =>
+            i.Kind.Equals("EMA", StringComparison.OrdinalIgnoreCase) && i.Period == 20);
+        viewModel.DesignIndicators.Should().Contain(i =>
+            i.Kind.Equals("EMA", StringComparison.OrdinalIgnoreCase) && i.Period == 50);
+        viewModel.DesignEntryCondition.IsComplete.Should().BeTrue();
+        viewModel.DesignEntryCondition.OperatorKey.Should().Be("crosses above");
+        viewModel.DesignEntryCondition.Provenance.Should().Be(DesignValueProvenance.HyperionAccepted);
 
         viewModel.DesignEntryRuleText = "manual EMA 30 cross";
         viewModel.Messages.Add(new AuthoringMessage(
@@ -673,6 +682,58 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.DiscardHyperionDesignProposalCommand.Execute(null);
         viewModel.DesignEntryRuleText.Should().Be("manual EMA 30 cross");
         viewModel.HasPendingHyperionDesignProposal.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Hyperion_Accept_parses_INDICATORS_and_CONDITION_into_editable_controls()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.Messages.Add(new AuthoringMessage(
+            CodegenRole.Assistant,
+            "INSTRUMENT: MSFT\nTIMEFRAME: 15m\nEVALUATION: Completed bar\n" +
+            "INDICATORS: ema(20), ema(50)\n" +
+            "CONDITION: ema(20) crosses above ema(50)\n" +
+            "SIZING: target 10 shares\n" +
+            "EXIT: ema(20) crosses below ema(50)"));
+        viewModel.StageLastHyperionAsDesignProposalCommand.Execute(null);
+        viewModel.DesignInstrumentText.Should().BeNullOrEmpty("stage must not mutate");
+        viewModel.AcceptHyperionDesignProposalCommand.Execute(null);
+
+        viewModel.DesignInstrumentText.Should().Be("MSFT");
+        viewModel.DesignTimeframeText.Should().Be("15m");
+        viewModel.DesignTimeframeProvenanceLabel.Should().Contain("Hyperion");
+        viewModel.DesignIndicators.Should().HaveCount(2);
+        viewModel.DesignEntryCondition.LeftOperand.Should().Be("ema(20)");
+        viewModel.DesignEntryCondition.RightOperand.Should().Be("ema(50)");
+        viewModel.DesignEntryCondition.OperatorKey.Should().Be("crosses above");
+        viewModel.DesignEntryRuleText.Should().Be("ema(20) crosses above ema(50)");
+        viewModel.DesignSizingRuleText.Should().Be("target 10 shares");
+
+        viewModel.DesignEntryCondition.LeftOperand = "ema(30)";
+        viewModel.DesignEntryRuleText.Should().Be("ema(30) crosses above ema(50)");
+        viewModel.DesignEntryCondition.Provenance.Should().Be(DesignValueProvenance.Operator);
+    }
+
+    [Fact]
+    public void Add_design_indicator_does_not_create_entry_rule()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.NewDesignIndicatorKind = "ema";
+        viewModel.NewDesignIndicatorPeriodText = "20";
+        viewModel.AddDesignIndicatorCommand.Execute(null);
+        viewModel.DesignIndicators.Should().ContainSingle(i => i.Period == 20);
+        viewModel.DesignEntryRuleText.Should().BeNullOrEmpty();
+        viewModel.DesignEntryCondition.IsComplete.Should().BeFalse();
     }
 
     [Fact]

@@ -1,3 +1,6 @@
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -25,12 +28,34 @@ public sealed partial class StrategyAuthoringViewModel
     [ObservableProperty] private string _designOrderRuleText = "";
     [ObservableProperty] private string _pendingHyperionDesignProposalText = "";
     [ObservableProperty] private bool _awaitingHyperionDesignProposal;
+    [ObservableProperty] private DesignValueProvenance _designInstrumentProvenance = DesignValueProvenance.Unset;
+    [ObservableProperty] private DesignValueProvenance _designTimeframeProvenance = DesignValueProvenance.Unset;
+    [ObservableProperty] private string _newDesignIndicatorKind = "ema";
+    [ObservableProperty] private string _newDesignIndicatorPeriodText = "20";
+
+    /// <summary>True while Accept applies a proposal — skips marking edits as Operator.</summary>
+    private bool _applyingDesignProposal;
+
+    /// <summary>True while syncing ENTRY text from the structured condition row.</summary>
+    private bool _syncingEntryFromCondition;
+
+    public ObservableCollection<DesignIndicatorRow> DesignIndicators { get; } = [];
+
+    public DesignEntryConditionRow DesignEntryCondition { get; } = new();
+
+    public IReadOnlyList<string> DesignIndicatorKindOptions { get; } =
+        ["ema", "sma", "rsi", "macd", "bb"];
+
+    public IReadOnlyList<string> DesignConditionOperatorOptions =>
+        DesignEntryConditionRow.OperatorOptions;
 
     public IReadOnlyList<string> DesignTimeframeOptions { get; } =
         ["", "1m", "5m", "15m", "1h", "1D"];
 
     public IReadOnlyList<string> DesignEvaluationTimingOptions { get; } =
         ["", "Completed bar", "Forming bar", "Session open"];
+
+    public bool HasDesignIndicators => DesignIndicators.Count > 0;
 
     public bool HasDesignRuleDraft =>
         !string.IsNullOrWhiteSpace(DesignInstrumentText) ||
@@ -40,7 +65,19 @@ public sealed partial class StrategyAuthoringViewModel
         !string.IsNullOrWhiteSpace(DesignExitRuleText) ||
         !string.IsNullOrWhiteSpace(DesignSizingRuleText) ||
         !string.IsNullOrWhiteSpace(DesignRiskRuleText) ||
-        !string.IsNullOrWhiteSpace(DesignOrderRuleText);
+        !string.IsNullOrWhiteSpace(DesignOrderRuleText) ||
+        HasDesignIndicators ||
+        DesignEntryCondition.IsComplete;
+
+    public string DesignInstrumentProvenanceLabel =>
+        DesignValueProvenanceLabels.Label(DesignInstrumentProvenance);
+
+    public string DesignTimeframeProvenanceLabel =>
+        DesignValueProvenanceLabels.Label(DesignTimeframeProvenance);
+
+    public string DesignIndicatorsEmptyHint =>
+        "Optional. Add indicators the rules reference, or reuse Research chart bindings. " +
+        "Adding an indicator does not create an entry rule.";
 
     public bool HasPendingHyperionDesignProposal =>
         !string.IsNullOrWhiteSpace(PendingHyperionDesignProposalText);
@@ -48,9 +85,11 @@ public sealed partial class StrategyAuthoringViewModel
     public string DesignRuleEditorHint =>
         HasPendingFindingDesignProposal
             ? "Review the finding → Design rules proposal below. Apply writes fields; Discard keeps your draft."
+            : HasPendingHyperionDesignProposal
+            ? "Review Hyperion’s proposal. Accept writes the same fields and structured indicators/conditions you can edit."
             : HasResearchDesignHandoff
-            ? "Linked research finding is below — Apply finding to Design rules (review first), or fill fields manually."
-            : "Edit the working strategy draft here. Hyperion proposals must be Accepted before they change these fields.";
+            ? "Linked research is below — Apply finding (review first), add indicators/conditions, or Ask Hyperion. Chat and controls share one draft."
+            : "Chat progressively specifies the strategy; Accept applies proposals into these controls. Edit the same rules here — do not retype what Hyperion already proposed.";
 
     [ObservableProperty] private string _pendingFindingDesignProposalText = "";
 
@@ -76,6 +115,11 @@ public sealed partial class StrategyAuthoringViewModel
     public bool CanAcceptHyperionDesignProposal =>
         HasPendingHyperionDesignProposal && !IsGenerating;
 
+    public bool CanAddDesignIndicator => !IsGenerating;
+
+    public bool CanImportResearchIndicatorsToDesign =>
+        !IsGenerating && PendingResearchIndicatorBindings.Count > 0;
+
     public string DesignUnresolvedChecklistText
     {
         get
@@ -87,7 +131,7 @@ public sealed partial class StrategyAuthoringViewModel
                 missing.Add("timeframe / data");
             if (IsDesignFieldUnresolved(DesignEvaluationTimingText))
                 missing.Add("evaluation timing");
-            if (IsDesignFieldUnresolved(DesignEntryRuleText))
+            if (IsDesignFieldUnresolved(DesignEntryRuleText) && !DesignEntryCondition.IsComplete)
                 missing.Add("entry condition");
             if (IsDesignFieldUnresolved(DesignExitRuleText))
                 missing.Add("exit");
@@ -121,12 +165,23 @@ public sealed partial class StrategyAuthoringViewModel
             static string Line(string key, string value) =>
                 string.IsNullOrWhiteSpace(value) ? $"{key}: (unresolved)" : $"{key}: {value.Trim()}";
 
+            var indicators = DesignIndicators.Count == 0
+                ? "INDICATORS: (none — optional)"
+                : "INDICATORS: " + string.Join(", ", DesignIndicators.Select(static i => i.DisplayLabel));
+            var condition = DesignEntryCondition.IsComplete
+                ? $"CONDITION: {DesignEntryCondition.SummaryText}"
+                : "CONDITION: (unresolved)";
+
             return string.Join('\n', new[]
             {
                 "Working strategy draft (shared by Design, Hyperion Accept, and Build):",
-                Line("INSTRUMENT", DesignInstrumentText),
-                Line("TIMEFRAME", DesignTimeframeText),
+                Line("INSTRUMENT", DesignInstrumentText) +
+                    ProvenanceSuffix(DesignInstrumentProvenance),
+                Line("TIMEFRAME", DesignTimeframeText) +
+                    ProvenanceSuffix(DesignTimeframeProvenance),
                 Line("EVALUATION", DesignEvaluationTimingText),
+                indicators,
+                condition,
                 Line("ENTRY", DesignEntryRuleText),
                 Line("EXIT", DesignExitRuleText),
                 Line("SIZING", DesignSizingRuleText),
@@ -137,6 +192,12 @@ public sealed partial class StrategyAuthoringViewModel
                 "Changing EMA 20 → EMA 30 here must be what Build uses for the next revision.",
             });
         }
+    }
+
+    private static string ProvenanceSuffix(DesignValueProvenance provenance)
+    {
+        var label = DesignValueProvenanceLabels.Label(provenance);
+        return string.IsNullOrEmpty(label) ? "" : $" · {label}";
     }
 
     public string LinkedResearchSummaryText
@@ -156,12 +217,18 @@ public sealed partial class StrategyAuthoringViewModel
     private void NotifyDesignDraftChanged()
     {
         OnPropertyChanged(nameof(HasDesignRuleDraft));
+        OnPropertyChanged(nameof(HasDesignIndicators));
         OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
         OnPropertyChanged(nameof(CanReviewDesignRules));
+        OnPropertyChanged(nameof(CanImportResearchIndicatorsToDesign));
         OnPropertyChanged(nameof(DesignRulesReviewText));
         OnPropertyChanged(nameof(DesignUnresolvedChecklistText));
+        OnPropertyChanged(nameof(DesignInstrumentProvenanceLabel));
+        OnPropertyChanged(nameof(DesignTimeframeProvenanceLabel));
+        OnPropertyChanged(nameof(DesignRuleEditorHint));
         PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
         ReviewDesignRulesCommand.NotifyCanExecuteChanged();
+        ImportResearchIndicatorsToDesignCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanInvestigateInResearchStudio));
         InvestigateInResearchStudioCommand.NotifyCanExecuteChanged();
         NotifyBuildDesignBlockerStateChanged();
@@ -181,19 +248,36 @@ public sealed partial class StrategyAuthoringViewModel
         ReviewDesignRulesCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnDesignInstrumentTextChanged(string value) => NotifyDesignDraftChanged();
-    partial void OnDesignTimeframeTextChanged(string value) => NotifyDesignDraftChanged();
+    partial void OnDesignInstrumentTextChanged(string value)
+    {
+        if (!_applyingDesignProposal && !_restoring)
+            DesignInstrumentProvenance = DesignValueProvenance.Operator;
+        NotifyDesignDraftChanged();
+    }
+
+    partial void OnDesignTimeframeTextChanged(string value)
+    {
+        if (!_applyingDesignProposal && !_restoring)
+            DesignTimeframeProvenance = DesignValueProvenance.Operator;
+        NotifyDesignDraftChanged();
+    }
+
     partial void OnDesignEvaluationTimingTextChanged(string value) => NotifyDesignDraftChanged();
     partial void OnDesignEntryRuleTextChanged(string value) => NotifyDesignDraftChanged();
     partial void OnDesignExitRuleTextChanged(string value) => NotifyDesignDraftChanged();
     partial void OnDesignSizingRuleTextChanged(string value) => NotifyDesignDraftChanged();
     partial void OnDesignRiskRuleTextChanged(string value) => NotifyDesignDraftChanged();
     partial void OnDesignOrderRuleTextChanged(string value) => NotifyDesignDraftChanged();
+    partial void OnDesignInstrumentProvenanceChanged(DesignValueProvenance value) =>
+        OnPropertyChanged(nameof(DesignInstrumentProvenanceLabel));
+    partial void OnDesignTimeframeProvenanceChanged(DesignValueProvenance value) =>
+        OnPropertyChanged(nameof(DesignTimeframeProvenanceLabel));
 
     partial void OnPendingHyperionDesignProposalTextChanged(string value)
     {
         OnPropertyChanged(nameof(HasPendingHyperionDesignProposal));
         OnPropertyChanged(nameof(CanAcceptHyperionDesignProposal));
+        OnPropertyChanged(nameof(DesignRuleEditorHint));
         AcceptHyperionDesignProposalCommand.NotifyCanExecuteChanged();
         DiscardHyperionDesignProposalCommand.NotifyCanExecuteChanged();
     }
@@ -224,19 +308,29 @@ public sealed partial class StrategyAuthoringViewModel
         static string Line(string key, string value) =>
             string.IsNullOrWhiteSpace(value) ? "" : $"{key}: {value.Trim()}";
 
+        var indicatorLine = DesignIndicators.Count == 0
+            ? ""
+            : "INDICATORS: " + string.Join(", ", DesignIndicators.Select(static i => i.DisplayLabel));
+        var conditionLine = DesignEntryCondition.IsComplete
+            ? $"CONDITION: {DesignEntryCondition.SummaryText}"
+            : "";
+
         var body = string.Join('\n', new[]
         {
             "Design rules draft (composer prompt — Hyperion may reinterpret on Send):",
             Line("INSTRUMENT", DesignInstrumentText),
             Line("TIMEFRAME", DesignTimeframeText),
             Line("EVALUATION", DesignEvaluationTimingText),
+            indicatorLine,
+            conditionLine,
             Line("ENTRY", DesignEntryRuleText),
             Line("EXIT", DesignExitRuleText),
             Line("SIZING", DesignSizingRuleText),
             Line("RISK", DesignRiskRuleText),
             Line("ORDERS", DesignOrderRuleText),
             "",
-            "Reply with the same keys. The operator must Accept before Design fields change.",
+            "Reply with the same keys. Prefer INDICATORS: ema(20), ema(50) and CONDITION: ema(20) crosses above ema(50).",
+            "Distinguish requested values from suggested defaults. Operator must Accept before Design fields change.",
         }.Where(static s => s.Length == 0 || !string.IsNullOrWhiteSpace(s)));
 
         Composer = body;
@@ -263,11 +357,14 @@ public sealed partial class StrategyAuthoringViewModel
     private void AcceptHyperionDesignProposal()
     {
         if (!HasPendingHyperionDesignProposal) return;
-        ApplyHyperionProposalToDesignFields(PendingHyperionDesignProposalText);
+        ApplyHyperionProposalToDesignFields(
+            PendingHyperionDesignProposalText,
+            DesignValueProvenance.HyperionAccepted);
         PendingHyperionDesignProposalText = "";
         AwaitingHyperionDesignProposal = false;
         Status =
-            "Accepted Hyperion proposal into Design fields. Review strategy again before Build — prior Validate evidence stays on earlier revisions.";
+            "Accepted Hyperion proposal into Design fields and structured controls. " +
+            "Edit indicators/conditions here — next chat reads this draft. Review before Build.";
         NotifyDesignDraftChanged();
     }
 
@@ -277,6 +374,109 @@ public sealed partial class StrategyAuthoringViewModel
         PendingHyperionDesignProposalText = "";
         AwaitingHyperionDesignProposal = false;
         Status = "Discarded Hyperion proposal. Design fields unchanged.";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanAddDesignIndicator))]
+    private void AddDesignIndicator()
+    {
+        if (!int.TryParse(NewDesignIndicatorPeriodText.Trim(), out var period) || period <= 0)
+            period = 20;
+        var kind = string.IsNullOrWhiteSpace(NewDesignIndicatorKind) ? "ema" : NewDesignIndicatorKind.Trim();
+        var row = DesignIndicatorRow.Create(kind, period, DesignValueProvenance.Operator);
+        if (DesignIndicators.Any(i =>
+                string.Equals(i.Kind, row.Kind, StringComparison.OrdinalIgnoreCase) &&
+                i.Period == row.Period))
+        {
+            Status = $"{row.DisplayLabel} is already on the Design draft.";
+            return;
+        }
+
+        DesignIndicators.Add(row);
+        Status = $"Added {row.DisplayLabel} to Design. It is available for conditions — not an entry rule until you set one.";
+        NotifyDesignDraftChanged();
+    }
+
+    [RelayCommand]
+    private void RemoveDesignIndicator(DesignIndicatorRow? row)
+    {
+        if (row is null) return;
+        if (!DesignIndicators.Remove(row)) return;
+        Status = $"Removed {row.DisplayLabel} from Design indicators.";
+        NotifyDesignDraftChanged();
+    }
+
+    /// <summary>
+    /// Copy Research chart bindings into Design as available indicators — does not invent an entry rule.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanImportResearchIndicatorsToDesign))]
+    private void ImportResearchIndicatorsToDesign()
+    {
+        var added = ImportResearchIndicatorsAsAvailable();
+        Status = added == 0
+            ? "No new Research indicators to import (already on Design or none linked)."
+            : $"Imported {added} Research indicator(s) into Design as available — entry rule unchanged.";
+        NotifyDesignDraftChanged();
+    }
+
+    internal int ImportResearchIndicatorsAsAvailable()
+    {
+        var added = 0;
+        foreach (var binding in PendingResearchIndicatorBindings)
+        {
+            if (DesignIndicators.Any(i =>
+                    string.Equals(i.BindingId, binding.BindingId, StringComparison.OrdinalIgnoreCase) ||
+                    (string.Equals(i.Kind, binding.Kind, StringComparison.OrdinalIgnoreCase) &&
+                     i.Period == binding.Period)))
+            {
+                continue;
+            }
+
+            DesignIndicators.Add(
+                DesignIndicatorRow.FromBinding(binding, DesignValueProvenance.ResearchAvailable));
+            added++;
+        }
+
+        return added;
+    }
+
+    /// <summary>Wire once from ctor so condition edits refresh ENTRY summary.</summary>
+    internal void AttachDesignStructureChangeHandlers()
+    {
+        DesignIndicators.CollectionChanged -= OnDesignIndicatorsCollectionChanged;
+        DesignIndicators.CollectionChanged += OnDesignIndicatorsCollectionChanged;
+        DesignEntryCondition.PropertyChanged -= OnDesignEntryConditionPropertyChanged;
+        DesignEntryCondition.PropertyChanged += OnDesignEntryConditionPropertyChanged;
+    }
+
+    private void OnDesignIndicatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        NotifyDesignDraftChanged();
+
+    private void OnDesignEntryConditionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(DesignEntryConditionRow.LeftOperand) or
+            nameof(DesignEntryConditionRow.OperatorKey) or
+            nameof(DesignEntryConditionRow.RightOperand))
+        {
+            if (!_applyingDesignProposal && !_restoring && !_syncingEntryFromCondition)
+                DesignEntryCondition.Provenance = DesignValueProvenance.Operator;
+            SyncEntryRuleTextFromCondition();
+        }
+
+        NotifyDesignDraftChanged();
+    }
+
+    private void SyncEntryRuleTextFromCondition()
+    {
+        if (!DesignEntryCondition.IsComplete) return;
+        _syncingEntryFromCondition = true;
+        try
+        {
+            DesignEntryRuleText = DesignEntryCondition.SummaryText;
+        }
+        finally
+        {
+            _syncingEntryFromCondition = false;
+        }
     }
 
     partial void OnPendingFindingDesignProposalTextChanged(string value)
@@ -319,10 +519,14 @@ public sealed partial class StrategyAuthoringViewModel
     private void AcceptFindingDesignProposal()
     {
         if (!HasPendingFindingDesignProposal) return;
-        ApplyHyperionProposalToDesignFields(PendingFindingDesignProposalText);
+        ApplyHyperionProposalToDesignFields(
+            PendingFindingDesignProposalText,
+            DesignValueProvenance.HyperionAccepted);
+        ImportResearchIndicatorsAsAvailable();
         PendingFindingDesignProposalText = "";
         Status =
-            "Applied finding into Design fields. Unresolved sizing/exit/risk stay editable — prior Validate evidence stays on earlier revisions.";
+            "Applied finding into Design fields. Research indicators are available (not auto-entry). " +
+            "Unresolved sizing/exit/risk stay editable.";
         NotifyDesignDraftChanged();
         Save();
     }
@@ -357,23 +561,30 @@ public sealed partial class StrategyAuthoringViewModel
             timeframe = "5m";
         }
 
-        var indicators = PendingResearchIndicatorBindings.Count > 0
+        var indicatorLabels = PendingResearchIndicatorBindings.Count > 0
             ? string.Join(", ", PendingResearchIndicatorBindings.Select(static b => b.DisplayLabel))
-            : "none locked";
+            : "";
+        var indicatorsLine = string.IsNullOrEmpty(indicatorLabels)
+            ? null
+            : $"INDICATORS: {indicatorLabels}";
 
         var entry =
-            $"When {condition.SummaryText} (condition {condition.ConditionId} · ver {condition.VersionShort}; indicators [{indicators}])";
+            $"When {condition.SummaryText} (condition {condition.ConditionId} · ver {condition.VersionShort}" +
+            (string.IsNullOrEmpty(indicatorLabels) ? "" : $"; indicators [{indicatorLabels}]") +
+            ")";
 
         // Only propose fields the finding can fill. EXIT/SIZING/RISK/ORDERS stay empty
         // until the user (or Hyperion) writes real rules — do not apply "Unresolved" placeholders.
+        // INDICATORS are listed for reuse — Apply imports them as available, not as entry rules alone.
         return string.Join('\n', new[]
         {
             $"INSTRUMENT: {instrument.Trim()}",
             $"TIMEFRAME: {timeframe}",
             "EVALUATION: Completed bar",
+            indicatorsLine,
             $"ENTRY: {entry}",
             "UNRESOLVED: exit, sizing, risk, orders — define from research or Hyperion before Build",
-        });
+        }.Where(static s => !string.IsNullOrWhiteSpace(s))!);
     }
 
     private static void ApplyKeyedLine(string line, Action<string> assign)
@@ -387,66 +598,184 @@ public sealed partial class StrategyAuthoringViewModel
         assign(value);
     }
 
-    private void ApplyHyperionProposalToDesignFields(string proposal)
+    private void ApplyHyperionProposalToDesignFields(
+        string proposal,
+        DesignValueProvenance provenance = DesignValueProvenance.HyperionAccepted)
     {
-        var appliedKey = false;
-        foreach (var raw in proposal.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        _applyingDesignProposal = true;
+        try
         {
-            var line = raw.Trim();
-            // Non-field notes (UNRESOLVED: …) — display-only in the proposal panel.
-            if (line.StartsWith("UNRESOLVED", StringComparison.OrdinalIgnoreCase) &&
-                !line.StartsWith("UNRESOLVED FIELDS", StringComparison.OrdinalIgnoreCase))
+            var appliedKey = false;
+            foreach (var raw in proposal.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
             {
-                continue;
+                var line = raw.Trim();
+                // Non-field notes (UNRESOLVED: …) — display-only in the proposal panel.
+                if (line.StartsWith("UNRESOLVED", StringComparison.OrdinalIgnoreCase) &&
+                    !line.StartsWith("UNRESOLVED FIELDS", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (line.StartsWith("INDICATORS", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyIndicatorsProposalLine(line, provenance);
+                    appliedKey = true;
+                }
+                else if (line.StartsWith("CONDITION", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyConditionProposalLine(line, provenance);
+                    appliedKey = true;
+                }
+                else if (line.StartsWith("INSTRUMENT", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyKeyedLine(line, v =>
+                    {
+                        DesignInstrumentText = v;
+                        DesignInstrumentProvenance = provenance;
+                    });
+                    appliedKey = true;
+                }
+                else if (line.StartsWith("TIMEFRAME", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("DATA", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyKeyedLine(line, v =>
+                    {
+                        DesignTimeframeText = v;
+                        DesignTimeframeProvenance = provenance;
+                    });
+                    appliedKey = true;
+                }
+                else if (line.StartsWith("EVALUATION", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyKeyedLine(line, v => DesignEvaluationTimingText = v);
+                    appliedKey = true;
+                }
+                else if (line.StartsWith("ENTRY", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyKeyedLine(line, v =>
+                    {
+                        DesignEntryRuleText = v;
+                        TryParseConditionFromFreeText(v, provenance);
+                    });
+                    appliedKey = true;
+                }
+                else if (line.StartsWith("EXIT", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyKeyedLine(line, v => DesignExitRuleText = v);
+                    appliedKey = true;
+                }
+                else if (line.StartsWith("SIZING", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyKeyedLine(line, v => DesignSizingRuleText = v);
+                    appliedKey = true;
+                }
+                else if (line.StartsWith("RISK", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyKeyedLine(line, v => DesignRiskRuleText = v);
+                    appliedKey = true;
+                }
+                else if (line.StartsWith("ORDERS", StringComparison.OrdinalIgnoreCase))
+                {
+                    ApplyKeyedLine(line, v => DesignOrderRuleText = v);
+                    appliedKey = true;
+                }
             }
 
-            if (line.StartsWith("INSTRUMENT", StringComparison.OrdinalIgnoreCase))
+            if (!appliedKey)
+                DesignEntryRuleText = proposal.Trim();
+        }
+        finally
+        {
+            _applyingDesignProposal = false;
+        }
+    }
+
+    private void ApplyIndicatorsProposalLine(string line, DesignValueProvenance provenance)
+    {
+        var idx = line.IndexOf(':');
+        if (idx < 0) return;
+        var value = line[(idx + 1)..].Trim();
+        if (value.Length == 0 || IsDesignFieldUnresolved(value)) return;
+
+        foreach (Match match in IndicatorTokenRegex().Matches(value))
+        {
+            var kind = match.Groups["kind"].Value;
+            var periodText = match.Groups["period"].Value;
+            if (!int.TryParse(periodText, out var period) || period <= 0)
+                continue;
+            UpsertDesignIndicator(kind, period, provenance);
+        }
+    }
+
+    private void ApplyConditionProposalLine(string line, DesignValueProvenance provenance)
+    {
+        var idx = line.IndexOf(':');
+        if (idx < 0) return;
+        var value = line[(idx + 1)..].Trim();
+        if (value.Length == 0 || IsDesignFieldUnresolved(value)) return;
+        if (!TryParseConditionFromFreeText(value, provenance))
+            DesignEntryRuleText = value;
+    }
+
+    private bool TryParseConditionFromFreeText(string text, DesignValueProvenance provenance)
+    {
+        var match = ConditionPhraseRegex().Match(text);
+        if (!match.Success) return false;
+
+        var leftKind = match.Groups["leftKind"].Value;
+        var leftPeriod = int.Parse(match.Groups["leftPeriod"].Value);
+        var op = match.Groups["op"].Value.Trim().ToLowerInvariant();
+        var rightKind = match.Groups["rightKind"].Value;
+        var rightPeriod = int.Parse(match.Groups["rightPeriod"].Value);
+
+        UpsertDesignIndicator(leftKind, leftPeriod, provenance);
+        UpsertDesignIndicator(rightKind, rightPeriod, provenance);
+
+        DesignEntryCondition.LeftOperand = $"{leftKind}({leftPeriod})";
+        DesignEntryCondition.OperatorKey = NormalizeConditionOperator(op);
+        DesignEntryCondition.RightOperand = $"{rightKind}({rightPeriod})";
+        DesignEntryCondition.Provenance = provenance;
+        SyncEntryRuleTextFromCondition();
+        return true;
+    }
+
+    private void UpsertDesignIndicator(string kind, int period, DesignValueProvenance provenance)
+    {
+        var existing = DesignIndicators.FirstOrDefault(i =>
+            string.Equals(i.Kind, kind, StringComparison.OrdinalIgnoreCase) && i.Period == period);
+        if (existing is not null)
+        {
+            if (existing.Provenance == DesignValueProvenance.ResearchAvailable &&
+                provenance == DesignValueProvenance.HyperionAccepted)
             {
-                ApplyKeyedLine(line, v => DesignInstrumentText = v);
-                appliedKey = true;
+                existing.Provenance = provenance;
             }
-            else if (line.StartsWith("TIMEFRAME", StringComparison.OrdinalIgnoreCase) ||
-                     line.StartsWith("DATA", StringComparison.OrdinalIgnoreCase))
-            {
-                ApplyKeyedLine(line, v => DesignTimeframeText = v);
-                appliedKey = true;
-            }
-            else if (line.StartsWith("EVALUATION", StringComparison.OrdinalIgnoreCase))
-            {
-                ApplyKeyedLine(line, v => DesignEvaluationTimingText = v);
-                appliedKey = true;
-            }
-            else if (line.StartsWith("ENTRY", StringComparison.OrdinalIgnoreCase) ||
-                     line.StartsWith("CONDITION", StringComparison.OrdinalIgnoreCase))
-            {
-                ApplyKeyedLine(line, v => DesignEntryRuleText = v);
-                appliedKey = true;
-            }
-            else if (line.StartsWith("EXIT", StringComparison.OrdinalIgnoreCase))
-            {
-                ApplyKeyedLine(line, v => DesignExitRuleText = v);
-                appliedKey = true;
-            }
-            else if (line.StartsWith("SIZING", StringComparison.OrdinalIgnoreCase))
-            {
-                ApplyKeyedLine(line, v => DesignSizingRuleText = v);
-                appliedKey = true;
-            }
-            else if (line.StartsWith("RISK", StringComparison.OrdinalIgnoreCase))
-            {
-                ApplyKeyedLine(line, v => DesignRiskRuleText = v);
-                appliedKey = true;
-            }
-            else if (line.StartsWith("ORDERS", StringComparison.OrdinalIgnoreCase))
-            {
-                ApplyKeyedLine(line, v => DesignOrderRuleText = v);
-                appliedKey = true;
-            }
+
+            return;
         }
 
-        if (!appliedKey)
-            DesignEntryRuleText = proposal.Trim();
+        DesignIndicators.Add(DesignIndicatorRow.Create(kind, period, provenance));
     }
+
+    private static string NormalizeConditionOperator(string op) => op switch
+    {
+        "crosses above" or "cross above" or "crosses over" => "crosses above",
+        "crosses below" or "cross below" or "crosses under" => "crosses below",
+        "is above" or "above" or ">" => "is above",
+        "is below" or "below" or "<" => "is below",
+        "equals" or "=" or "==" => "equals",
+        _ => op,
+    };
+
+    [GeneratedRegex(
+        @"(?<kind>[A-Za-z]+)[\s(]*(?<period>\d+)\)?",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex IndicatorTokenRegex();
+
+    [GeneratedRegex(
+        @"(?<leftKind>[A-Za-z]+)\s*\(?\s*(?<leftPeriod>\d+)\s*\)?\s+(?<op>crosses\s+above|crosses\s+below|is\s+above|is\s+below|equals|crosses\s+over|crosses\s+under|>|<|=)\s+(?<rightKind>[A-Za-z]+)\s*\(?\s*(?<rightPeriod>\d+)\s*\)?",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ConditionPhraseRegex();
 
     public bool HasStrategyDraft => PendingStrategyDraft is not null;
 

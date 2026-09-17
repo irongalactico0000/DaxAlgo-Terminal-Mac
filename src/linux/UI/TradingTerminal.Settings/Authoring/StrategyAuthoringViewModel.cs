@@ -214,6 +214,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
 
         SetFiles([new StrategyFile(StrategyFile.DefaultName, TemplateSource)]);
         _filesEditedByUser = false;
+        AttachDesignStructureChangeHandlers();
         _ready = true;
 
         // A strategy is several sittings' work. Offer saved chats in the rail, but start on Design
@@ -3746,6 +3747,11 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             DesignSizingRuleText = "";
             DesignRiskRuleText = "";
             DesignOrderRuleText = "";
+            DesignIndicators.Clear();
+            DesignEntryCondition.Clear();
+            DesignInstrumentProvenance = DesignValueProvenance.Unset;
+            DesignTimeframeProvenance = DesignValueProvenance.Unset;
+            PendingFindingDesignProposalText = "";
             PendingHyperionDesignProposalText = "";
             LastAppliedStarterId = null;
             AwaitingHyperionDesignProposal = false;
