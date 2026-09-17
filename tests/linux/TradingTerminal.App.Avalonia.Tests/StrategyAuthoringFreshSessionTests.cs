@@ -2,12 +2,15 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using TradingTerminal.App.Authoring;
 using TradingTerminal.Core.Backtest;
+using TradingTerminal.Core.Brokers;
 using TradingTerminal.Core.Domain;
+using TradingTerminal.Core.MarketData;
 using TradingTerminal.Core.Strategies;
 using TradingTerminal.Core.Strategies.Authoring;
 using TradingTerminal.Core.Strategies.Generation;
 using TradingTerminal.Infrastructure.Backtest;
 using TradingTerminal.Infrastructure.Strategies.Authoring;
+using TradingTerminal.UI;
 using Xunit;
 
 namespace TradingTerminal.App.Avalonia.Tests;
@@ -757,6 +760,36 @@ public sealed class StrategyAuthoringFreshSessionTests
     }
 
     [Fact]
+    public async Task Design_instrument_search_sets_symbol_and_venue_caption_from_catalogue()
+    {
+        var es = new Instrument(
+            new InstrumentId(42),
+            "ES",
+            AssetClass.Future,
+            "CME",
+            "USD",
+            TickSize: 0.25,
+            Multiplier: 50);
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository(),
+            instrumentRegistry: new DesignInstrumentRegistry(es));
+
+        await viewModel.EnsureDesignInstrumentCatalogueAsync();
+        viewModel.DesignInstrumentOptions.Should().NotBeEmpty();
+
+        var row = viewModel.DesignInstrumentOptions.First(i =>
+            string.Equals(i.Contract.Symbol, "ES", StringComparison.OrdinalIgnoreCase));
+        viewModel.SelectedDesignInstrument = row;
+
+        viewModel.DesignInstrumentText.Should().Be("ES");
+        viewModel.DesignInstrumentVenueCaption.Should().Contain("CME");
+        viewModel.HasDesignInstrumentVenueCaption.Should().BeTrue();
+    }
+
+    [Fact]
     public void Strategic_form_sizing_range_and_exit_sync_into_draft_summaries()
     {
         using var viewModel = new StrategyAuthoringViewModel(
@@ -1213,5 +1246,19 @@ public sealed class StrategyAuthoringFreshSessionTests
             add { }
             remove { }
         }
+    }
+
+    private sealed class DesignInstrumentRegistry(Instrument instrument) : IInstrumentRegistry
+    {
+        public Instrument? Get(InstrumentId id) => id == instrument.Id ? instrument : null;
+        public InstrumentId? Resolve(BrokerKind broker, string brokerSymbol) =>
+            string.Equals(brokerSymbol, instrument.CanonicalSymbol, StringComparison.OrdinalIgnoreCase)
+                ? instrument.Id
+                : null;
+        public InstrumentId ResolveOrCreate(Contract contract, BrokerKind broker) => instrument.Id;
+        public string? ToBrokerSymbol(InstrumentId id, BrokerKind broker) =>
+            id == instrument.Id ? instrument.CanonicalSymbol : null;
+        public void RegisterAlias(InstrumentAlias alias) { }
+        public IReadOnlyList<Instrument> All() => [instrument];
     }
 }

@@ -4,8 +4,10 @@ using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
+using TradingTerminal.Core.Brokers;
 using TradingTerminal.Core.Domain;
 using TradingTerminal.Core.Strategies.Generation;
+using TradingTerminal.UI;
 
 namespace TradingTerminal.App.Authoring;
 
@@ -19,6 +21,8 @@ public sealed partial class StrategyAuthoringViewModel
     private StrategyDraftV1? _pendingStrategyDraft;
 
     [ObservableProperty] private string _designInstrumentText = "";
+    [ObservableProperty] private string _designInstrumentSearchText = "";
+    [ObservableProperty] private SignalInstrument? _selectedDesignInstrument;
     [ObservableProperty] private string _designTimeframeText = "";
     [ObservableProperty] private string _designEvaluationTimingText = "";
     [ObservableProperty] private string _designEntryRuleText = "";
@@ -32,6 +36,13 @@ public sealed partial class StrategyAuthoringViewModel
     [ObservableProperty] private DesignValueProvenance _designTimeframeProvenance = DesignValueProvenance.Unset;
     [ObservableProperty] private string _newDesignIndicatorKind = "ema";
     [ObservableProperty] private string _newDesignIndicatorPeriodText = "20";
+
+    /// <summary>Catalogue rows for Design instrument search (broker-tagged when available).</summary>
+    public ObservableCollection<SignalInstrument> DesignInstrumentOptions { get; } = [];
+
+    private IReadOnlyList<SignalInstrument> _designInstrumentUniverse = Array.Empty<SignalInstrument>();
+    private bool _syncingDesignInstrumentSelection;
+    private bool _designInstrumentCatalogueLoading;
 
     /// <summary>True while Accept applies a proposal — skips marking edits as Operator.</summary>
     private bool _applyingDesignProposal;
@@ -87,6 +98,33 @@ public sealed partial class StrategyAuthoringViewModel
 
     public string DesignInstrumentProvenanceLabel =>
         DesignValueProvenanceLabels.Label(DesignInstrumentProvenance);
+
+    /// <summary>Broker / exchange caption under the Design instrument search box.</summary>
+    public string DesignInstrumentVenueCaption
+    {
+        get
+        {
+            if (SelectedDesignInstrument is { } selected)
+            {
+                var broker = selected.Broker is { } b
+                    ? BrokerInstrumentUniverse.BrokerLabel(b)
+                    : "registry";
+                var exchange = string.IsNullOrWhiteSpace(selected.Contract.Exchange)
+                    ? selected.Contract.PrimaryExchange
+                    : selected.Contract.Exchange;
+                return string.IsNullOrWhiteSpace(exchange)
+                    ? $"Venue: {broker}"
+                    : $"Venue: {broker} · {exchange}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(DesignInstrumentText))
+                return "Not matched to catalogue — pick a listed instrument for venue.";
+            return "";
+        }
+    }
+
+    public bool HasDesignInstrumentVenueCaption =>
+        !string.IsNullOrWhiteSpace(DesignInstrumentVenueCaption);
 
     public string DesignTimeframeProvenanceLabel =>
         DesignValueProvenanceLabels.Label(DesignTimeframeProvenance);
@@ -438,7 +476,186 @@ public sealed partial class StrategyAuthoringViewModel
     {
         if (!_applyingDesignProposal && !_restoring)
             DesignInstrumentProvenance = DesignValueProvenance.Operator;
+        if (!_syncingDesignInstrumentSelection)
+            SyncSelectedDesignInstrumentFromText();
+        OnPropertyChanged(nameof(DesignInstrumentVenueCaption));
+        OnPropertyChanged(nameof(HasDesignInstrumentVenueCaption));
         NotifyDesignDraftChanged();
+    }
+
+    partial void OnDesignInstrumentSearchTextChanged(string value)
+    {
+        ApplyDesignInstrumentFilter();
+        // Free-typed symbol without a catalogue match still updates the draft string.
+        if (_syncingDesignInstrumentSelection)
+            return;
+        if (SelectedDesignInstrument is not null &&
+            string.Equals(
+                value.Trim(),
+                SelectedDesignInstrument.DisplayName,
+                StringComparison.OrdinalIgnoreCase))
+            return;
+        if (SelectedDesignInstrument is not null &&
+            string.Equals(
+                value.Trim(),
+                SelectedDesignInstrument.Contract.Symbol,
+                StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var trimmed = value.Trim();
+        if (trimmed.Length == 0)
+            return;
+        // Prefer exact catalogue match while typing; otherwise keep draft text as typed symbol.
+        var match = FindDesignInstrumentMatch(trimmed);
+        if (match is not null)
+        {
+            _syncingDesignInstrumentSelection = true;
+            try
+            {
+                SelectedDesignInstrument = match;
+                DesignInstrumentText = match.Contract.Symbol;
+            }
+            finally
+            {
+                _syncingDesignInstrumentSelection = false;
+            }
+        }
+        else if (!trimmed.Contains('·', StringComparison.Ordinal))
+        {
+            DesignInstrumentText = trimmed;
+        }
+    }
+
+    partial void OnSelectedDesignInstrumentChanged(SignalInstrument? value)
+    {
+        OnPropertyChanged(nameof(DesignInstrumentVenueCaption));
+        OnPropertyChanged(nameof(HasDesignInstrumentVenueCaption));
+        if (_syncingDesignInstrumentSelection)
+            return;
+        if (value is null)
+            return;
+
+        _syncingDesignInstrumentSelection = true;
+        try
+        {
+            DesignInstrumentText = value.Contract.Symbol;
+            DesignInstrumentSearchText = value.DisplayName;
+            if (!_applyingDesignProposal && !_restoring)
+                DesignInstrumentProvenance = DesignValueProvenance.Operator;
+        }
+        finally
+        {
+            _syncingDesignInstrumentSelection = false;
+        }
+
+        NotifyDesignDraftChanged();
+    }
+
+    /// <summary>Load broker-tagged catalogue when available; otherwise registry / curated fallback.</summary>
+    public async Task EnsureDesignInstrumentCatalogueAsync(CancellationToken cancellationToken = default)
+    {
+        if (_designInstrumentCatalogueLoading)
+            return;
+        _designInstrumentCatalogueLoading = true;
+        try
+        {
+            IReadOnlyList<SignalInstrument> universe;
+            if (_marketDataRepository is not null && _instrumentRegistry is not null)
+            {
+                universe = await BrokerInstrumentUniverse.LoadAsync(
+                        _marketDataRepository,
+                        _instrumentRegistry,
+                        only: null,
+                        _logger,
+                        cancellationToken)
+                    .ConfigureAwait(true);
+            }
+            else if (_instrumentRegistry is not null)
+            {
+                universe = SignalInstrumentCatalog.FromRegistry(_instrumentRegistry);
+            }
+            else
+            {
+                universe = SignalInstrumentCatalog.All;
+            }
+
+            _designInstrumentUniverse = universe;
+            SyncSelectedDesignInstrumentFromText();
+            ApplyDesignInstrumentFilter();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Design instrument catalogue load failed");
+            _designInstrumentUniverse = SignalInstrumentCatalog.All;
+            ApplyDesignInstrumentFilter();
+        }
+        finally
+        {
+            _designInstrumentCatalogueLoading = false;
+        }
+    }
+
+    private void ApplyDesignInstrumentFilter()
+    {
+        var visible = InstrumentPickerFilter.Visible(
+            _designInstrumentUniverse,
+            DesignInstrumentSearchText,
+            SelectedDesignInstrument,
+            cap: 80);
+        InstrumentPickerFilter.Apply(DesignInstrumentOptions, visible);
+    }
+
+    private void SyncSelectedDesignInstrumentFromText()
+    {
+        var match = FindDesignInstrumentMatch(DesignInstrumentText);
+        if (ReferenceEquals(SelectedDesignInstrument, match))
+        {
+            OnPropertyChanged(nameof(DesignInstrumentVenueCaption));
+            OnPropertyChanged(nameof(HasDesignInstrumentVenueCaption));
+            return;
+        }
+
+        _syncingDesignInstrumentSelection = true;
+        try
+        {
+            SelectedDesignInstrument = match;
+            if (match is not null && string.IsNullOrWhiteSpace(DesignInstrumentSearchText))
+                DesignInstrumentSearchText = match.DisplayName;
+        }
+        finally
+        {
+            _syncingDesignInstrumentSelection = false;
+        }
+
+        OnPropertyChanged(nameof(DesignInstrumentVenueCaption));
+        OnPropertyChanged(nameof(HasDesignInstrumentVenueCaption));
+    }
+
+    private SignalInstrument? FindDesignInstrumentMatch(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || _designInstrumentUniverse.Count == 0)
+            return null;
+        var term = text.Trim();
+        var exactSymbol = _designInstrumentUniverse.FirstOrDefault(i =>
+            string.Equals(i.Contract.Symbol, term, StringComparison.OrdinalIgnoreCase));
+        if (exactSymbol is not null)
+            return exactSymbol;
+
+        var exactDisplay = _designInstrumentUniverse.FirstOrDefault(i =>
+            string.Equals(i.DisplayName, term, StringComparison.OrdinalIgnoreCase));
+        if (exactDisplay is not null)
+            return exactDisplay;
+
+        // Broker-tagged rows look like "ES  ·  IB" — match leading symbol token.
+        return _designInstrumentUniverse.FirstOrDefault(i =>
+        {
+            var name = i.DisplayName;
+            var sep = name.IndexOf('·');
+            if (sep <= 0)
+                return false;
+            var head = name[..sep].Trim();
+            return string.Equals(head, term, StringComparison.OrdinalIgnoreCase);
+        });
     }
 
     partial void OnDesignTimeframeTextChanged(string value)

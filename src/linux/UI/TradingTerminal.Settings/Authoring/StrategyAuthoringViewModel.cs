@@ -70,6 +70,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     private readonly IVisualizerRegistry? _visualizerRegistry;
     private readonly IStrategyKernelRegistry? _strategyKernelRegistry;
     private readonly IInstrumentRegistry? _instrumentRegistry;
+    private readonly IMarketDataRepository? _marketDataRepository;
     private readonly IResearchExperimentRunnerV1? _researchExperimentRunner;
     private readonly IResearchConditionSearchV1? _researchConditionSearch;
 
@@ -119,6 +120,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         IAuthoredUnitIntentClassifierV1? authoredUnitIntentClassifier = null,
         IAuthoredUnitSpecificationGeneratorV1? authoredUnitSpecificationGenerator = null,
         IInstrumentRegistry? instrumentRegistry = null,
+        IMarketDataRepository? marketDataRepository = null,
         IAuthoredUnitSourceGeneratorV1? authoredUnitSourceGenerator = null,
         IAuthoredUnitCompilerV1? authoredUnitCompiler = null,
         IVisualizerRegistry? visualizerRegistry = null,
@@ -152,6 +154,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         _visualizerRegistry = visualizerRegistry;
         _strategyKernelRegistry = strategyKernelRegistry;
         _instrumentRegistry = instrumentRegistry;
+        _marketDataRepository = marketDataRepository;
         _researchExperimentRunner = researchExperimentRunner;
         _researchConditionSearch = researchConditionSearch;
         _researchMarketScreener = researchMarketScreener;
@@ -215,6 +218,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         SetFiles([new StrategyFile(StrategyFile.DefaultName, TemplateSource)]);
         _filesEditedByUser = false;
         AttachDesignStructureChangeHandlers();
+        _ = EnsureDesignInstrumentCatalogueAsync();
         _ready = true;
 
         // A strategy is several sittings' work. Offer saved chats in the rail, but start on Design

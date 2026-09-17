@@ -299,6 +299,10 @@ public sealed class CandidateAuthoringUxContractTests
             (string?)element.Attribute("AutomationProperties.Name") == "Investigate in Research Studio" &&
             (string?)element.Attribute("Command") == "{Binding InvestigateInResearchStudioCommand}");
         root.ToString().Should().Contain("DesignInstrumentText");
+        root.ToString().Should().Contain("DesignInstrumentSearchText");
+        root.ToString().Should().Contain("SelectedDesignInstrument");
+        root.ToString().Should().Contain("Design instrument search");
+        root.ToString().Should().Contain("Design instrument venue");
         root.ToString().Should().Contain("DesignTimeframeText");
         root.ToString().Should().Contain("DesignEvaluationTimingText");
         root.ToString().Should().Contain("DesignEntryRuleText");

@@ -2201,13 +2201,27 @@
                         </StackPanel>
                       </Border>
                       <TextBlock Text="INSTRUMENT" Classes="eyebrow" />
-                      <TextBox Text="{Binding DesignInstrumentText, Mode=TwoWay}"
-                               Watermark="Unresolved until selected (e.g. ES, BTC-USD)"
-                               TextWrapping="Wrap" MinHeight="32"
-                               AutomationProperties.Name="Design instrument" />
+                      <AutoCompleteBox MinWidth="220" HorizontalAlignment="Stretch"
+                                       Watermark="Search instruments (symbol + venue)…"
+                                       MinimumPrefixLength="0"
+                                       MinimumPopulateDelay="0:0:0.150"
+                                       MaxDropDownHeight="320"
+                                       FilterMode="None"
+                                       IsTextCompletionEnabled="False"
+                                       ValueMemberBinding="{Binding DisplayName}"
+                                       Text="{Binding DesignInstrumentSearchText, Mode=TwoWay}"
+                                       ItemsSource="{Binding DesignInstrumentOptions}"
+                                       SelectedItem="{Binding SelectedDesignInstrument, Mode=TwoWay}"
+                                       AutomationProperties.Name="Design instrument search" />
+                      <TextBlock Text="{Binding DesignInstrumentVenueCaption}" Classes="caption"
+                                 IsVisible="{Binding HasDesignInstrumentVenueCaption}"
+                                 AutomationProperties.Name="Design instrument venue" />
                       <TextBlock Text="{Binding DesignInstrumentProvenanceLabel}" Classes="caption"
                                  IsVisible="{Binding DesignInstrumentProvenanceLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                  AutomationProperties.Name="Design instrument provenance" />
+                      <!-- Draft serialization still uses DesignInstrumentText (symbol). -->
+                      <TextBlock IsVisible="False" Text="{Binding DesignInstrumentText}"
+                                 AutomationProperties.Name="Design instrument" />
                       <TextBlock Text="TIMEFRAME / DATA" Classes="eyebrow" />
                       <ComboBox ItemsSource="{Binding DesignTimeframeOptions}"
                                 SelectedItem="{Binding DesignTimeframeText, Mode=TwoWay}"
