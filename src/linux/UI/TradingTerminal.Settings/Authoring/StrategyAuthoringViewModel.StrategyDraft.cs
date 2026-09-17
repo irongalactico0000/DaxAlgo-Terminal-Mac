@@ -15,48 +15,106 @@ public sealed partial class StrategyAuthoringViewModel
     [ObservableProperty]
     private StrategyDraftV1? _pendingStrategyDraft;
 
+    [ObservableProperty] private string _designInstrumentText = "";
+    [ObservableProperty] private string _designTimeframeText = "";
+    [ObservableProperty] private string _designEvaluationTimingText = "";
     [ObservableProperty] private string _designEntryRuleText = "";
     [ObservableProperty] private string _designExitRuleText = "";
     [ObservableProperty] private string _designSizingRuleText = "";
     [ObservableProperty] private string _designRiskRuleText = "";
     [ObservableProperty] private string _designOrderRuleText = "";
+    [ObservableProperty] private string _pendingHyperionDesignProposalText = "";
+    [ObservableProperty] private bool _awaitingHyperionDesignProposal;
+
+    public IReadOnlyList<string> DesignTimeframeOptions { get; } =
+        ["", "1m", "5m", "15m", "1h", "1D"];
+
+    public IReadOnlyList<string> DesignEvaluationTimingOptions { get; } =
+        ["", "Completed bar", "Forming bar", "Session open"];
 
     public bool HasDesignRuleDraft =>
+        !string.IsNullOrWhiteSpace(DesignInstrumentText) ||
+        !string.IsNullOrWhiteSpace(DesignTimeframeText) ||
+        !string.IsNullOrWhiteSpace(DesignEvaluationTimingText) ||
         !string.IsNullOrWhiteSpace(DesignEntryRuleText) ||
         !string.IsNullOrWhiteSpace(DesignExitRuleText) ||
         !string.IsNullOrWhiteSpace(DesignSizingRuleText) ||
         !string.IsNullOrWhiteSpace(DesignRiskRuleText) ||
         !string.IsNullOrWhiteSpace(DesignOrderRuleText);
 
+    public bool HasPendingHyperionDesignProposal =>
+        !string.IsNullOrWhiteSpace(PendingHyperionDesignProposalText);
+
     public string DesignRuleEditorHint =>
         HasResearchDesignHandoff
-            ? "Linked research finding is below — turn it into explicit entry, exit, sizing, risk, and order rules."
-            : "Edit the working strategy draft here. Hyperion proposes changes to this same draft; Build uses the reviewed definition.";
+            ? "Linked research finding is below — fill instrument, timeframe, evaluation timing, and trading rules."
+            : "Edit the working strategy draft here. Hyperion proposals must be Accepted before they change these fields.";
 
     public bool CanPromoteDesignRulesToRequest => HasDesignRuleDraft && !IsGenerating;
 
     public bool CanReviewDesignRules => HasDesignRuleDraft && !IsGenerating;
+
+    public bool CanStageLastHyperionAsDesignProposal =>
+        !IsGenerating &&
+        Messages.Any(static m => m.IsAssistant && !string.IsNullOrWhiteSpace(m.Text));
+
+    public bool CanAcceptHyperionDesignProposal =>
+        HasPendingHyperionDesignProposal && !IsGenerating;
+
+    public string DesignUnresolvedChecklistText
+    {
+        get
+        {
+            var missing = new List<string>();
+            if (string.IsNullOrWhiteSpace(DesignInstrumentText))
+                missing.Add("instrument");
+            if (string.IsNullOrWhiteSpace(DesignTimeframeText))
+                missing.Add("timeframe / data");
+            if (string.IsNullOrWhiteSpace(DesignEvaluationTimingText))
+                missing.Add("evaluation timing");
+            if (string.IsNullOrWhiteSpace(DesignEntryRuleText))
+                missing.Add("entry condition");
+            if (string.IsNullOrWhiteSpace(DesignExitRuleText))
+                missing.Add("exit");
+            if (string.IsNullOrWhiteSpace(DesignSizingRuleText))
+                missing.Add("sizing");
+            if (string.IsNullOrWhiteSpace(DesignRiskRuleText))
+                missing.Add("risk");
+            if (string.IsNullOrWhiteSpace(DesignOrderRuleText))
+                missing.Add("orders");
+
+            if (missing.Count == 0)
+                return "All Design fields have text. Review strategy, then Build when ready.";
+
+            return "Unresolved before Build: " + string.Join(", ", missing) +
+                   ". Choose an instrument and resolve the entry condition before review is complete.";
+        }
+    }
 
     public string DesignRulesReviewText
     {
         get
         {
             if (!HasDesignRuleDraft)
-                return "Add at least one rule field, then Review strategy to confirm the working draft before Build.";
+                return "Add instrument, timeframe, evaluation timing, and rules — then Review strategy.";
 
             static string Line(string key, string value) =>
                 string.IsNullOrWhiteSpace(value) ? $"{key}: (unresolved)" : $"{key}: {value.Trim()}";
 
             return string.Join('\n', new[]
             {
-                "Working strategy draft (same fields Hyperion and Build should share):",
+                "Working strategy draft (shared by Design, Hyperion Accept, and Build):",
+                Line("INSTRUMENT", DesignInstrumentText),
+                Line("TIMEFRAME", DesignTimeframeText),
+                Line("EVALUATION", DesignEvaluationTimingText),
                 Line("ENTRY", DesignEntryRuleText),
                 Line("EXIT", DesignExitRuleText),
                 Line("SIZING", DesignSizingRuleText),
                 Line("RISK", DesignRiskRuleText),
                 Line("ORDERS", DesignOrderRuleText),
                 "",
-                "Unresolved items stay visible until you fill them. Changing EMA 20 → EMA 30 here must be what Build uses for the next revision.",
+                DesignUnresolvedChecklistText,
+                "Changing EMA 20 → EMA 30 here must be what Build uses for the next revision.",
             });
         }
     }
@@ -75,63 +133,50 @@ public sealed partial class StrategyAuthoringViewModel
         }
     }
 
-    partial void OnDesignEntryRuleTextChanged(string value)
+    private void NotifyDesignDraftChanged()
     {
         OnPropertyChanged(nameof(HasDesignRuleDraft));
         OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
         OnPropertyChanged(nameof(CanReviewDesignRules));
         OnPropertyChanged(nameof(DesignRulesReviewText));
+        OnPropertyChanged(nameof(DesignUnresolvedChecklistText));
         PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
         ReviewDesignRulesCommand.NotifyCanExecuteChanged();
         NotifyWorkingFlowMapChanged();
     }
 
-    partial void OnDesignExitRuleTextChanged(string value)
+    private void NotifyHyperionDesignProposalCommandsChanged()
     {
-        OnPropertyChanged(nameof(HasDesignRuleDraft));
+        OnPropertyChanged(nameof(CanStageLastHyperionAsDesignProposal));
+        OnPropertyChanged(nameof(CanAcceptHyperionDesignProposal));
         OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
         OnPropertyChanged(nameof(CanReviewDesignRules));
-        OnPropertyChanged(nameof(DesignRulesReviewText));
+        StageLastHyperionAsDesignProposalCommand.NotifyCanExecuteChanged();
+        AcceptHyperionDesignProposalCommand.NotifyCanExecuteChanged();
+        DiscardHyperionDesignProposalCommand.NotifyCanExecuteChanged();
         PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
         ReviewDesignRulesCommand.NotifyCanExecuteChanged();
-        NotifyWorkingFlowMapChanged();
     }
 
-    partial void OnDesignSizingRuleTextChanged(string value)
-    {
-        OnPropertyChanged(nameof(HasDesignRuleDraft));
-        OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
-        OnPropertyChanged(nameof(CanReviewDesignRules));
-        OnPropertyChanged(nameof(DesignRulesReviewText));
-        PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
-        ReviewDesignRulesCommand.NotifyCanExecuteChanged();
-        NotifyWorkingFlowMapChanged();
-    }
+    partial void OnDesignInstrumentTextChanged(string value) => NotifyDesignDraftChanged();
+    partial void OnDesignTimeframeTextChanged(string value) => NotifyDesignDraftChanged();
+    partial void OnDesignEvaluationTimingTextChanged(string value) => NotifyDesignDraftChanged();
+    partial void OnDesignEntryRuleTextChanged(string value) => NotifyDesignDraftChanged();
+    partial void OnDesignExitRuleTextChanged(string value) => NotifyDesignDraftChanged();
+    partial void OnDesignSizingRuleTextChanged(string value) => NotifyDesignDraftChanged();
+    partial void OnDesignRiskRuleTextChanged(string value) => NotifyDesignDraftChanged();
+    partial void OnDesignOrderRuleTextChanged(string value) => NotifyDesignDraftChanged();
 
-    partial void OnDesignRiskRuleTextChanged(string value)
+    partial void OnPendingHyperionDesignProposalTextChanged(string value)
     {
-        OnPropertyChanged(nameof(HasDesignRuleDraft));
-        OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
-        OnPropertyChanged(nameof(CanReviewDesignRules));
-        OnPropertyChanged(nameof(DesignRulesReviewText));
-        PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
-        ReviewDesignRulesCommand.NotifyCanExecuteChanged();
-        NotifyWorkingFlowMapChanged();
-    }
-
-    partial void OnDesignOrderRuleTextChanged(string value)
-    {
-        OnPropertyChanged(nameof(HasDesignRuleDraft));
-        OnPropertyChanged(nameof(CanPromoteDesignRulesToRequest));
-        OnPropertyChanged(nameof(CanReviewDesignRules));
-        OnPropertyChanged(nameof(DesignRulesReviewText));
-        PromoteDesignRulesToRequestCommand.NotifyCanExecuteChanged();
-        ReviewDesignRulesCommand.NotifyCanExecuteChanged();
-        NotifyWorkingFlowMapChanged();
+        OnPropertyChanged(nameof(HasPendingHyperionDesignProposal));
+        OnPropertyChanged(nameof(CanAcceptHyperionDesignProposal));
+        AcceptHyperionDesignProposalCommand.NotifyCanExecuteChanged();
+        DiscardHyperionDesignProposalCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>
-    /// Confirms the five Design fields as the visible working draft before Build.
+    /// Confirms Design fields as the visible working draft before Build.
     /// Does not invent TradeIR and does not re-interpret via the LLM.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanReviewDesignRules))]
@@ -140,15 +185,14 @@ public sealed partial class StrategyAuthoringViewModel
         if (!HasDesignRuleDraft) return;
         Status =
             "Working draft rules reviewed. These fields are the strategy definition for the next Build. " +
-            "Ask Hyperion only if you want proposed edits — that path copies text into the prompt and may reinterpret.";
+            "Ask Hyperion only if you want proposed edits — Accept is required before they replace these fields.";
         OnPropertyChanged(nameof(DesignRulesReviewText));
         NotifyWorkingFlowMapChanged();
     }
 
     /// <summary>
     /// Prompt path only: copies Design fields into the Hyperion composer.
-    /// Does not update a separate structured IR — Hyperion may reinterpret on Send.
-    /// Prefer <see cref="ReviewDesignRules"/> when the fields themselves are the build input.
+    /// Does not update Design fields. After Hyperion replies, stage and Accept the proposal.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanPromoteDesignRulesToRequest))]
     private void PromoteDesignRulesToRequest()
@@ -160,20 +204,119 @@ public sealed partial class StrategyAuthoringViewModel
         var body = string.Join('\n', new[]
         {
             "Design rules draft (composer prompt — Hyperion may reinterpret on Send):",
+            Line("INSTRUMENT", DesignInstrumentText),
+            Line("TIMEFRAME", DesignTimeframeText),
+            Line("EVALUATION", DesignEvaluationTimingText),
             Line("ENTRY", DesignEntryRuleText),
             Line("EXIT", DesignExitRuleText),
             Line("SIZING", DesignSizingRuleText),
             Line("RISK", DesignRiskRuleText),
             Line("ORDERS", DesignOrderRuleText),
             "",
-            "Prefer editing the Design fields directly. After Hyperion replies, review any changed interpretation before Build.",
+            "Reply with the same keys. The operator must Accept before Design fields change.",
         }.Where(static s => s.Length == 0 || !string.IsNullOrWhiteSpace(s)));
 
         Composer = body;
+        AwaitingHyperionDesignProposal = true;
         Status =
-            "Copied rules into the Hyperion prompt. This is not a silent TradeIR compile — " +
-            "Send may reinterpret. Review Hyperion’s reply against the Design fields before Build.";
+            "Copied rules into the Hyperion prompt. After the reply, use “Stage last Hyperion reply” then Accept or Discard — " +
+            "Design fields do not change until Accept.";
         NotifyWorkingFlowMapChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanStageLastHyperionAsDesignProposal))]
+    private void StageLastHyperionAsDesignProposal()
+    {
+        var last = Messages.LastOrDefault(static m => m.IsAssistant && !string.IsNullOrWhiteSpace(m.Text));
+        if (last is null) return;
+        PendingHyperionDesignProposalText = last.Text.Trim();
+        AwaitingHyperionDesignProposal = false;
+        Status =
+            "Hyperion reply staged for review. Accept to write into Design fields, or Discard to keep the current draft.";
+        StageLastHyperionAsDesignProposalCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanAcceptHyperionDesignProposal))]
+    private void AcceptHyperionDesignProposal()
+    {
+        if (!HasPendingHyperionDesignProposal) return;
+        ApplyHyperionProposalToDesignFields(PendingHyperionDesignProposalText);
+        PendingHyperionDesignProposalText = "";
+        AwaitingHyperionDesignProposal = false;
+        Status =
+            "Accepted Hyperion proposal into Design fields. Review strategy again before Build — prior Validate evidence stays on earlier revisions.";
+        NotifyDesignDraftChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanAcceptHyperionDesignProposal))]
+    private void DiscardHyperionDesignProposal()
+    {
+        PendingHyperionDesignProposalText = "";
+        AwaitingHyperionDesignProposal = false;
+        Status = "Discarded Hyperion proposal. Design fields unchanged.";
+    }
+
+    private static void ApplyKeyedLine(string line, Action<string> assign)
+    {
+        var idx = line.IndexOf(':');
+        if (idx < 0) return;
+        var value = line[(idx + 1)..].Trim();
+        if (value.Length > 0)
+            assign(value);
+    }
+
+    private void ApplyHyperionProposalToDesignFields(string proposal)
+    {
+        var appliedKey = false;
+        foreach (var raw in proposal.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            var line = raw.Trim();
+            if (line.StartsWith("INSTRUMENT", StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyKeyedLine(line, v => DesignInstrumentText = v);
+                appliedKey = true;
+            }
+            else if (line.StartsWith("TIMEFRAME", StringComparison.OrdinalIgnoreCase) ||
+                     line.StartsWith("DATA", StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyKeyedLine(line, v => DesignTimeframeText = v);
+                appliedKey = true;
+            }
+            else if (line.StartsWith("EVALUATION", StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyKeyedLine(line, v => DesignEvaluationTimingText = v);
+                appliedKey = true;
+            }
+            else if (line.StartsWith("ENTRY", StringComparison.OrdinalIgnoreCase) ||
+                     line.StartsWith("CONDITION", StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyKeyedLine(line, v => DesignEntryRuleText = v);
+                appliedKey = true;
+            }
+            else if (line.StartsWith("EXIT", StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyKeyedLine(line, v => DesignExitRuleText = v);
+                appliedKey = true;
+            }
+            else if (line.StartsWith("SIZING", StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyKeyedLine(line, v => DesignSizingRuleText = v);
+                appliedKey = true;
+            }
+            else if (line.StartsWith("RISK", StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyKeyedLine(line, v => DesignRiskRuleText = v);
+                appliedKey = true;
+            }
+            else if (line.StartsWith("ORDERS", StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyKeyedLine(line, v => DesignOrderRuleText = v);
+                appliedKey = true;
+            }
+        }
+
+        if (!appliedKey)
+            DesignEntryRuleText = proposal.Trim();
     }
 
     public bool HasStrategyDraft => PendingStrategyDraft is not null;

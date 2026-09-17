@@ -1709,6 +1709,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
         RevalidateGeneratedCandidateCommand.NotifyCanExecuteChanged();
         NotifyTradeIrSynthesisStateChanged();
         NotifyTradeIrBacktestStateChanged();
+        NotifyHyperionDesignProposalCommandsChanged();
     }
 
     partial void OnComposerChanged(string value)
@@ -4931,6 +4932,7 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     {
         Messages.Add(message);
         while (Messages.Count > MaxMessages) Messages.RemoveAt(0);
+        NotifyHyperionDesignProposalCommandsChanged();
     }
 
     private void PushActivity(string step)

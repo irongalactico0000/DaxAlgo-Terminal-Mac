@@ -288,14 +288,28 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("STRATEGY TEMPLATES");
         root.ToString().Should().Contain("Use template");
         root.ToString().Should().Contain("Design rule editor");
+        root.ToString().Should().Contain("DesignInstrumentText");
+        root.ToString().Should().Contain("DesignTimeframeText");
+        root.ToString().Should().Contain("DesignEvaluationTimingText");
         root.ToString().Should().Contain("DesignEntryRuleText");
+        root.ToString().Should().Contain("DesignUnresolvedChecklistText");
+        root.ToString().Should().Contain("Hyperion design proposal review");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Review design rules for build" &&
             (string?)element.Attribute("Command") == "{Binding ReviewDesignRulesCommand}");
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Promote design rules to request" &&
             (string?)element.Attribute("Command") == "{Binding PromoteDesignRulesToRequestCommand}");
-        root.ToString().Should().Contain("may reinterpret");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Stage last Hyperion reply as design proposal" &&
+            (string?)element.Attribute("Command") == "{Binding StageLastHyperionAsDesignProposalCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Accept Hyperion design proposal" &&
+            (string?)element.Attribute("Command") == "{Binding AcceptHyperionDesignProposalCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Discard Hyperion design proposal" &&
+            (string?)element.Attribute("Command") == "{Binding DiscardHyperionDesignProposalCommand}");
+        root.ToString().Should().Contain("Design fields do not change until Accept");
         root.ToString().Should().Contain("Linked research finding");
         // Single Research Studio CTA lives on the stage chrome — not duplicated in empty/rule panes.
         root.Descendants(Avalonia + "Button")

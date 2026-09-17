@@ -285,16 +285,27 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.ExecutionUnsupportedOptionsAvailable.Should().BeFalse();
         viewModel.ExecutionEnablePartialFills = false;
         viewModel.ExecutionLatencyMs = 0;
+        viewModel.DesignInstrumentText = "ES";
+        viewModel.DesignTimeframeText = "5m";
+        viewModel.DesignEvaluationTimingText = "Completed bar";
         viewModel.DesignEntryRuleText = "close crosses above EMA 20";
         viewModel.DesignExitRuleText = "close crosses below EMA 20";
+        viewModel.DesignUnresolvedChecklistText.Should().Contain("sizing");
         viewModel.CanPromoteDesignRulesToRequest.Should().BeTrue();
         viewModel.PromoteDesignRulesToRequestCommand.Execute(null);
         viewModel.Composer.Should().Contain("composer prompt");
+        viewModel.Composer.Should().Contain("INSTRUMENT: ES");
         viewModel.Composer.Should().Contain("ENTRY: close crosses above EMA 20");
-        viewModel.Composer.Should().Contain("Hyperion may reinterpret");
+        viewModel.Composer.Should().Contain("Accept before Design fields change");
+        viewModel.AwaitingHyperionDesignProposal.Should().BeTrue();
+        viewModel.DesignEntryRuleText.Should().Be("close crosses above EMA 20",
+            "Ask Hyperion must not mutate Design fields until Accept");
         viewModel.ReviewDesignRulesCommand.Execute(null);
         viewModel.Status.Should().Contain("Working draft rules reviewed");
         viewModel.DesignRulesReviewText.Should().Contain("ENTRY: close crosses above EMA 20");
+        viewModel.CanStageLastHyperionAsDesignProposal.Should().BeFalse();
+        viewModel.Composer = "";
+        viewModel.AwaitingHyperionDesignProposal = false;
         viewModel.ShowImplementationTabs.Should().BeFalse(
             "Design must not expose Strategy.cs / Code — that belongs in Build");
         viewModel.ActiveArtifactKindText.Should().NotBeNullOrWhiteSpace();
@@ -345,6 +356,51 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.ConfirmedStrategyIntent.Should().BeNull();
         viewModel.CanUseObservationInDesign.Should().BeFalse(
             "a blank project has no observation to promote yet");
+    }
+
+    [Fact]
+    public void Hyperion_design_proposal_requires_Accept_before_overwriting_fields()
+    {
+        using var viewModel = new StrategyAuthoringViewModel(
+            new StubCompiler(),
+            new StubRegistry(),
+            NullLogger<StrategyAuthoringViewModel>.Instance,
+            sessionRepository: new MemoryAuthoringSessionRepository());
+
+        viewModel.DesignInstrumentText = "ES";
+        viewModel.DesignTimeframeText = "5m";
+        viewModel.DesignEvaluationTimingText = "Completed bar";
+        viewModel.DesignEntryRuleText = "close crosses above EMA 20";
+        viewModel.DesignExitRuleText = "close crosses below EMA 20";
+        viewModel.PromoteDesignRulesToRequestCommand.Execute(null);
+        viewModel.DesignEntryRuleText.Should().Be("close crosses above EMA 20");
+        viewModel.AwaitingHyperionDesignProposal.Should().BeTrue();
+
+        viewModel.Messages.Add(new AuthoringMessage(
+            CodegenRole.Assistant,
+            "INSTRUMENT: NQ\nTIMEFRAME: 15m\nEVALUATION: Completed bar\nENTRY: EMA 20 crosses above EMA 50\nEXIT: EMA 20 crosses below EMA 50\nSIZING: 1 contract\nRISK: 1% daily stop\nORDERS: market IOC"));
+        viewModel.CanStageLastHyperionAsDesignProposal.Should().BeTrue();
+        viewModel.StageLastHyperionAsDesignProposalCommand.Execute(null);
+        viewModel.HasPendingHyperionDesignProposal.Should().BeTrue();
+        viewModel.DesignEntryRuleText.Should().Be("close crosses above EMA 20",
+            "staging must not overwrite Design fields");
+
+        viewModel.AcceptHyperionDesignProposalCommand.Execute(null);
+        viewModel.DesignInstrumentText.Should().Be("NQ");
+        viewModel.DesignTimeframeText.Should().Be("15m");
+        viewModel.DesignEntryRuleText.Should().Be("EMA 20 crosses above EMA 50");
+        viewModel.DesignSizingRuleText.Should().Be("1 contract");
+        viewModel.HasPendingHyperionDesignProposal.Should().BeFalse();
+        viewModel.DesignUnresolvedChecklistText.Should().Contain("All Design fields have text");
+
+        viewModel.DesignEntryRuleText = "manual EMA 30 cross";
+        viewModel.Messages.Add(new AuthoringMessage(
+            CodegenRole.Assistant,
+            "ENTRY: should not apply without Accept"));
+        viewModel.StageLastHyperionAsDesignProposalCommand.Execute(null);
+        viewModel.DiscardHyperionDesignProposalCommand.Execute(null);
+        viewModel.DesignEntryRuleText.Should().Be("manual EMA 30 cross");
+        viewModel.HasPendingHyperionDesignProposal.Should().BeFalse();
     }
 
     [Fact]

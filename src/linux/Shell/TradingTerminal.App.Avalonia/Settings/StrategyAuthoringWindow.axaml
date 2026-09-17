@@ -1973,9 +1973,47 @@
                                      TextWrapping="Wrap" />
                         </StackPanel>
                       </Border>
+                      <Border IsVisible="{Binding HasPendingHyperionDesignProposal}"
+                              Background="{StaticResource Ai.Soft}"
+                              BorderBrush="{StaticResource Ai.Glow.Brush}" BorderThickness="1"
+                              CornerRadius="4" Padding="8,6"
+                              AutomationProperties.Name="Hyperion design proposal review">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="HYPERION PROPOSAL — REVIEW BEFORE ACCEPT" Classes="eyebrow" />
+                          <TextBox Text="{Binding PendingHyperionDesignProposalText, Mode=OneWay}"
+                                   IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                                   MinHeight="72" MaxHeight="160"
+                                   FontFamily="{StaticResource Font.Data}" FontSize="11" />
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="aiAction" Content="Accept into Design fields"
+                                    Command="{Binding AcceptHyperionDesignProposalCommand}"
+                                    IsEnabled="{Binding CanAcceptHyperionDesignProposal}"
+                                    AutomationProperties.Name="Accept Hyperion design proposal" />
+                            <Button Classes="ghost" Content="Discard"
+                                    Command="{Binding DiscardHyperionDesignProposalCommand}"
+                                    IsEnabled="{Binding CanAcceptHyperionDesignProposal}"
+                                    AutomationProperties.Name="Discard Hyperion design proposal" />
+                          </StackPanel>
+                        </StackPanel>
+                      </Border>
+                      <TextBlock Text="INSTRUMENT" Classes="eyebrow" />
+                      <TextBox Text="{Binding DesignInstrumentText, Mode=TwoWay}"
+                               Watermark="Unresolved until selected (e.g. ES, BTC-USD)"
+                               TextWrapping="Wrap" MinHeight="32"
+                               AutomationProperties.Name="Design instrument" />
+                      <TextBlock Text="TIMEFRAME / DATA" Classes="eyebrow" />
+                      <ComboBox ItemsSource="{Binding DesignTimeframeOptions}"
+                                SelectedItem="{Binding DesignTimeframeText, Mode=TwoWay}"
+                                MinWidth="120" HorizontalAlignment="Left"
+                                AutomationProperties.Name="Design timeframe" />
+                      <TextBlock Text="EVALUATION TIMING" Classes="eyebrow" />
+                      <ComboBox ItemsSource="{Binding DesignEvaluationTimingOptions}"
+                                SelectedItem="{Binding DesignEvaluationTimingText, Mode=TwoWay}"
+                                MinWidth="160" HorizontalAlignment="Left"
+                                AutomationProperties.Name="Design evaluation timing" />
                       <TextBlock Text="ENTRY" Classes="eyebrow" />
                       <TextBox Text="{Binding DesignEntryRuleText, Mode=TwoWay}"
-                               Watermark="When do you enter? (instrument, signal, confirmation, evaluation time)"
+                               Watermark="When do you enter? (signal, confirmation)"
                                TextWrapping="Wrap" MinHeight="44"
                                AutomationProperties.Name="Design entry rule" />
                       <TextBlock Text="EXIT" Classes="eyebrow" />
@@ -1998,6 +2036,9 @@
                                Watermark="Market/limit, TIF, replace/cancel rules"
                                TextWrapping="Wrap" MinHeight="36"
                                AutomationProperties.Name="Design order instructions" />
+                      <TextBlock Text="{Binding DesignUnresolvedChecklistText}" Classes="caption"
+                                 TextWrapping="Wrap"
+                                 AutomationProperties.Name="Design unresolved checklist" />
                       <TextBlock Text="{Binding DesignRulesReviewText}" Classes="caption" TextWrapping="Wrap"
                                  FontFamily="{StaticResource Font.Data}"
                                  AutomationProperties.Name="Design rules review summary" />
@@ -2012,8 +2053,13 @@
                         <Button Classes="ghost" Content="Ask Hyperion from these rules"
                                 Command="{Binding PromoteDesignRulesToRequestCommand}"
                                 IsEnabled="{Binding CanPromoteDesignRulesToRequest}"
-                                ToolTip.Tip="Copies the fields into the Hyperion prompt only. Send may reinterpret — review the reply against these fields before Build."
+                                ToolTip.Tip="Copies the fields into the Hyperion prompt only. After the reply, stage and Accept — Design fields do not change until Accept."
                                 AutomationProperties.Name="Promote design rules to request" />
+                        <Button Classes="ghost" Content="Stage last Hyperion reply"
+                                Command="{Binding StageLastHyperionAsDesignProposalCommand}"
+                                IsEnabled="{Binding CanStageLastHyperionAsDesignProposal}"
+                                ToolTip.Tip="Load the latest assistant message into the proposal review panel."
+                                AutomationProperties.Name="Stage last Hyperion reply as design proposal" />
                       </StackPanel>
                     </StackPanel>
                   </ScrollViewer>

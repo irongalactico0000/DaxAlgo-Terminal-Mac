@@ -1,8 +1,8 @@
 # Design workspace — remaining authoring problem (2026-09-17)
 
-**Main issue now:** stage navigation is corrected (Research Studio link + Design→Build→Validate→Run). The remaining problem is **Design still treating rules as a side panel** while chat/templates dominate — and whether inputs share one strategy definition.
+**Main issue (addressed in UI):** stage navigation is corrected (Research Studio link + Design→Build→Validate→Run). Design center is the **rule editor**; Hyperion is a narrow prompt column. Hyperion replies must be **Accepted** before they overwrite Design fields.
 
-**North star for this fix:** Make the **rule editor the Design center** and prove every path edits the **same** working draft.
+**North star:** Every path edits the **same** working draft (instrument, timeframe, evaluation, entry/exit/sizing/risk/orders).
 
 ## Audit corrections (do not act on outdated claims)
 
@@ -16,22 +16,26 @@
 
 Compare **same commit/build** before changing tests or declaring defects fixed.
 
-## Code audit: “Use rules as request” / Promote
+## Code audit: Promote vs Accept
 
-**Traced:** `PromoteDesignRulesToRequest` copies the five Design text fields into `Composer` as a **Hyperion prompt string**. It does **not** update a separate structured TradeIR. **Send may reinterpret.**
+**Traced:** `PromoteDesignRulesToRequest` copies Design fields into `Composer` as a **Hyperion prompt string**. It does **not** update Design fields or invent TradeIR. **Send may reinterpret.**
 
 | Path | Behavior |
 |------|----------|
-| Design fields | Working draft (authoritative for Review) |
+| Design fields | Working draft (authoritative for Review / Build intent) |
 | **Review strategy** | Confirms fields as draft; no LLM |
-| **Ask Hyperion from these rules** | Prompt copy only — may reinterpret on Send |
+| **Ask Hyperion from these rules** | Prompt copy only — Design unchanged |
+| **Stage last Hyperion reply** | Loads assistant text into pending proposal panel |
+| **Accept / Discard** | Accept writes keyed lines into Design fields; Discard keeps draft |
 
-## Layout target (in progress)
+Unresolved checklist surfaces missing instrument / timeframe / evaluation / rules before Build.
+
+## Layout target
 
 | Area | Purpose |
 |------|---------|
 | Left | Strategies / versions (rail) |
-| Center | Rules, unresolved items, optional linked research (**star column**) |
+| Center | Rules, unresolved checklist, optional linked research, Hyperion proposal review (**star column**) |
 | Right | Hyperion (narrow Auto) |
 | Top | Research Studio link; Design→Build→Validate→Run |
 | Main actions | **Review strategy**, then Build when ready |
@@ -40,4 +44,4 @@ Compare **same commit/build** before changing tests or declaring defects fixed.
 
 Hyperion: “On a completed 5-minute bar, enter when EMA 20 crosses above EMA 50.”
 
-Editor exposes: instrument (unresolved), data 5m bars, evaluation completed bar, condition EMA20×EMA50, sizing/exit/risk unresolved until set. Changing EMA 20→30 updates the draft; prior Validate evidence stays on the prior revision.
+Editor exposes: instrument (unresolved until set), data 5m bars, evaluation completed bar, condition EMA20×EMA50, sizing/exit/risk unresolved until set. Changing EMA 20→30 updates the draft; prior Validate evidence stays on the prior revision. Hyperion text does not replace fields until Accept.
