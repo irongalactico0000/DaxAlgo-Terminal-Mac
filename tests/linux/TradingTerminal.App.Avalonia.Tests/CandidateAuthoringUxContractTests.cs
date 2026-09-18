@@ -325,10 +325,16 @@ public sealed class CandidateAuthoringUxContractTests
         root.ToString().Should().Contain("DesignInstrumentText");
         root.ToString().Should().Contain("DesignInstrumentSearchText");
         root.ToString().Should().Contain("SelectedDesignInstrument");
+        root.ToString().Should().Contain("Design instrument search");
         root.ToString().Should().Contain("Design instrument picker");
-        root.ToString().Should().Contain("Search or pick instrument");
-        root.ToString().Should().Contain("AutoCompleteBox");
-        root.ToString().Should().NotContain("Design instrument search");
+        root.ToString().Should().Contain("Click to choose instrument");
+        root.ToString().Should().Contain("Type to filter symbol + venue");
+        root.Descendants(Avalonia + "ComboBox").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Design instrument picker");
+        root.Descendants(Avalonia + "TextBox").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Design instrument search");
+        root.ToString().Should().Contain("Design pair scope enabled");
+        root.ToString().Should().Contain("Design second instrument picker");
         root.ToString().Should().Contain("Design entry saved condition primary");
         root.ToString().Should().Contain("Toggle design entry condition builder");
         root.ToString().Should().Contain("USE SAVED CONDITION");

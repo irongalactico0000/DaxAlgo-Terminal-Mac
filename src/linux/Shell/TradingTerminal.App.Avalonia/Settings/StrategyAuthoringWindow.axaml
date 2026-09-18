@@ -2250,19 +2250,18 @@
                                 AutomationProperties.Name="Design pair scope enabled" />
                       <TextBlock Text="LEG 1 (PRIMARY / CHART)" Classes="caption"
                                  IsVisible="{Binding DesignPairScopeEnabled}" />
-                      <AutoCompleteBox MinWidth="220" HorizontalAlignment="Stretch"
-                                       Watermark="Search or pick instrument…"
-                                       MinimumPrefixLength="0"
-                                       MinimumPopulateDelay="0:0:0.100"
-                                       MaxDropDownHeight="320"
-                                       FilterMode="None"
-                                       IsTextCompletionEnabled="False"
-                                       ValueMemberBinding="{Binding DisplayName}"
-                                       Text="{Binding DesignInstrumentSearchText, Mode=TwoWay}"
-                                       ItemsSource="{Binding DesignInstrumentOptions}"
-                                       SelectedItem="{Binding SelectedDesignInstrument, Mode=TwoWay}"
-                                       AutomationProperties.Name="Design instrument picker">
-                        <AutoCompleteBox.ItemTemplate>
+                      <!-- TextBox filters; ComboBox click-opens the list (AutoCompleteBox does not). -->
+                      <TextBox Text="{Binding DesignInstrumentSearchText, Mode=TwoWay}"
+                               Watermark="Type to filter symbol + venue…"
+                               MinWidth="220" HorizontalAlignment="Stretch"
+                               AutomationProperties.Name="Design instrument search" />
+                      <ComboBox ItemsSource="{Binding DesignInstrumentOptions}"
+                                SelectedItem="{Binding SelectedDesignInstrument, Mode=TwoWay}"
+                                MinWidth="220" HorizontalAlignment="Stretch"
+                                MaxDropDownHeight="320"
+                                PlaceholderText="Click to choose instrument…"
+                                AutomationProperties.Name="Design instrument picker">
+                        <ComboBox.ItemTemplate>
                           <DataTemplate>
                             <StackPanel Spacing="1" MinWidth="280">
                               <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
@@ -2270,8 +2269,8 @@
                                          Text="{Binding Contract.Symbol}" />
                             </StackPanel>
                           </DataTemplate>
-                        </AutoCompleteBox.ItemTemplate>
-                      </AutoCompleteBox>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
                       <TextBlock Text="{Binding DesignInstrumentPickerStatusText}" Classes="caption"
                                  IsVisible="{Binding HasDesignInstrumentPickerStatus}"
                                  TextWrapping="Wrap"
@@ -2288,19 +2287,17 @@
                       <StackPanel Spacing="4" IsVisible="{Binding DesignPairScopeEnabled}"
                                   AutomationProperties.Name="Design leg 2 instrument editor">
                         <TextBlock Text="LEG 2" Classes="caption" />
-                        <AutoCompleteBox MinWidth="220" HorizontalAlignment="Stretch"
-                                         Watermark="Search or pick Leg 2…"
-                                         MinimumPrefixLength="0"
-                                         MinimumPopulateDelay="0:0:0.100"
-                                         MaxDropDownHeight="320"
-                                         FilterMode="None"
-                                         IsTextCompletionEnabled="False"
-                                         ValueMemberBinding="{Binding DisplayName}"
-                                         Text="{Binding DesignSecondInstrumentSearchText, Mode=TwoWay}"
-                                         ItemsSource="{Binding DesignSecondInstrumentOptions}"
-                                         SelectedItem="{Binding SelectedDesignSecondInstrument, Mode=TwoWay}"
-                                         AutomationProperties.Name="Design second instrument picker">
-                          <AutoCompleteBox.ItemTemplate>
+                        <TextBox Text="{Binding DesignSecondInstrumentSearchText, Mode=TwoWay}"
+                                 Watermark="Type to filter Leg 2…"
+                                 MinWidth="220" HorizontalAlignment="Stretch"
+                                 AutomationProperties.Name="Design second instrument search" />
+                        <ComboBox ItemsSource="{Binding DesignSecondInstrumentOptions}"
+                                  SelectedItem="{Binding SelectedDesignSecondInstrument, Mode=TwoWay}"
+                                  MinWidth="220" HorizontalAlignment="Stretch"
+                                  MaxDropDownHeight="320"
+                                  PlaceholderText="Click to choose Leg 2…"
+                                  AutomationProperties.Name="Design second instrument picker">
+                          <ComboBox.ItemTemplate>
                             <DataTemplate>
                               <StackPanel Spacing="1" MinWidth="280">
                                 <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
@@ -2308,8 +2305,8 @@
                                            Text="{Binding Contract.Symbol}" />
                               </StackPanel>
                             </DataTemplate>
-                          </AutoCompleteBox.ItemTemplate>
-                        </AutoCompleteBox>
+                          </ComboBox.ItemTemplate>
+                        </ComboBox>
                         <TextBlock Text="{Binding DesignSecondInstrumentPickerStatusText}" Classes="caption"
                                    IsVisible="{Binding HasDesignSecondInstrumentPickerStatus}"
                                    TextWrapping="Wrap"

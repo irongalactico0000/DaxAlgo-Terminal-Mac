@@ -81,7 +81,7 @@ public sealed partial class StrategyAuthoringViewModel
             if (!browsing && DesignInstrumentOptions.Count == 0)
                 return $"No matches for “{term}” — try symbol or venue.";
             if (browsing)
-                return $"{_designInstrumentUniverse.Count} available · click to browse, type to filter";
+                return $"{_designInstrumentUniverse.Count} available · click dropdown to pick, type above to filter";
             return $"{DesignInstrumentOptions.Count} match(es) · symbol + venue";
         }
     }
@@ -755,7 +755,7 @@ public sealed partial class StrategyAuthoringViewModel
             if (!browsing && DesignSecondInstrumentOptions.Count == 0)
                 return $"No matches for “{term}” — try symbol or venue.";
             if (browsing)
-                return $"{DesignSecondInstrumentOptions.Count} available · Leg 2 · click to browse, type to filter";
+                return $"{DesignSecondInstrumentOptions.Count} available · Leg 2 · click dropdown to pick, type above to filter";
             return $"{DesignSecondInstrumentOptions.Count} match(es) · Leg 2";
         }
     }
