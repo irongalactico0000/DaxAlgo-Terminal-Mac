@@ -60,7 +60,7 @@ Real multi-chart tiles: Compare hosts up to **3 live chart tiles** + numeric str
 | # | Step | Expected | Pass? |
 |---|------|----------|-------|
 | D1 | Build | Compile result; errors tied to rules if any | |
-| D2 | Validate assumptions | L1 applied; optional quantity-capped partials (max 4/touch) + latency ms; queue/liquidity unavailable **with explanation** (Nautilus-class / event-driven = workstream 3, not claimed) | |
+| D2 | Validate assumptions | L1 applied; optional partials/latency/opposite-size; optional **FIFO-ahead queue v1** + **snapshot book-walk v1** (tokens `fifo-ahead-v1` / `bookwalk-v1`); honesty copy says **not Nautilus matching / MBO** | |
 | D3 | Run validation | Trades/performance for the version | |
 | D4 | Select one trade | Chart opens for that trade context | |
 | D5 | Change research EMA to 30; reopen Builder | Strategy still on prior EMA 20 until user updates link (stale banner if implemented) | |
@@ -74,12 +74,12 @@ Criteria: [`workstreams-research-builder-validate.md`](workstreams-research-buil
 
 | # | Step | Expected | Pass? |
 |---|------|----------|-------|
-| F1 | Book reconstruction fixture | Available book at each replay timestamp is explicit | |
-| F2 | IOC limit: buy 100 @ 100.01 vs asks 30@100.00 + 50@100.01 | Fill **80**, cancel **20**, avg **100.00625** | |
-| F3 | Accounting | Positions / fees / cash / P&L reconcile with fills | |
-| F4 | UI claim gate | Richer model selectable in Validate **only after** F1–F3 green for that model | |
+| F1 | Book reconstruction fixture | Available book at each replay timestamp is explicit | Partial — snapshot at fill time; not full L2 tape rebuild |
+| F2 | IOC limit: buy 100 @ 100.01 vs asks 30@100.00 + 50@100.01 | Fill **80**, cancel **20**, avg **100.00625** | **PASS** (`L2BookWalkIocFixtureTests` + Attach IOC book-walk demo) |
+| F3 | Accounting | Positions / fees / cash / P&L reconcile with fills | Not yet for book-walk path |
+| F4 | UI claim gate | Richer model selectable in Validate **only after** F1–F3 green for that model | **PASS for book-walk/queue v1** (F2 green); full F1/F3 still open |
 
-**Local now:** F* not implemented — L1 path only. Do not mark PASS on F from Order book chrome alone.
+**Local now:** F2 + UI queue/book-walk v1 shipped. Still **not** NautilusTrader / MBO / depleting shared book. Do not mark full Journey F PASS.
 
 ---
 

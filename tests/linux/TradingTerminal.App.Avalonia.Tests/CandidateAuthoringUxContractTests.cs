@@ -287,7 +287,10 @@ public sealed class CandidateAuthoringUxContractTests
         root.Descendants(Avalonia + "TextBlock").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Execution fidelity applied checklist");
         root.Descendants(Avalonia + "CheckBox").Should().Contain(element =>
-            (string?)element.Attribute("Content") == "Queue position (unavailable)" &&
+            (string?)element.Attribute("Content") == "Queue position (FIFO-ahead v1)" &&
+            (string?)element.Attribute("IsEnabled") == "{Binding ExecutionUnsupportedOptionsAvailable}");
+        root.Descendants(Avalonia + "CheckBox").Should().Contain(element =>
+            (string?)element.Attribute("Content") == "Liquidity walk (book-walk v1)" &&
             (string?)element.Attribute("IsEnabled") == "{Binding ExecutionUnsupportedOptionsAvailable}");
         root.Descendants(Avalonia + "CheckBox").Should().Contain(element =>
             (string?)element.Attribute("Content") == "Partial fills (max 4 per touch)" &&
@@ -298,6 +301,9 @@ public sealed class CandidateAuthoringUxContractTests
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Attach L1 execution lifecycle demo" &&
             (string?)element.Attribute("Command") == "{Binding AttachL1ExecutionLifecycleDemoCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Attach L2 book-walk lifecycle demo" &&
+            (string?)element.Attribute("Command") == "{Binding AttachL2BookWalkLifecycleDemoCommand}");
         root.ToString().Should().Contain("Return to Design from Build");
         root.ToString().Should().Contain("Strategy version result list");
         root.ToString().Should().Contain("Run comparison for native strategy run");

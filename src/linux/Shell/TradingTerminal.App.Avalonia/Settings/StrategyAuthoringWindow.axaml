@@ -262,16 +262,18 @@
                          ToolTip.Tip="{Binding ExecutionLatencyTip}"
                          AutomationProperties.Name="Execution latency ms" />
               </StackPanel>
-              <CheckBox Content="Queue position (unavailable)"
+              <CheckBox Content="Queue position (FIFO-ahead v1)"
                         IsChecked="{Binding ExecutionEnableQueuePosition}"
                         IsEnabled="{Binding ExecutionUnsupportedOptionsAvailable}"
                         Margin="0,0,8,4"
-                        ToolTip.Tip="{Binding ExecutionUnsupportedOptionsExplanation}" />
-              <CheckBox Content="Liquidity walk (unavailable)"
+                        ToolTip.Tip="{Binding ExecutionQueueTip}"
+                        AutomationProperties.Name="Execution queue position" />
+              <CheckBox Content="Liquidity walk (book-walk v1)"
                         IsChecked="{Binding ExecutionEnableLiquidityConsumption}"
                         IsEnabled="{Binding ExecutionUnsupportedOptionsAvailable}"
                         Margin="0,0,8,4"
-                        ToolTip.Tip="{Binding ExecutionUnsupportedOptionsExplanation}" />
+                        ToolTip.Tip="{Binding ExecutionLiquidityWalkTip}"
+                        AutomationProperties.Name="Execution liquidity walk" />
               <CheckBox Content="Opposite L1 size cap (BidSize/AskSize)"
                         IsChecked="{Binding ExecutionEnableOppositeL1SizeCap}"
                         IsEnabled="{Binding ExecutionOppositeL1SizeCapAvailable}"
@@ -298,8 +300,12 @@
                     AutomationProperties.Name="Export open package" />
             <Button Classes="ghost" Content="Attach L1 lifecycle demo"
                     Command="{Binding AttachL1ExecutionLifecycleDemoCommand}"
-                    ToolTip.Tip="Fixed L1FillModel fixture: target +50 → fill 25 → cancel → position +25. Not from your historical run. Not Nautilus queue/liquidity."
+                    ToolTip.Tip="Fixed L1FillModel fixture: target +50 → fill 25 → cancel → position +25. Not from your historical run. Not Nautilus matching."
                     AutomationProperties.Name="Attach L1 execution lifecycle demo" />
+            <Button Classes="ghost" Content="Attach IOC book-walk demo"
+                    Command="{Binding AttachL2BookWalkLifecycleDemoCommand}"
+                    ToolTip.Tip="Canonical IOC: buy 100 @ 100.01 → fill 80 / cancel 20 / avg 100.00625. Snapshot walk v1 — not Nautilus matching."
+                    AutomationProperties.Name="Attach L2 book-walk lifecycle demo" />
             <Button Classes="aiAction" Content="Run historical validation"
                     IsEnabled="{Binding CanRunHistoricalValidation}"
                     Click="OnHistoricalValidationRequested"

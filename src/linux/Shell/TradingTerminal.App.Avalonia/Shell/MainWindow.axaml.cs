@@ -1219,7 +1219,9 @@ public partial class MainWindow : Window
                 appliedFidelity.DataModeToken,
                 executionLatencyMs: appliedFidelity.LatencyMs,
                 maxFillQuantityPerTouch: appliedFidelity.MaxFillPerTouch,
-                capToOppositeL1Size: appliedFidelity.OppositeL1SizeCapEnabled))
+                capToOppositeL1Size: appliedFidelity.OppositeL1SizeCapEnabled,
+                enableFifoQueueAhead: appliedFidelity.FifoQueueAheadEnabled,
+                enableL2BookWalk: appliedFidelity.L2BookWalkEnabled))
         {
             authoring.Status = backtest.Status;
             window.Close();

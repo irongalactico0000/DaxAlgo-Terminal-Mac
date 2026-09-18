@@ -63,7 +63,11 @@ public sealed record BacktestConfig(
     // When > 0, each L1 touch fills at most this many units (partials). 0 = no fixed ceiling.
     long MaxFillQuantityPerTouch = 0,
     // Cap each fill to opposite L1 size (AskSize buys / BidSize sells). Proxy only — not queue walk.
-    bool CapToOppositeL1Size = false);
+    bool CapToOppositeL1Size = false,
+    // FIFO-ahead estimate v1 for passive limits (opposite-size decrease clears queue).
+    bool EnableFifoQueueAhead = false,
+    // Snapshot book-walk v1 (L2 when depth present; else single L1 level proxy).
+    bool EnableL2BookWalk = false);
 
 /// <summary>
 /// One reviewed instrument's completed-bar history in a multi-series replay. Tick size and contract

@@ -30,8 +30,9 @@ public sealed partial class StrategyAuthoringViewModel
 
     /// <summary>
     /// Validate/Replay execution fidelity. L1 touch ± slippage is always applied.
-    /// Optional: quantity-capped partials per touch, opposite-L1-size cap (BidSize/AskSize proxy),
-    /// and execution latency ms. Queue position and multi-level liquidity walk remain unavailable.
+    /// Optional: capped partials, opposite-L1-size cap, latency, FIFO-ahead queue estimate,
+    /// and snapshot book-walk (L2 when depth present; else L1-level proxy).
+    /// Full Nautilus matching / MBO remains out of scope.
     /// </summary>
     [ObservableProperty] private string _executionBookType = SupportedExecutionBookType;
     [ObservableProperty] private bool _executionEnableQueuePosition;
@@ -45,16 +46,20 @@ public sealed partial class StrategyAuthoringViewModel
     public const long AppliedPartialFillMaxPerTouch = 4;
 
     public const string SupportedExecutionBookType = "L1 quotes (applied)";
+    public const string SupportedExecutionBookTypeL2 = "L2 snapshot walk (applied)";
     public const string SupportedExecutionFillModel = "L1 touch ± slippage (applied)";
+    public const string SupportedExecutionFillModelBookWalk = "L2 book walk ± IOC (applied)";
 
-    /// <summary>Only engine-applied book types — unsupported L2/L3 are not selectable.</summary>
-    public IReadOnlyList<string> ExecutionBookTypeOptions { get; } = [SupportedExecutionBookType];
+    /// <summary>Engine-applied book types.</summary>
+    public IReadOnlyList<string> ExecutionBookTypeOptions { get; } =
+        [SupportedExecutionBookType, SupportedExecutionBookTypeL2];
 
-    /// <summary>Only engine-applied fill models — unsupported walks/queue fills are not selectable.</summary>
-    public IReadOnlyList<string> ExecutionFillModelOptions { get; } = [SupportedExecutionFillModel];
+    /// <summary>Engine-applied fill models.</summary>
+    public IReadOnlyList<string> ExecutionFillModelOptions { get; } =
+        [SupportedExecutionFillModel, SupportedExecutionFillModelBookWalk];
 
-    /// <summary>Queue / multi-level liquidity walk are not applied yet.</summary>
-    public bool ExecutionUnsupportedOptionsAvailable => false;
+    /// <summary>Queue FIFO-ahead and book-walk are applied when enabled (estimate / snapshot v1).</summary>
+    public bool ExecutionUnsupportedOptionsAvailable => true;
 
     /// <summary>Partials, opposite-L1-size cap, and latency are applied by L1FillModel when enabled.</summary>
     public bool ExecutionPartialsAndLatencyAvailable => true;
@@ -65,9 +70,10 @@ public sealed partial class StrategyAuthoringViewModel
     public string ExecutionUnsupportedOptionsExplanation =>
         "Applied today: L1 touch ± slippage; optional capped partials (max " +
         AppliedPartialFillMaxPerTouch +
-        " per touch); optional opposite-L1-size cap (BidSize/AskSize proxy); latency ms. " +
-        "Not claimed: L2/L3 books, queue position, multi-level liquidity walk — those remain a later " +
-        "Nautilus-class fill-fidelity target, not this Validate lane.";
+        " per touch); optional opposite-L1-size cap; latency ms; " +
+        "optional FIFO-ahead queue estimate (opposite-size decrease); " +
+        "optional snapshot book-walk (L2 depth when present, else L1-level proxy). " +
+        "Not claimed: NautilusTrader matching, MBO/L3, depleting shared book across time.";
 
     public string ExecutionPartialsTip =>
         $"When checked, each L1 touch fills at most {AppliedPartialFillMaxPerTouch} units so orders can PartiallyFilled → Filled/Cancelled.";
@@ -75,6 +81,14 @@ public sealed partial class StrategyAuthoringViewModel
     public string ExecutionOppositeL1SizeCapTip =>
         "When checked, each fill is also capped by the opposite L1 size (AskSize for buys, BidSize for sells). " +
         "Zero opposite size → no fill. This is an L1 size proxy — not queue position or book walk.";
+
+    public string ExecutionQueueTip =>
+        "FIFO-ahead estimate v1: passive limits join with opposite L1 size ahead; size decreases clear the queue. " +
+        "Crossing limits take immediately. Not exchange MBO / Nautilus matching.";
+
+    public string ExecutionLiquidityWalkTip =>
+        "Snapshot book-walk v1: walk ask/bid levels until qty or limit exhausted (IOC cancels remainder). " +
+        "Uses last L2 snapshot when present; otherwise one L1 level as proxy. Not Nautilus matching.";
 
     public string ExecutionLatencyTip =>
         "Milliseconds after submit before the order may fill on L1 touches (sim clock). 0 = immediate.";
@@ -96,6 +110,10 @@ public sealed partial class StrategyAuthoringViewModel
     /// </summary>
     public bool CanAttachL1ExecutionLifecycleDemo =>
         !IsGenerating && TryGetAppliedExecutionFidelity(out _, out _);
+
+    /// <summary>Attach canonical IOC book-walk fixture (80 fill / 20 cancel / avg 100.00625).</summary>
+    public bool CanAttachL2BookWalkLifecycleDemo =>
+        !IsGenerating;
 
     /// <summary>
     /// Lane 3 · export registered authored unit as installable <c>.daxalgostrategy</c>.
@@ -192,16 +210,22 @@ public sealed partial class StrategyAuthoringViewModel
 
             var partials = applied.PartialsEnabled
                 ? $"on (max {AppliedPartialFillMaxPerTouch} per L1 touch)"
-                : "off — full remaining qty per touch (unless opposite-size cap)";
+                : "off — full remaining qty per touch (unless opposite-size / walk caps)";
             var opposite = applied.OppositeL1SizeCapEnabled
-                ? "on — BidSize/AskSize proxy (not queue walk)"
+                ? "on — BidSize/AskSize proxy (not MBO)"
+                : "off";
+            var queue = applied.FifoQueueAheadEnabled
+                ? "on — FIFO-ahead estimate v1 (opposite-size decrease)"
+                : "off";
+            var liq = applied.L2BookWalkEnabled
+                ? "on — snapshot book-walk v1 (L2 or L1-level proxy)"
                 : "off";
             return
                 "Execution fidelity (Validate → Replay) — applied by engine:\n" +
                 $"• Book / data: {applied.BookType}\n" +
                 $"• Fill model: {applied.FillModel}\n" +
-                $"• Queue position: off (not available)\n" +
-                $"• Multi-level liquidity walk: off (not available)\n" +
+                $"• Queue position: {queue}\n" +
+                $"• Multi-level liquidity walk: {liq}\n" +
                 $"• Opposite L1 size cap: {opposite}\n" +
                 $"• Partial fills / lifecycle: {partials}\n" +
                 $"• Execution latency: {applied.LatencyMs} ms\n" +
@@ -223,6 +247,8 @@ public sealed partial class StrategyAuthoringViewModel
         bool PartialsEnabled,
         long MaxFillPerTouch,
         bool OppositeL1SizeCapEnabled,
+        bool FifoQueueAheadEnabled,
+        bool L2BookWalkEnabled,
         string DataModeToken);
 
     /// <summary>
@@ -232,22 +258,17 @@ public sealed partial class StrategyAuthoringViewModel
         out AppliedExecutionFidelityV1 applied,
         out string rejection)
     {
-        var bookOk = string.Equals(ExecutionBookType, SupportedExecutionBookType, StringComparison.Ordinal);
-        var fillOk = string.Equals(ExecutionFillModel, SupportedExecutionFillModel, StringComparison.Ordinal);
-        if (!bookOk || !fillOk)
+        var bookL1 = string.Equals(ExecutionBookType, SupportedExecutionBookType, StringComparison.Ordinal);
+        var bookL2 = string.Equals(ExecutionBookType, SupportedExecutionBookTypeL2, StringComparison.Ordinal);
+        var fillL1 = string.Equals(ExecutionFillModel, SupportedExecutionFillModel, StringComparison.Ordinal);
+        var fillWalk = string.Equals(ExecutionFillModel, SupportedExecutionFillModelBookWalk, StringComparison.Ordinal);
+        if ((!bookL1 && !bookL2) || (!fillL1 && !fillWalk))
         {
             applied = default;
             rejection =
                 "Execution book/fill selection is not an applied engine option. " +
-                $"Use {SupportedExecutionBookType} / {SupportedExecutionFillModel}.";
-            return false;
-        }
-
-        if (ExecutionEnableQueuePosition || ExecutionEnableLiquidityConsumption)
-        {
-            applied = default;
-            rejection =
-                "Queue position and multi-level liquidity consumption are not available. Turn them off.";
+                $"Use {SupportedExecutionBookType} or {SupportedExecutionBookTypeL2} / " +
+                $"{SupportedExecutionFillModel} or {SupportedExecutionFillModelBookWalk}.";
             return false;
         }
 
@@ -258,35 +279,51 @@ public sealed partial class StrategyAuthoringViewModel
             return false;
         }
 
+        var walk = ExecutionEnableLiquidityConsumption || bookL2 || fillWalk;
+        var queue = ExecutionEnableQueuePosition && !walk;
+        // Book-walk path owns liquidity; FIFO-ahead is L1 resting estimate.
+        if (ExecutionEnableQueuePosition && walk)
+        {
+            // Still allowed — queue ignored while walking; disclose in token.
+            queue = false;
+        }
+
         var partials = ExecutionEnablePartialFills;
         var maxFill = partials ? AppliedPartialFillMaxPerTouch : 0L;
-        var opposite = ExecutionEnableOppositeL1SizeCap;
+        var opposite = ExecutionEnableOppositeL1SizeCap && !walk;
         var latency = ExecutionLatencyMs;
+        var bookLabel = walk ? SupportedExecutionBookTypeL2 : SupportedExecutionBookType;
+        var fillLabel = walk ? SupportedExecutionFillModelBookWalk : SupportedExecutionFillModel;
+        var modelToken = walk ? "L2BookWalkFillV1" : "L1TouchFillModel";
+        var bookToken = walk ? "L2-snapshot|fallback=l1-proxy" : "L1";
         applied = new AppliedExecutionFidelityV1(
-            SupportedExecutionBookType,
-            SupportedExecutionFillModel,
+            bookLabel,
+            fillLabel,
             LatencyMs: latency,
             PartialsEnabled: partials,
             MaxFillPerTouch: maxFill,
             OppositeL1SizeCapEnabled: opposite,
+            FifoQueueAheadEnabled: queue,
+            L2BookWalkEnabled: walk,
             DataModeToken:
-                $"L1TouchFillModel|book=L1|queue=off|liq=off|oppositeSize={(opposite ? "on" : "off")}|" +
+                $"{modelToken}|book={bookToken}|" +
+                $"queue={(queue ? "fifo-ahead-v1" : "off")}|" +
+                $"liq={(walk ? "bookwalk-v1" : "off")}|" +
+                $"oppositeSize={(opposite ? "on" : "off")}|" +
                 $"partials={(partials ? $"max{maxFill}" : "off")}|latencyMs={latency}|applied");
         rejection = string.Empty;
         return true;
     }
 
-    /// <summary>Normalize restored/legacy planned labels; keep applied partials/latency/opposite-size user choices.</summary>
+    /// <summary>Normalize restored/legacy planned labels; keep applied user choices including queue/walk.</summary>
     internal void CoerceLegacyExecutionFidelitySettings()
     {
-        if (!string.Equals(ExecutionBookType, SupportedExecutionBookType, StringComparison.Ordinal))
+        if (!string.Equals(ExecutionBookType, SupportedExecutionBookType, StringComparison.Ordinal) &&
+            !string.Equals(ExecutionBookType, SupportedExecutionBookTypeL2, StringComparison.Ordinal))
             ExecutionBookType = SupportedExecutionBookType;
-        if (!string.Equals(ExecutionFillModel, SupportedExecutionFillModel, StringComparison.Ordinal))
+        if (!string.Equals(ExecutionFillModel, SupportedExecutionFillModel, StringComparison.Ordinal) &&
+            !string.Equals(ExecutionFillModel, SupportedExecutionFillModelBookWalk, StringComparison.Ordinal))
             ExecutionFillModel = SupportedExecutionFillModel;
-        if (ExecutionEnableQueuePosition)
-            ExecutionEnableQueuePosition = false;
-        if (ExecutionEnableLiquidityConsumption)
-            ExecutionEnableLiquidityConsumption = false;
         if (ExecutionLatencyMs < 0)
             ExecutionLatencyMs = 0;
     }
@@ -305,7 +342,9 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(ExecutionFidelityDataModeText));
         OnPropertyChanged(nameof(CanRunHistoricalValidation));
         OnPropertyChanged(nameof(CanAttachL1ExecutionLifecycleDemo));
+        OnPropertyChanged(nameof(CanAttachL2BookWalkLifecycleDemo));
         AttachL1ExecutionLifecycleDemoCommand.NotifyCanExecuteChanged();
+        AttachL2BookWalkLifecycleDemoCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanAttachL1ExecutionLifecycleDemo))]
@@ -324,7 +363,27 @@ public sealed partial class StrategyAuthoringViewModel
             ActiveScreen = StrategyAuthoringScreen.Validate;
         Status =
             $"Attached L1 lifecycle demo · {L1ExecutionLifecycleFixtureV1.Summary(report)}. " +
-            "Fixed fixture — not from your historical run; queue/liquidity/Nautilus not claimed.";
+            "Fixed fixture — not from your historical run; not Nautilus matching.";
+        NotifyWorkingFlowMapChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanAttachL2BookWalkLifecycleDemo))]
+    private void AttachL2BookWalkLifecycleDemo()
+    {
+        if (!CanAttachL2BookWalkLifecycleDemo) return;
+
+        var report = L2BookWalkLifecycleFixtureV1.RunCanonicalIocBuy();
+        UpsertExecutionLifecycleResult(
+            L2BookWalkLifecycleFixtureV1.ReportId,
+            L2BookWalkLifecycleFixtureV1.Summary(report),
+            L2BookWalkLifecycleFixtureV1.Serialize(report));
+        if (OpenValidateScreenCommand.CanExecute(null))
+            OpenValidateScreenCommand.Execute(null);
+        else
+            ActiveScreen = StrategyAuthoringScreen.Validate;
+        Status =
+            $"Attached IOC book-walk demo · {L2BookWalkLifecycleFixtureV1.Summary(report)}. " +
+            "Canonical fixture — snapshot walk v1, not Nautilus matching.";
         NotifyWorkingFlowMapChanged();
     }
 

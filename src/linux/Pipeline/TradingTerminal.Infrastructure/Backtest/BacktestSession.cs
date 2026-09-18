@@ -59,13 +59,24 @@ public sealed class BacktestSession : IBacktestSession
             throw new ArgumentOutOfRangeException(nameof(config), "MaxFillQuantityPerTouch must be ≥ 0.");
 
         var clock = new SimulatedClock();
-        var fillModel = new L1FillModel(
-            config.TickSize,
-            config.SlippageTicks,
-            config.MaxFillQuantityPerTouch,
-            config.CapToOppositeL1Size);
+        var bookHolder = new SimulatedOrderBook?[1];
+        IFillModel fillModel = config.EnableL2BookWalk
+            ? new L2BookWalkFillModel(
+                c => bookHolder[0]?.LastDepth(c),
+                config.MaxFillQuantityPerTouch)
+            : new L1FillModel(
+                config.TickSize,
+                config.SlippageTicks,
+                config.MaxFillQuantityPerTouch,
+                config.CapToOppositeL1Size,
+                config.EnableFifoQueueAhead);
         var latency = TimeSpan.FromMilliseconds(config.LatencyMs);
-        var orderBook = new SimulatedOrderBook(clock, fillModel, latency);
+        var orderBook = new SimulatedOrderBook(
+            clock,
+            fillModel,
+            latency,
+            enableFifoQueueAhead: config.EnableFifoQueueAhead);
+        bookHolder[0] = orderBook;
         var router = new BacktestOrderRouter(orderBook, risk, clock);
 
         var ledger = new TradeLedger(config.ContractMultiplier, config.StartingCash, config.FeeModel);

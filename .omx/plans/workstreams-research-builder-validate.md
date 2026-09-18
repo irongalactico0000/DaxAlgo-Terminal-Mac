@@ -87,9 +87,12 @@ This proves price constraints, available liquidity, partial execution, cancellat
 |---------|----------|
 | L1 touch ± slippage | **Yes** |
 | Latency ms + quantity-capped partials (max 4/touch demo) | **Yes** when enabled |
-| L2/L3 book replay, queue, liquidity walk, full IOC book walk | **No** — target for this workstream |
+| Opposite L1 size cap (BidSize/AskSize) | **Yes** when enabled |
+| FIFO-ahead queue estimate v1 | **Yes** when enabled (opposite-size decrease; not MBO) |
+| Snapshot book-walk v1 + IOC fixture (80/20 @ 100.00625) | **Yes** when enabled (L2 snapshot or L1-level proxy) |
+| NautilusTrader matching / MBO / L3 / depleting shared book | **No** — reference architecture only |
 
-**Start now:** fixed strategy + deterministic book fixtures; headless tests first. UI Validate remains L1-disclosed until a richer model is selectable **and** proven by fixtures like the IOC case above.
+**Start now:** fixed strategy + deterministic book fixtures; headless IOC fixture green. UI Validate exposes queue + book-walk as named v1 models — still **not** “is Nautilus”.
 
 ---
 

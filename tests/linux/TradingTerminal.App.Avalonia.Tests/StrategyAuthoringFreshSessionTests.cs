@@ -265,17 +265,23 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.CanOpenResearchScreen.Should().BeTrue();
         viewModel.ShowResearchWorkspace.Should().BeFalse();
         viewModel.IsResearchStudioShell.Should().BeFalse();
-        viewModel.ExecutionFillModelOptions.Should().ContainSingle()
-            .Which.Should().Be(StrategyAuthoringViewModel.SupportedExecutionFillModel);
-        viewModel.ExecutionBookTypeOptions.Should().ContainSingle()
-            .Which.Should().Be(StrategyAuthoringViewModel.SupportedExecutionBookType);
+        viewModel.ExecutionFillModelOptions.Should().Contain(StrategyAuthoringViewModel.SupportedExecutionFillModel);
+        viewModel.ExecutionFillModelOptions.Should().Contain(StrategyAuthoringViewModel.SupportedExecutionFillModelBookWalk);
+        viewModel.ExecutionBookTypeOptions.Should().Contain(StrategyAuthoringViewModel.SupportedExecutionBookType);
+        viewModel.ExecutionBookTypeOptions.Should().Contain(StrategyAuthoringViewModel.SupportedExecutionBookTypeL2);
         viewModel.TryGetAppliedExecutionFidelity(out var applied, out var rejection).Should().BeTrue(rejection);
         applied.DataModeToken.Should().Contain("L1TouchFillModel");
         applied.DataModeToken.Should().Contain("applied");
         viewModel.ExecutionEnableQueuePosition = true;
-        viewModel.TryGetAppliedExecutionFidelity(out _, out rejection).Should().BeFalse();
-        rejection.Should().Contain("Queue");
+        viewModel.TryGetAppliedExecutionFidelity(out var withQueue, out rejection).Should().BeTrue(rejection);
+        withQueue.FifoQueueAheadEnabled.Should().BeTrue();
+        withQueue.DataModeToken.Should().Contain("queue=fifo-ahead-v1");
         viewModel.ExecutionEnableQueuePosition = false;
+        viewModel.ExecutionEnableLiquidityConsumption = true;
+        viewModel.TryGetAppliedExecutionFidelity(out var withWalk, out rejection).Should().BeTrue(rejection);
+        withWalk.L2BookWalkEnabled.Should().BeTrue();
+        withWalk.DataModeToken.Should().Contain("liq=bookwalk-v1");
+        viewModel.ExecutionEnableLiquidityConsumption = false;
         viewModel.ExecutionEnablePartialFills = true;
         viewModel.ExecutionLatencyMs = 25;
         viewModel.TryGetAppliedExecutionFidelity(out var withPartials, out rejection).Should().BeTrue(rejection);
@@ -289,10 +295,10 @@ public sealed class StrategyAuthoringFreshSessionTests
         withOpposite.OppositeL1SizeCapEnabled.Should().BeTrue();
         withOpposite.DataModeToken.Should().Contain("oppositeSize=on");
         viewModel.ExecutionEnableOppositeL1SizeCap = false;
-        viewModel.ExecutionUnsupportedOptionsExplanation.Should().Contain("Nautilus-class");
-        viewModel.ExecutionUnsupportedOptionsExplanation.Should().Contain("L1");
-        viewModel.ExecutionUnsupportedOptionsExplanation.Should().Contain("opposite-L1-size");
-        viewModel.ExecutionUnsupportedOptionsAvailable.Should().BeFalse();
+        viewModel.ExecutionUnsupportedOptionsExplanation.Should().Contain("FIFO-ahead");
+        viewModel.ExecutionUnsupportedOptionsExplanation.Should().Contain("book-walk");
+        viewModel.ExecutionUnsupportedOptionsExplanation.Should().Contain("Not claimed");
+        viewModel.ExecutionUnsupportedOptionsAvailable.Should().BeTrue();
         viewModel.ExecutionOppositeL1SizeCapAvailable.Should().BeTrue();
         viewModel.ExecutionEnablePartialFills = false;
         viewModel.ExecutionLatencyMs = 0;

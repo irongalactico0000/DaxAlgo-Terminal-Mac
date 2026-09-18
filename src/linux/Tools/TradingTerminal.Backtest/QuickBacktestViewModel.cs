@@ -78,6 +78,8 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
     private double _executionLatencyMs;
     private long _maxFillQuantityPerTouch;
     private bool _capToOppositeL1Size;
+    private bool _enableFifoQueueAhead;
+    private bool _enableL2BookWalk;
 
     public QuickBacktestViewModel(
         IBacktestStrategyRegistry registry,
@@ -225,6 +227,8 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
         _executionLatencyMs = 0;
         _maxFillQuantityPerTouch = 0;
         _capToOppositeL1Size = false;
+        _enableFifoQueueAhead = false;
+        _enableL2BookWalk = false;
         _kernelOption = null;
         _canonicalSelections = [];
         Parameters = null;
@@ -268,7 +272,9 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
         string? appliedExecutionFidelityToken = null,
         int executionLatencyMs = 0,
         long maxFillQuantityPerTouch = 0,
-        bool capToOppositeL1Size = false)
+        bool capToOppositeL1Size = false,
+        bool enableFifoQueueAhead = false,
+        bool enableL2BookWalk = false)
     {
         ArgumentNullException.ThrowIfNull(registration);
         ClearPaperLaunchRequest();
@@ -279,6 +285,8 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
         _executionLatencyMs = Math.Max(0, executionLatencyMs);
         _maxFillQuantityPerTouch = Math.Max(0, maxFillQuantityPerTouch);
         _capToOppositeL1Size = capToOppositeL1Size;
+        _enableFifoQueueAhead = enableFifoQueueAhead;
+        _enableL2BookWalk = enableL2BookWalk;
         StrategyDisplayName = registration.DisplayName;
         _option = null;
         _kernelOption = _kernelRegistry.Find(registration.Id);
@@ -550,8 +558,10 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
                     TradeDataPath: tradesPath,
                     LatencyMs: _executionLatencyMs,
                     MaxFillQuantityPerTouch: _maxFillQuantityPerTouch,
-                    CapToOppositeL1Size: _capToOppositeL1Size);
-                FeedQuality = "Real tape (q = 1.0) — full quality. Depth/OBI excluded (engine is L1-only for depth).";
+                    CapToOppositeL1Size: _capToOppositeL1Size,
+                    EnableFifoQueueAhead: _enableFifoQueueAhead,
+                    EnableL2BookWalk: _enableL2BookWalk);
+                FeedQuality = "Real tape (q = 1.0) — full quality. Depth/OBI excluded unless book-walk uses L1 proxy.";
             }
             else
             {
@@ -614,7 +624,9 @@ public sealed partial class QuickBacktestViewModel : ViewModelBase, IDisposable
                     ReplayBarSeries: series.Length > 1 ? series : null,
                     LatencyMs: _executionLatencyMs,
                     MaxFillQuantityPerTouch: _maxFillQuantityPerTouch,
-                    CapToOppositeL1Size: _capToOppositeL1Size);
+                    CapToOppositeL1Size: _capToOppositeL1Size,
+                    EnableFifoQueueAhead: _enableFifoQueueAhead,
+                    EnableL2BookWalk: _enableL2BookWalk);
                 FeedQuality = _kernelOption is null
                     ? "Completed broker bars + deterministic synthetic L1 fills (q ≈ 0.4 for tape logic)."
                     : $"Reviewed SDK bars + contract-scoped synthetic L1 fills. {coverage.Description} Missing bars are not forward-filled; orders are risk-gated.";
