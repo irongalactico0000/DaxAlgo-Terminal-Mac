@@ -255,7 +255,12 @@ public sealed partial class StrategyAuthoringViewModel
     public bool CanAddDesignIndicator => !IsGenerating;
 
     public bool CanImportResearchIndicatorsToDesign =>
-        !IsGenerating && ResearchIndicatorBindingsForDesignImport().Count > 0;
+        !IsGenerating && HasResearchIndicatorsAvailableToImport;
+
+    /// <summary>True when Research has indicator bindings to copy — cheap check for CanExecute.</summary>
+    private bool HasResearchIndicatorsAvailableToImport =>
+        PendingResearchIndicatorBindings.Count > 0 ||
+        _researchAnalysisReferences.Values.Any(static r => r.IndicatorBindings.Count > 0);
 
     [ObservableProperty] private bool _showDesignEntryConditionBuilder;
 

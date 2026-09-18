@@ -288,7 +288,18 @@ public sealed partial class DesignConditionRow : ObservableObject
     partial void OnLeftKindChanged(string value)
     {
         if (!_rebuildingOperands)
+        {
+            // Leaving Saved condition clears the primary picker so it cannot stay visually selected
+            // while the operand builder is editing a different kind.
+            if (!string.Equals(value, KindSavedCondition, StringComparison.Ordinal) &&
+                !string.IsNullOrWhiteSpace(LeftSignalId))
+            {
+                LeftSignalId = "";
+            }
+
             RebuildLeftOperandFromKind();
+        }
+
         NotifyOperandUi();
     }
 

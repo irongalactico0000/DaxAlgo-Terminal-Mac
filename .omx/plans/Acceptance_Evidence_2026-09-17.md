@@ -1,8 +1,8 @@
 # Acceptance evidence — Research → Builder → Validate (2026-09-17)
 
-**Build / commit:** `0d66819` (+ this evidence/tests commit)  
+**Build / commit:** `6e5e225` (+ follow-up Design polish)  
 **Operator:** automated agent (headless + UX contracts); click-path still for human  
-**Date:** 2026-09-17  
+**Date:** 2026-09-18  
 **Launcher:** `~/Desktop/DaxAlgo Terminal.app` (Debug, `DOTNET_ENVIRONMENT=DevSimLogin`, **no** `--bypass-login` — broker Sign in) via `tools/macos/make-dev-launcher-app.sh`. For offline Simulated-only: `DAXALGO_BYPASS_LOGIN=1 DAXALGO_LAUNCH_ENV=DevSim bash tools/macos/make-dev-launcher-app.sh`.
 
 Checklist: [`.omx/plans/acceptance-journey-research-to-validate.md`](acceptance-journey-research-to-validate.md)
@@ -14,15 +14,16 @@ Checklist: [`.omx/plans/acceptance-journey-research-to-validate.md`](acceptance-
 | **A** (finding continuity) | `ResearchReferenceContinuityTests` — save finding 1/2, session reload, restore swap |
 | **A/C** (Studio chrome) | `CandidateAuthoringUxContractTests.Research_Studio_*` — Rank/Compare/Save finding 1; no Reference A/B; `CompareChartTilesHost` present |
 | **C** (Design first) | `StrategyAuthoringFreshSessionTests` — Builder opens Design (not Research stage); rule editor on; Research Studio separate |
+| **C** (Research → Design prefill) | Fresh session: Confirm auto-applies instrument/TF/evaluation/saved condition/indicators; primary ENTRY = Use saved condition; searchable instrument AutoCompleteBox |
 | **C** (Design → request) | Fresh session: `PromoteDesignRulesToRequest` copies ENTRY/EXIT into composer; text says not TradeIR yet |
 | **D** (Validate fidelity) | Fresh session: only L1 fill model selectable; queue enable → reject; partials max4 + latency applied token; explanation contains **Nautilus-class** |
-| **B/C/D** (AXAML contracts) | Promote design rules button; SMA/EMA period NumericUpDown; WrapPanel stage rail; queue checkbox disabled |
+| **B/C/D** (AXAML contracts) | Promote design rules button; SMA/EMA period NumericUpDown; WrapPanel stage rail; queue checkbox disabled; Design instrument picker AutoCompleteBox |
 
-**Test run:** `dotnet test … --filter CandidateAuthoringUxContract|FreshSession|ResearchReferenceContinuity` → **27 passed**.
+**Test run:** `dotnet test … --filter CandidateAuthoringUxContract|FreshSession|ResearchReferenceContinuity|DesignConditionOperandKind` → authoring UX suite green.
 
 ## Human click-path (still open)
 
-Open `~/Desktop/DaxAlgo Terminal.app` and mark A1–A11 / B1–B3 / C1–C8 / D1–D5 / E1–E2 on the checklist. Automation cannot paint charts or prove Hyperion NL answers.
+Open `~/Desktop/DaxAlgo Terminal.app` and mark A1–A11 / B1–B3 / C1–C8 / D1–D5 / E1–E2 on the checklist. Automation cannot paint charts or prove Hyperion NL answers. After Confirm, verify Design is **not** empty and **Reuse from Research** is enabled when indicators were saved.
 
 ## Sign-off (automated slice)
 
@@ -30,7 +31,7 @@ Open `~/Desktop/DaxAlgo Terminal.app` and mark A1–A11 / B1–B3 / C1–C8 / D1
 |--|--|
 | A (Research) | **PASS (automated continuity + Studio chrome)** — UI paint pending human |
 | B (Compare) | **PASS (contract: tiles host + strip bindings)** — live tiles paint pending human |
-| C (Builder) | **PASS (Design-first + promote-to-request)** — handoff click pending human |
+| C (Builder) | **PASS (Design-first + Confirm prefill + promote-to-request)** — handoff click pending human |
 | D (Validate) | **PASS (L1 applied; Nautilus not claimed)** — Run historical validation click pending human |
 | E (Direct rules) | **PASS (fresh session Design without Research)** |
 

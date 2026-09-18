@@ -45,7 +45,7 @@ A finding such as *“relative volume increased before these moves”* must beco
 | Risk | Max loss / stops / forbidden regimes |
 
 **Handoff unit:** saved finding (`ResearchAnalysisReferenceV1`) → Design rules → Build → strategy version hash.  
-**Local now:** Design rule fields + “Use rules as request” (composer only) + finding handoff; full auto-mapping of finding → complete executable rule set is **not** claimed done.
+**Local now:** Design rule fields + “Use rules as request” (composer only) + finding handoff; **Confirm prefills** instrument/timeframe/evaluation/saved condition/indicators from Research. Full auto-mapping into a complete executable rule set (sizing/exit/risk/orders) is **not** claimed done.
 
 **Does not own:** re-implementing chart tools; inventing TradeIR without Build.
 

@@ -124,4 +124,22 @@ public sealed class DesignConditionOperandKindTests
         Assert.True(row.ShowLeftSignalPicker);
         Assert.Contains("Research composites", row.LeftSignalEmptyHint, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Leaving_saved_condition_kind_clears_primary_picker_id()
+    {
+        var row = new DesignConditionRow
+        {
+            LeftKind = DesignConditionRow.KindSavedCondition,
+            LeftSignalId = "Finding A · vol×2 · volx20",
+        };
+        Assert.True(row.UsesSavedConditionAlone);
+
+        row.LeftKind = DesignConditionRow.KindIndicator;
+        row.LeftIndicatorLabel = "ema(20)";
+
+        Assert.False(row.UsesSavedConditionAlone);
+        Assert.True(string.IsNullOrEmpty(row.LeftSignalId));
+        Assert.True(row.ShowRightOperandEditors);
+    }
 }

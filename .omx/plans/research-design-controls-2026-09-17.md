@@ -51,7 +51,7 @@
 1. From Builder or Studio: apply condition, **Save finding 1**.  
 2. **Add finding to {strategy}** → review panel.  
 3. **Confirm link to Design**.  
-4. **Expect:** Design open; `LinkedResearchSummaryText` shows finding linked; evidence in composer; Design rule fields unchanged until the operator edits them; `PendingStrategyDraft` carries **condition id + version hash** (created from chart selection when no chart draft existed).
+4. **Expect:** Design open; `LinkedResearchSummaryText` shows finding linked; evidence in composer; **Confirm auto-prefills** instrument, timeframe, evaluation timing, saved entry condition, and Research indicators (sizing/exit/risk stay unresolved until you set them); `PendingStrategyDraft` carries **condition id + version hash** (created from chart selection when no chart draft existed).
 
 ## Progressive specification (2026-09-17 follow-on)
 
@@ -74,8 +74,8 @@ Chat and the Rules panel share one working draft. Hyperion **stages → Accept**
 |------|----------|
 | **Use in Strategy · {name}** | Stages review — does not mutate Design |
 | **Review panel** | Exact indicators (editable period) · condition · example selection · destination · **role Entry/Exit/Filter** |
-| **Confirm** | Binds condition id/hash with chosen role; stages Design proposal; opens Design |
-| **Apply** | Writes fields; imports indicators as available measurements (not auto-entry) |
+| **Confirm** | Binds condition id/hash with chosen role; **auto-applies** Research → Design fields (instrument/TF/evaluation/saved condition/indicators); opens Design |
+| **Apply** (staged proposal path) | Same write path when a proposal was staged without Confirm auto-apply; Discard leaves Design unchanged |
 
 Indicator = measurement. Condition = interpretation. Role = how the strategy uses it.
 
