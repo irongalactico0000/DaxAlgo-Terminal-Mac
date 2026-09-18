@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Fast Mac Dock launcher for local UX work (not a full Release package).
-# Creates: ~/Desktop/DaxAlgo Terminal.app  (and optional ~/Applications copy)
+# Creates: ~/Desktop/DaxAlgo Terminal.app  (and ~/Applications copy)
+# Default: DevSimLogin — Google/account gate + broker Sign in (Alpaca/IB…), then terminal.
+# Set DAXALGO_LAUNCH_ENV=DevSim and DAXALGO_BYPASS_LOGIN=1 for offline Simulated-only.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,24 +17,33 @@ CONTENTS="$APP/Contents"
 MACOS="$CONTENTS/MacOS"
 RESOURCES="$CONTENTS/Resources"
 DOTNET_BIN="${DOTNET_BIN:-$HOME/.dotnet/dotnet}"
+LAUNCH_ENV="${DAXALGO_LAUNCH_ENV:-DevSimLogin}"
+BYPASS_LOGIN="${DAXALGO_BYPASS_LOGIN:-0}"
 
 mkdir -p "$MACOS" "$RESOURCES" "$HOME/Applications"
 
-# Ensure Debug build exists
+# Ensure Debug build exists (latest repo)
 export PATH="$HOME/.dotnet:$PATH"
 "$DOTNET_BIN" build "$PROJECT" -c Debug -v q
+
+# Extra args: only bypass when explicitly requested (offline Simulated)
+EXTRA_ARGS=""
+if [[ "$BYPASS_LOGIN" == "1" || "$BYPASS_LOGIN" == "true" ]]; then
+  EXTRA_ARGS="--bypass-login"
+fi
 
 # Launcher script = CFBundleExecutable
 cat > "$MACOS/DaxAlgoTerminal" <<EOF
 #!/bin/bash
 export PATH="\$HOME/.dotnet:\$PATH"
+export DOTNET_ENVIRONMENT="$LAUNCH_ENV"
 cd "$REPO_ROOT"
-exec "$DOTNET_BIN" run --project "$PROJECT" --no-build -c Debug -- --bypass-login "\$@"
+exec "$DOTNET_BIN" run --project "$PROJECT" --no-build -c Debug -- $EXTRA_ARGS "\$@"
 EOF
 chmod +x "$MACOS/DaxAlgoTerminal"
 
-# Info.plist (LSPrincipalClass helps Dock/Activation)
-cat > "$CONTENTS/Info.plist" <<'PLIST'
+# Info.plist (NSPrincipalClass helps Dock/Activation)
+cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -54,16 +65,16 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0.0-dev</string>
+  <string>1.0.0-dev-signin</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>2</string>
   <key>LSMinimumSystemVersion</key>
   <string>12.0</string>
   <key>LSApplicationCategoryType</key>
   <string>public.app-category.finance</string>
   <key>NSHighResolutionCapable</key>
   <true/>
-  <key>LSPrincipalClass</key>
+  <key>NSPrincipalClass</key>
   <string>NSApplication</string>
 </dict>
 </plist>
@@ -99,4 +110,6 @@ open "$DEST_DESKTOP"
 
 echo "Desktop: $DEST_DESKTOP"
 echo "Applications: $DEST_APPS"
+echo "Launch env: $LAUNCH_ENV  bypass-login: ${BYPASS_LOGIN}"
 echo "Pin: right-click Dock icon → Options → Keep in Dock"
+echo "Old Dock pin may still be the bypass build — remove it, then Keep in Dock this one."

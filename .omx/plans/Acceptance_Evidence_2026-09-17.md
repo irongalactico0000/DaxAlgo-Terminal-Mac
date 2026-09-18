@@ -3,7 +3,7 @@
 **Build / commit:** `0d66819` (+ this evidence/tests commit)  
 **Operator:** automated agent (headless + UX contracts); click-path still for human  
 **Date:** 2026-09-17  
-**Launcher:** `~/Desktop/DaxAlgo Terminal.app` (Debug, `--bypass-login`) via `tools/macos/make-dev-launcher-app.sh`
+**Launcher:** `~/Desktop/DaxAlgo Terminal.app` (Debug, `DOTNET_ENVIRONMENT=DevSimLogin`, **no** `--bypass-login` — broker Sign in) via `tools/macos/make-dev-launcher-app.sh`. For offline Simulated-only: `DAXALGO_BYPASS_LOGIN=1 DAXALGO_LAUNCH_ENV=DevSim bash tools/macos/make-dev-launcher-app.sh`.
 
 Checklist: [`.omx/plans/acceptance-journey-research-to-validate.md`](acceptance-journey-research-to-validate.md)
 
