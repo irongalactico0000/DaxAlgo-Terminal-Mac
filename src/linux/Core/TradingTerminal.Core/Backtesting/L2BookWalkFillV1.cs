@@ -59,6 +59,54 @@ public static class L2BookWalkFillV1
         return new Result(filled, quantity - filled, avg, levels);
     }
 
+    /// <summary>
+    /// Remove <paramref name="filledQuantity"/> from the opposite side so a later order
+    /// cannot re-consume the same snapshot liquidity. Levels beyond the limit are kept.
+    /// </summary>
+    public static IReadOnlyList<DepthLevel> Consume(
+        long filledQuantity,
+        IReadOnlyList<DepthLevel> oppositeLevels,
+        double? limitPrice,
+        bool isBuy)
+    {
+        if (oppositeLevels is null || oppositeLevels.Count == 0)
+            return Array.Empty<DepthLevel>();
+        if (filledQuantity <= 0)
+            return oppositeLevels;
+
+        var remaining = filledQuantity;
+        var kept = new List<DepthLevel>(oppositeLevels.Count);
+        foreach (var level in oppositeLevels)
+        {
+            if (remaining <= 0 || level.Size <= 0)
+            {
+                kept.Add(level);
+                continue;
+            }
+
+            if (limitPrice is { } limit)
+            {
+                var beyond = isBuy ? level.Price > limit : level.Price < limit;
+                if (beyond)
+                {
+                    kept.Add(level);
+                    continue;
+                }
+            }
+
+            if (level.Size <= remaining)
+            {
+                remaining -= level.Size;
+                continue;
+            }
+
+            kept.Add(level with { Size = level.Size - remaining });
+            remaining = 0;
+        }
+
+        return kept;
+    }
+
     /// <summary>Canonical IOC fixture from Validate workstream docs.</summary>
     public static Result CanonicalIocBuyLimit100At100_01()
     {

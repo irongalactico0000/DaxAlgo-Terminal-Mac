@@ -25,7 +25,12 @@ public sealed class L2BookWalkIocFixtureTests
         Assert.Equal(20, report.CanceledRemaining);
         Assert.Equal(100.00625, report.AverageFillPrice, precision: 9);
         Assert.Contains("bookwalk-v1", report.DataModeToken, StringComparison.Ordinal);
-        Assert.Contains("Not Nautilus", report.HonestyNote, StringComparison.Ordinal);
+        Assert.Contains("TradeLedger", report.HonestyNote, StringComparison.Ordinal);
+        Assert.True(report.AccountingReconciled);
+        Assert.Equal(80, report.Position);
+        Assert.True(report.TotalFees > 0);
+        Assert.Equal(report.StartingCash - (80 * report.AverageFillPrice) - report.TotalFees, report.EndingCash, precision: 6);
+        Assert.Equal(report.StartingCash - report.TotalFees, report.EquityAtAverageFill, precision: 6);
     }
 
     [Fact]

@@ -118,9 +118,13 @@ public sealed class SimulatedOrderBook
                 : OrderState.PartiallyFilled;
             order.State = newState;
 
-            var liquidity = order.Request.Type == OrderType.Limit
-                ? LiquidityFlag.Maker
-                : LiquidityFlag.Taker;
+            // Book-walk fills take liquidity. Resting L1 limits stay maker.
+            var liquidity = _fillModel is L2BookWalkFillModel
+                ? LiquidityFlag.Taker
+                : order.Request.Type == OrderType.Limit
+                    ? LiquidityFlag.Maker
+                    : LiquidityFlag.Taker;
+            ConsumeWalkedLiquidity(contract, order, qty);
 
             _events.OnNext(new OrderEvent(
                 tick.TimestampUtc, order.Request.ClientOrderId, order.BrokerOrderId,
@@ -148,6 +152,28 @@ public sealed class SimulatedOrderBook
             throw new InvalidOperationException("An unscoped tick cannot evaluate a multi-contract order book.");
         if (contracts.Length == 1)
             OnTick(contracts[0], tick);
+    }
+
+    private void ConsumeWalkedLiquidity(Contract contract, PendingOrder order, long filledQty)
+    {
+        if (_fillModel is not L2BookWalkFillModel)
+            return;
+        if (!_lastDepth.TryGetValue(contract, out var depth))
+            return;
+
+        var isBuy = order.Request.Side == OrderSide.Buy;
+        double? limit = order.Request.Type is OrderType.Limit or OrderType.StopLimit
+            ? order.Request.LimitPrice
+            : null;
+        _lastDepth[contract] = isBuy
+            ? depth with
+            {
+                Asks = L2BookWalkFillV1.Consume(filledQty, depth.Asks, limit, isBuy: true),
+            }
+            : depth with
+            {
+                Bids = L2BookWalkFillV1.Consume(filledQty, depth.Bids, limit, isBuy: false),
+            };
     }
 
     private void UpdateFifoQueue(PendingOrder order, Tick tick)

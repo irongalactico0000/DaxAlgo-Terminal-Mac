@@ -76,6 +76,49 @@ public static class L2BookWalkLifecycleFixtureV1
                 $"Book IOC path mismatch: filledSum={filled} canceledFilled={canceled.FilledQuantity}");
         }
 
+        const double startingCash = 100_000d;
+        const double bps = 1d;
+        var ledger = new TradeLedger(multiplier: 1d, startingCash, new BpsFeeModel(bps));
+        foreach (var evt in events)
+        {
+            if (evt.LastFillQuantity <= 0 || evt.LastFillPrice is not { } px)
+                continue;
+            ledger.OnFill(contract, evt.TimestampUtc, evt.Side, evt.LastFillQuantity, px, evt.Liquidity);
+        }
+
+        var notional = 80d * walk.AverageFillPrice;
+        var expectedFee = notional * (bps * 1e-4);
+        var expectedCash = startingCash - notional - expectedFee;
+        var equityAtFill = ledger.Equity(walk.AverageFillPrice);
+        var reconciled =
+            ledger.NetPosition == 80 &&
+            Math.Abs(ledger.TotalFees - expectedFee) < 1e-6 &&
+            Math.Abs(ledger.Cash - expectedCash) < 1e-6 &&
+            Math.Abs(equityAtFill - (startingCash - expectedFee)) < 1e-6 &&
+            ledger.Trades.Count == 0;
+        if (!reconciled)
+        {
+            throw new InvalidOperationException(
+                $"Accounting mismatch: pos={ledger.NetPosition} cash={ledger.Cash} fees={ledger.TotalFees} equity={equityAtFill}");
+        }
+
+        // Consumed asks must not refill a second IOC at the same limit.
+        book.Submit(new OrderRequest(
+            "c-ioc-second",
+            contract,
+            OrderSide.Buy,
+            OrderType.Limit,
+            Quantity: 100,
+            LimitPrice: 100.01,
+            TimeInForce: TimeInForce.Ioc));
+        book.OnTick(contract, tick);
+        var secondFills = events.Where(e => e.ClientOrderId == "c-ioc-second" && e.LastFillQuantity > 0).Sum(e => e.LastFillQuantity);
+        if (secondFills != 0)
+        {
+            throw new InvalidOperationException(
+                $"Second IOC reused consumed liquidity: filled {secondFills}.");
+        }
+
         return new L2BookWalkLifecycleReportV1(
             SubmittedQuantity: 100,
             FilledQuantity: 80,
@@ -83,8 +126,8 @@ public static class L2BookWalkLifecycleFixtureV1
             AverageFillPrice: walk.AverageFillPrice,
             DataModeToken: DataModeToken,
             HonestyNote:
-                "L2BookWalkFillV1 snapshot walk + IOC remainder cancel. " +
-                "Not Nautilus matching, not MBO queue priority, not depleting shared book across time.",
+                "L2BookWalkFillV1 snapshot walk + IOC remainder cancel + TradeLedger cash/fees/position. " +
+                "Walked size is removed from this snapshot. Not Nautilus matching or MBO.",
             Events: events
                 .Select(e => new L2BookWalkLifecycleEventV1(
                     e.TimestampUtc,
@@ -93,14 +136,20 @@ public static class L2BookWalkLifecycleFixtureV1
                     e.FilledQuantity,
                     e.LastFillQuantity,
                     e.LastFillPrice))
-                .ToArray());
+                .ToArray(),
+            StartingCash: startingCash,
+            EndingCash: ledger.Cash,
+            Position: ledger.NetPosition,
+            TotalFees: ledger.TotalFees,
+            EquityAtAverageFill: equityAtFill,
+            AccountingReconciled: true);
     }
 
     public static string Serialize(L2BookWalkLifecycleReportV1 report) =>
         JsonSerializer.Serialize(report, JsonOptions);
 
     public static string Summary(L2BookWalkLifecycleReportV1 report) =>
-        $"IOC book-walk · filled {report.FilledQuantity} / cancel {report.CanceledRemaining} · avg {report.AverageFillPrice:F5}";
+        $"IOC book-walk · filled {report.FilledQuantity} / cancel {report.CanceledRemaining} · avg {report.AverageFillPrice:F5} · pos {report.Position} · fees {report.TotalFees:F4}";
 }
 
 public sealed record L2BookWalkLifecycleReportV1(
@@ -110,7 +159,13 @@ public sealed record L2BookWalkLifecycleReportV1(
     double AverageFillPrice,
     string DataModeToken,
     string HonestyNote,
-    IReadOnlyList<L2BookWalkLifecycleEventV1> Events);
+    IReadOnlyList<L2BookWalkLifecycleEventV1> Events,
+    double StartingCash = 0,
+    double EndingCash = 0,
+    long Position = 0,
+    double TotalFees = 0,
+    double EquityAtAverageFill = 0,
+    bool AccountingReconciled = false);
 
 public sealed record L2BookWalkLifecycleEventV1(
     DateTime TimestampUtc,
