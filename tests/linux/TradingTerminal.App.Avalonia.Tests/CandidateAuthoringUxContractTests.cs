@@ -304,6 +304,9 @@ public sealed class CandidateAuthoringUxContractTests
         root.Descendants(Avalonia + "Button").Should().Contain(element =>
             (string?)element.Attribute("AutomationProperties.Name") == "Attach L2 book-walk lifecycle demo" &&
             (string?)element.Attribute("Command") == "{Binding AttachL2BookWalkLifecycleDemoCommand}");
+        root.Descendants(Avalonia + "Button").Should().Contain(element =>
+            (string?)element.Attribute("AutomationProperties.Name") == "Attach L2 book reconstruction demo" &&
+            (string?)element.Attribute("Command") == "{Binding AttachL2BookReconstructionDemoCommand}");
         root.ToString().Should().Contain("Return to Design from Build");
         root.ToString().Should().Contain("Strategy version result list");
         root.ToString().Should().Contain("Run comparison for native strategy run");

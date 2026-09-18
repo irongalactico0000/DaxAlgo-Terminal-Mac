@@ -5,7 +5,7 @@ namespace TradingTerminal.Core.Backtest;
 
 /// <summary>
 /// A replay payload whose canonical instrument and broker contract remain attached. Exactly one of
-/// <see cref="Quote"/>, <see cref="Trade"/>, or <see cref="Bar"/> is present.
+/// <see cref="Quote"/>, <see cref="Trade"/>, <see cref="Bar"/>, or <see cref="Depth"/> is present.
 /// </summary>
 public sealed record BacktestInstrumentEvent(
     InstrumentId InstrumentId,
@@ -14,7 +14,8 @@ public sealed record BacktestInstrumentEvent(
     Tick? Quote = null,
     TradePrint? Trade = null,
     Bar? Bar = null,
-    BarSize? BarSize = null);
+    BarSize? BarSize = null,
+    DepthSnapshot? Depth = null);
 
 /// <summary>
 /// Optional engine contract for strategies that require canonical identity or multiple replay

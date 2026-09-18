@@ -74,12 +74,12 @@ Criteria: [`workstreams-research-builder-validate.md`](workstreams-research-buil
 
 | # | Step | Expected | Pass? |
 |---|------|----------|-------|
-| F1 | Book reconstruction fixture | Available book at each replay timestamp is explicit | Partial — snapshot at fill time; not full L2 tape rebuild |
+| F1 | Book reconstruction fixture | Available book at each replay timestamp is explicit | **PASS (v1)** — real snapshot when present; else `reconstructed-l1-ladder-v1`; applied before fills when book-walk on; store depth merged |
 | F2 | IOC limit: buy 100 @ 100.01 vs asks 30@100.00 + 50@100.01 | Fill **80**, cancel **20**, avg **100.00625** | **PASS** (`L2BookWalkIocFixtureTests` + Attach IOC book-walk demo) |
 | F3 | Accounting | Positions / fees / cash / P&L reconcile with fills | **PASS** — IOC fixture books +80, bps fees, cash, equity-at-fill via `TradeLedger`; second IOC does not reuse consumed size |
-| F4 | UI claim gate | Richer model selectable in Validate **only after** F1–F3 green for that model | **PASS for book-walk/queue v1** (F2 + F3 green); full F1 tape rebuild still open |
+| F4 | UI claim gate | Richer model selectable in Validate **only after** F1–F3 green for that model | **PASS for book-walk/queue v1** (F1–F3 green for snapshot/reconstructed books) |
 
-**Local now:** F2 + F3 + UI queue/book-walk v1 shipped. Walked snapshot size is consumed inside this book. Still **not** NautilusTrader / MBO / multi-agent shared book. Full L2 tape rebuild (F1) remains partial.
+**Local now:** F1–F3 + UI queue/book-walk v1 shipped. Books are explicit per timestamp (real or reconstructed ladder). Still **not** NautilusTrader / MBO incremental rebuild / multi-agent shared book.
 
 ---
 

@@ -90,9 +90,10 @@ This proves price constraints, available liquidity, partial execution, cancellat
 | Opposite L1 size cap (BidSize/AskSize) | **Yes** when enabled |
 | FIFO-ahead queue estimate v1 | **Yes** when enabled (opposite-size decrease; not MBO) |
 | Snapshot book-walk v1 + IOC fixture (80/20 @ 100.00625) | **Yes** when enabled (L2 snapshot or L1-level proxy) |
+| Book explicit at each replay timestamp (F1) | **Yes** — real depth when present; else reconstructed L1 ladder; store depth merged ahead of quotes |
 | NautilusTrader matching / MBO / L3 / depleting shared book | **No** — reference architecture only |
 
-**Start now:** fixed strategy + deterministic book fixtures; headless IOC fixture green. UI Validate exposes queue + book-walk as named v1 models — still **not** “is Nautilus”.
+**Start now:** fixed strategy + deterministic book fixtures; F1–F3 headless green. UI Validate exposes queue + book-walk + book@time demos as named v1 models — still **not** “is Nautilus”.
 
 ---
 

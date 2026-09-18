@@ -6,10 +6,10 @@ using TradingTerminal.Core.MarketData;
 namespace TradingTerminal.Infrastructure.Backtest.Persistence;
 
 /// <summary>
-/// A single replay event the engine consumes: a quote update, trade print, or completed bar.
-/// Modelled as a struct with nullable reference fields so the backtester avoids
-/// per-event boxing/allocation at the scale of tens of millions of events per run.
-/// Exactly one payload is non-null.
+/// A single replay event the engine consumes: a quote update, trade print, completed bar,
+/// or L2 depth snapshot. Modelled as a struct with nullable reference fields so the backtester
+/// avoids per-event boxing/allocation at the scale of tens of millions of events per run.
+/// Exactly one of Quote / Trade / Bar / Depth is non-null.
 /// </summary>
 internal readonly record struct BacktestEvent(
     InstrumentId InstrumentId,
@@ -18,13 +18,14 @@ internal readonly record struct BacktestEvent(
     Tick? Quote,
     TradePrint? Trade,
     Bar? Bar,
-    BarSize? BarSize)
+    BarSize? BarSize,
+    DepthSnapshot? Depth = null)
 {
     public static BacktestEvent FromQuote(InstrumentId instrument, Contract contract, Tick q) =>
-        new(instrument, contract, q.TimestampUtc, q, null, null, null);
+        new(instrument, contract, q.TimestampUtc, q, null, null, null, null);
 
     public static BacktestEvent FromTrade(InstrumentId instrument, Contract contract, TradePrint t) =>
-        new(instrument, contract, t.EventTimeUtc, null, t, null, null);
+        new(instrument, contract, t.EventTimeUtc, null, t, null, null, null);
 
     public static BacktestEvent FromBar(
         InstrumentId instrument,
@@ -32,10 +33,13 @@ internal readonly record struct BacktestEvent(
         BarSize barSize,
         Bar bar,
         DateTime completedAtUtc) =>
-        new(instrument, contract, completedAtUtc, null, null, bar, barSize);
+        new(instrument, contract, completedAtUtc, null, null, bar, barSize, null);
+
+    public static BacktestEvent FromDepth(InstrumentId instrument, Contract contract, DepthSnapshot depth) =>
+        new(instrument, contract, depth.TimestampUtc, null, null, null, null, depth);
 
     public BacktestInstrumentEvent ToPublic() => new(
-        InstrumentId, Contract, TimestampUtc, Quote, Trade, Bar, BarSize);
+        InstrumentId, Contract, TimestampUtc, Quote, Trade, Bar, BarSize, Depth);
 }
 
 /// <summary>
@@ -190,7 +194,9 @@ internal static class BacktestTickSource
     }
 
     private static int EventKindOrder(BacktestEvent value) =>
-        value.Quote is not null ? 0 : value.Trade is not null ? 1 : 2;
+        value.Depth is not null ? 0 :
+        value.Quote is not null ? 1 :
+        value.Trade is not null ? 2 : 3;
 
     private static void ValidateReplayBar(Bar bar, DateTime? previousTimestamp)
     {
@@ -271,10 +277,8 @@ internal static class BacktestTickSource
     }
 
     /// <summary>
-    /// Reads both quotes and trades from the store and merges them by event time. Quotes are
-    /// projected back to legacy <see cref="Tick"/>s so the engine's order-book / fill-context
-    /// code stays unchanged. On a tie (same event time) the quote is yielded first so the
-    /// strategy's view of the spread is current when it sees the trade.
+    /// Reads quotes, trades, and depth from the store and merges them by event time.
+    /// Depth is yielded before quotes at the same timestamp so the book is current for fills.
     /// </summary>
     private static async IAsyncEnumerable<BacktestEvent> ReadFromStore(
         BacktestConfig config, IMarketDataStore store,
@@ -287,16 +291,28 @@ internal static class BacktestTickSource
         if (to <= from)
             throw new InvalidOperationException("LocalStore backtest requires ToUtc > FromUtc.");
 
-        // config.Broker scopes the read to one broker when the store is split per broker; null reads
-        // every broker's data merged (the only sensible default for the single-file backend).
         await using var qe = store.ReadQuotesAsync(config.InstrumentId, from, to, config.Broker, ct).GetAsyncEnumerator(ct);
         await using var te = store.ReadTradesAsync(config.InstrumentId, from, to, config.Broker, ct).GetAsyncEnumerator(ct);
+        await using var de = store.ReadDepthAsync(config.InstrumentId, from, to, ct).GetAsyncEnumerator(ct);
 
         var hasQ = await qe.MoveNextAsync().ConfigureAwait(false);
         var hasT = await te.MoveNextAsync().ConfigureAwait(false);
-        while (hasQ || hasT)
+        var hasD = await de.MoveNextAsync().ConfigureAwait(false);
+        while (hasQ || hasT || hasD)
         {
-            if (hasQ && (!hasT || qe.Current.EventTimeUtc <= te.Current.EventTimeUtc))
+            var qTime = hasQ ? qe.Current.EventTimeUtc : DateTime.MaxValue;
+            var tTime = hasT ? te.Current.EventTimeUtc : DateTime.MaxValue;
+            var dTime = hasD ? de.Current.TimestampUtc : DateTime.MaxValue;
+            var next = qTime;
+            if (dTime <= next) next = dTime;
+            if (tTime < next) next = tTime;
+
+            if (hasD && dTime == next)
+            {
+                yield return BacktestEvent.FromDepth(config.InstrumentId, config.Contract, de.Current);
+                hasD = await de.MoveNextAsync().ConfigureAwait(false);
+            }
+            else if (hasQ && qTime == next)
             {
                 var q = qe.Current;
                 yield return BacktestEvent.FromQuote(

@@ -115,6 +115,10 @@ public sealed partial class StrategyAuthoringViewModel
     public bool CanAttachL2BookWalkLifecycleDemo =>
         !IsGenerating;
 
+    /// <summary>Attach F1 book-at-each-timestamp reconstruction fixture.</summary>
+    public bool CanAttachL2BookReconstructionDemo =>
+        !IsGenerating;
+
     /// <summary>
     /// Lane 3 · export registered authored unit as installable <c>.daxalgostrategy</c>.
     /// Same gate family as Historical BT (registered + spec + C#), without requiring validation evidence.
@@ -343,8 +347,10 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(CanRunHistoricalValidation));
         OnPropertyChanged(nameof(CanAttachL1ExecutionLifecycleDemo));
         OnPropertyChanged(nameof(CanAttachL2BookWalkLifecycleDemo));
+        OnPropertyChanged(nameof(CanAttachL2BookReconstructionDemo));
         AttachL1ExecutionLifecycleDemoCommand.NotifyCanExecuteChanged();
         AttachL2BookWalkLifecycleDemoCommand.NotifyCanExecuteChanged();
+        AttachL2BookReconstructionDemoCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanAttachL1ExecutionLifecycleDemo))]
@@ -384,6 +390,26 @@ public sealed partial class StrategyAuthoringViewModel
         Status =
             $"Attached IOC book-walk demo · {L2BookWalkLifecycleFixtureV1.Summary(report)}. " +
             "Canonical fixture — snapshot walk v1, not Nautilus matching.";
+        NotifyWorkingFlowMapChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanAttachL2BookReconstructionDemo))]
+    private void AttachL2BookReconstructionDemo()
+    {
+        if (!CanAttachL2BookReconstructionDemo) return;
+
+        var report = L2BookReconstructionFixtureV1.RunTwoTimestampTimeline();
+        UpsertExecutionLifecycleResult(
+            L2BookReconstructionFixtureV1.ReportId,
+            L2BookReconstructionFixtureV1.Summary(report),
+            System.Text.Json.JsonSerializer.Serialize(report));
+        if (OpenValidateScreenCommand.CanExecute(null))
+            OpenValidateScreenCommand.Execute(null);
+        else
+            ActiveScreen = StrategyAuthoringScreen.Validate;
+        Status =
+            $"Attached book-reconstruction demo · {L2BookReconstructionFixtureV1.Summary(report)}. " +
+            "Explicit book at each timestamp — not MBO / Nautilus matching.";
         NotifyWorkingFlowMapChanged();
     }
 

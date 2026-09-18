@@ -1,5 +1,6 @@
 using System.Reactive.Linq;
 using TradingTerminal.Core.Backtest;
+using TradingTerminal.Core.Backtesting;
 using TradingTerminal.Core.Domain;
 using TradingTerminal.Core.MarketData;
 using TradingTerminal.Core.Risk;
@@ -85,6 +86,7 @@ public sealed class BacktestSession : IBacktestSession
         DateTime? lastSample = null;
         var lastTicks = new Dictionary<Contract, Tick>();
         var marks = new Dictionary<Contract, double>();
+        var lastBooks = new Dictionary<Contract, DepthSnapshot>();
         var multipliers = (config.ReplayBarSeries ?? [])
             .ToDictionary(series => series.Contract, series => series.ContractMultiplier);
         if (!multipliers.ContainsKey(config.Contract))
@@ -158,12 +160,36 @@ public sealed class BacktestSession : IBacktestSession
             clock.SetTo(timestamp);
             await orderEventTask.ConfigureAwait(false);
 
+            // F1: depth at this timestamp is applied before quotes so fills see an explicit book.
+            foreach (var replayEvent in events.Where(item => item.Depth is not null))
+            {
+                orderBook.OnDepth(replayEvent.Contract, replayEvent.Depth!);
+                lastBooks[replayEvent.Contract] = replayEvent.Depth!;
+            }
+
             var sawQuote = false;
             foreach (var replayEvent in events.Where(item => item.Quote is not null))
             {
                 var tick = replayEvent.Quote!;
                 lastTicks[replayEvent.Contract] = tick;
                 marks[replayEvent.Contract] = (tick.Bid + tick.Ask) * 0.5d;
+
+                if (config.EnableL2BookWalk)
+                {
+                    lastBooks.TryGetValue(replayEvent.Contract, out var prior);
+                    var realSameTs = prior is not null && prior.TimestampUtc == tick.TimestampUtc
+                        ? prior
+                        : null;
+                    var bookAt = L2BookReconstructionV1.At(
+                        tick.TimestampUtc,
+                        tick,
+                        realSnapshot: realSameTs,
+                        ladderLevels: 3,
+                        tickSize: config.TickSize);
+                    orderBook.OnDepth(replayEvent.Contract, bookAt.Book);
+                    lastBooks[replayEvent.Contract] = bookAt.Book;
+                }
+
                 orderBook.OnTick(replayEvent.Contract, tick);
                 sawQuote = true;
             }
@@ -181,6 +207,8 @@ public sealed class BacktestSession : IBacktestSession
             {
                 foreach (var replayEvent in events)
                 {
+                    if (replayEvent.Depth is not null)
+                        continue;
                     if (replayEvent.Quote is { } tick)
                         await strategy.OnTickAsync(tick, clock, router, ct).ConfigureAwait(false);
                     else if (replayEvent.Trade is { } trade)
