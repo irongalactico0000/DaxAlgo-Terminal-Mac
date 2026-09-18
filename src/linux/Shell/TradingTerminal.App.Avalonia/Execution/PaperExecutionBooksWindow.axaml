@@ -14,7 +14,11 @@
           <TextBlock Text="PAPER EXECUTION BOOKS" FontSize="18" FontWeight="Bold"
                      Foreground="{DynamicResource Warning.Brush}" />
           <TextBlock Text="Each book owns one simulated account, isolated SQLite ledger, writer lease, intake state, and strategy binding."
-                     Margin="0,5,0,0" Foreground="{DynamicResource Text.Secondary}" />
+                     Margin="0,5,0,0" Foreground="{DynamicResource Text.Secondary}" TextWrapping="Wrap" />
+          <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource Text.Secondary}" TextWrapping="Wrap"
+                     Text="This window is Paper only. Run / stop selected controls the simulated book. Closing it does not change execution mode or stop the book." />
+          <TextBlock Margin="0,6,0,0" Foreground="{DynamicResource Text.Primary}" TextWrapping="Wrap" FontWeight="SemiBold"
+                     Text="Brokers + LIVE: close this window → main menu Execution Engine → Execution Console (live-capable)… → Brokers. The yellow PAPER EXECUTION (DEFAULT) button reopens this Paper manager." />
         </StackPanel>
         <StackPanel Grid.Column="1" HorizontalAlignment="Right">
           <TextBlock Text="{Binding Summary}" FontWeight="Bold" HorizontalAlignment="Right" />
