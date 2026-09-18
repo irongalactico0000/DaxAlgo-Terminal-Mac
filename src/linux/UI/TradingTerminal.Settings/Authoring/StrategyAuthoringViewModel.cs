@@ -3878,6 +3878,10 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
             ConfirmedStrategyIntentHash = null;
             HasResearchDesignHandoff = false;
             DesignInstrumentText = "";
+            DesignPairScopeEnabled = false;
+            DesignSecondInstrumentText = "";
+            SelectedDesignSecondInstrument = null;
+            DesignSecondInstrumentSearchText = "";
             DesignTimeframeText = "";
             DesignEvaluationTimingText = "";
             DesignEntryRuleText = "";
@@ -4278,6 +4282,8 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
     private void RestoreDesignDraftFields(AuthoringSessionSnapshot session)
     {
         DesignInstrumentText = session.DesignInstrumentText ?? "";
+        DesignPairScopeEnabled = session.DesignPairScopeEnabled;
+        DesignSecondInstrumentText = session.DesignSecondInstrumentText ?? "";
         DesignTimeframeText = session.DesignTimeframeText ?? "";
         DesignEvaluationTimingText = session.DesignEvaluationTimingText ?? "";
         DesignEntryRuleText = session.DesignEntryRuleText ?? "";
@@ -4586,7 +4592,9 @@ public sealed partial class StrategyAuthoringViewModel : ViewModelBase, IDisposa
                 : HistoricalValidationEvidenceCanonicalJsonV1.Serialize(HistoricalValidationEvidence),
             BoundNativeRunId: NullIfWhiteSpace(BoundNativeRunId),
             BoundNativeSessionId: NullIfWhiteSpace(BoundNativeSessionId),
-            StrategyVersionResultsJson: SerializeStrategyVersionResults());
+            StrategyVersionResultsJson: SerializeStrategyVersionResults(),
+            DesignPairScopeEnabled: DesignPairScopeEnabled,
+            DesignSecondInstrumentText: NullIfWhiteSpace(DesignSecondInstrumentText));
 
         if (!_sessionRepository.Save(snapshot))
         {

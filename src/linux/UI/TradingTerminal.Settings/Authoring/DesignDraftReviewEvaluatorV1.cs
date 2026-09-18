@@ -44,7 +44,9 @@ public sealed record DesignDraftCanonicalV1(
     string? LinkedFindingId,
     string? EntryNotes,
     string? ExitNotes,
-    string? RiskNotes);
+    string? RiskNotes,
+    string? SecondInstrument = null,
+    bool PairScopeEnabled = false);
 
 public sealed record DesignRiskLimitCanonicalV1(
     string Type,
@@ -83,10 +85,25 @@ public static class DesignDraftReviewEvaluatorV1
         AddPresence(
             items,
             id: "instrument",
-            title: "Instrument",
+            title: draft.PairScopeEnabled ? "Instrument (Leg 1)" : "Instrument",
             focus: "instrument",
             readyWhen: !IsBlank(draft.Instrument),
             requiredDetail: "Choose an instrument before Build.");
+
+        if (draft.PairScopeEnabled)
+        {
+            AddPresence(
+                items,
+                id: "instrument2",
+                title: "Instrument (Leg 2)",
+                focus: "instrument2",
+                readyWhen: !IsBlank(draft.SecondInstrument) &&
+                           !string.Equals(
+                               draft.Instrument?.Trim(),
+                               draft.SecondInstrument?.Trim(),
+                               StringComparison.OrdinalIgnoreCase),
+                requiredDetail: "Pair scope needs a different Leg 2 instrument.");
+        }
 
         AddPresence(
             items,

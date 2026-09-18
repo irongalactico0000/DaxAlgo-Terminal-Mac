@@ -92,6 +92,42 @@ public sealed class StrategyDraftV1Tests
             o.Role == StrategyDraftObjectRoleV1.Entry);
     }
 
+    [Fact]
+    public void Pair_scope_second_leg_round_trips_and_rejects_duplicates()
+    {
+        var pair = StrategyDraftV1.Create(new StrategyDraftScopeV1(
+            new InstrumentId(1),
+            "ES",
+            BarSize.OneHour,
+            SecondInstrumentId: new InstrumentId(2),
+            SecondCanonicalSymbol: "NQ"));
+        Assert.True(pair.Scope.HasSecondLeg);
+        Assert.Empty(StrategyDraftValidatorV1.Validate(pair));
+
+        var json = StrategyDraftCanonicalJsonV1.Serialize(pair);
+        var restored = StrategyDraftCanonicalJsonV1.Deserialize(json);
+        Assert.Equal(pair.Scope.SecondInstrumentId, restored.Scope.SecondInstrumentId);
+        Assert.Equal("NQ", restored.Scope.SecondCanonicalSymbol);
+
+        var dup = StrategyDraftV1.Create(Scope() with
+        {
+            SecondInstrumentId = Scope().InstrumentId,
+            SecondCanonicalSymbol = "AAPL",
+        });
+        Assert.Contains(
+            StrategyDraftValidatorV1.Validate(dup),
+            issue => issue.Code == "STRATEGY_DRAFT_SECOND_LEG_DUPLICATE");
+
+        var incomplete = StrategyDraftV1.Create(Scope() with
+        {
+            SecondInstrumentId = new InstrumentId(9),
+            SecondCanonicalSymbol = null,
+        });
+        Assert.Contains(
+            StrategyDraftValidatorV1.Validate(incomplete),
+            issue => issue.Code == "STRATEGY_DRAFT_SECOND_LEG_INCOMPLETE");
+    }
+
     private static StrategyDraftScopeV1 Scope() =>
         new(new InstrumentId(42), "AAPL", BarSize.OneHour);
 

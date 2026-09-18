@@ -107,6 +107,59 @@ public sealed class DesignDraftReviewEvaluatorV1Tests
         result.CanContinueToBuild(warningsAccepted: true).Should().BeTrue();
     }
 
+    [Fact]
+    public void Evaluate_pair_scope_requires_distinct_leg2()
+    {
+        var draft = EmptyDraft() with
+        {
+            Instrument = "ES",
+            SecondInstrument = "ES",
+            PairScopeEnabled = true,
+            Timeframe = "5m",
+            EntrySummary = "entry",
+            SizingSummary = "1",
+            RiskLimits =
+            [
+                new DesignRiskLimitCanonicalV1(
+                    "Daily loss", "2", "% of equity", "This strategy", "Stop new entries"),
+            ],
+        };
+
+        var result = DesignDraftReviewEvaluatorV1.Evaluate(draft);
+
+        result.HasRequired.Should().BeTrue();
+        result.Items.Should().Contain(i =>
+            i.Id == "instrument2" && i.Severity == DesignReviewSeverityV1.Required);
+    }
+
+    [Fact]
+    public void Evaluate_pair_scope_ready_when_leg2_distinct()
+    {
+        var draft = EmptyDraft() with
+        {
+            Instrument = "ES",
+            SecondInstrument = "NQ",
+            PairScopeEnabled = true,
+            Timeframe = "5m",
+            EvaluationTiming = "Completed bar",
+            EntrySummary = "entry",
+            ExitSummary = "exit",
+            SizingSummary = "1",
+            RiskLimits =
+            [
+                new DesignRiskLimitCanonicalV1(
+                    "Daily loss", "2", "% of equity", "This strategy", "Stop new entries"),
+            ],
+            OrdersSummary = "Market · Day",
+            LinkedFindingId = "Finding 1",
+        };
+
+        var result = DesignDraftReviewEvaluatorV1.Evaluate(draft);
+
+        result.HasRequired.Should().BeFalse();
+        result.Items.Should().Contain(i => i.Id == "instrument2" && i.Severity == DesignReviewSeverityV1.Ready);
+    }
+
     private static DesignDraftCanonicalV1 EmptyDraft() =>
         new(
             Instrument: "",

@@ -23,6 +23,11 @@ public sealed partial class StrategyAuthoringViewModel
     [ObservableProperty] private string _designInstrumentText = "";
     [ObservableProperty] private string _designInstrumentSearchText = "";
     [ObservableProperty] private SignalInstrument? _selectedDesignInstrument;
+    /// <summary>When true, Design requires a distinct Leg 2 instrument (pair scope).</summary>
+    [ObservableProperty] private bool _designPairScopeEnabled;
+    [ObservableProperty] private string _designSecondInstrumentText = "";
+    [ObservableProperty] private string _designSecondInstrumentSearchText = "";
+    [ObservableProperty] private SignalInstrument? _selectedDesignSecondInstrument;
     [ObservableProperty] private string _designTimeframeText = "";
     [ObservableProperty] private string _designEvaluationTimingText = "";
     [ObservableProperty] private string _designEntryRuleText = "";
@@ -45,11 +50,16 @@ public sealed partial class StrategyAuthoringViewModel
     /// <summary>Catalogue rows for Design instrument search (broker-tagged when available).</summary>
     public ObservableCollection<SignalInstrument> DesignInstrumentOptions { get; } = [];
 
+    /// <summary>Catalogue rows for Design Leg 2 search (excludes Leg 1 when selected).</summary>
+    public ObservableCollection<SignalInstrument> DesignSecondInstrumentOptions { get; } = [];
+
     private IReadOnlyList<SignalInstrument> _designInstrumentUniverse = Array.Empty<SignalInstrument>();
     private bool _syncingDesignInstrumentSelection;
+    private bool _syncingDesignSecondInstrumentSelection;
     private bool _designInstrumentCatalogueLoading;
     private bool _designInstrumentCatalogueLoadFailed;
     private const string DesignInstrumentPersistKey = "design-strategy-authoring";
+    private const string DesignSecondInstrumentPersistKey = "design-strategy-authoring-leg2";
 
     public bool IsDesignInstrumentCatalogueLoading => _designInstrumentCatalogueLoading;
 
@@ -151,6 +161,8 @@ public sealed partial class StrategyAuthoringViewModel
 
     public bool HasDesignRuleDraft =>
         !string.IsNullOrWhiteSpace(DesignInstrumentText) ||
+        DesignPairScopeEnabled ||
+        !string.IsNullOrWhiteSpace(DesignSecondInstrumentText) ||
         !string.IsNullOrWhiteSpace(DesignTimeframeText) ||
         !string.IsNullOrWhiteSpace(DesignEvaluationTimingText) ||
         !string.IsNullOrWhiteSpace(DesignEntryRuleText) ||
@@ -310,7 +322,14 @@ public sealed partial class StrategyAuthoringViewModel
         {
             var missing = new List<string>();
             if (IsDesignFieldUnresolved(DesignInstrumentText))
-                missing.Add("instrument");
+                missing.Add(DesignPairScopeEnabled ? "instrument (Leg 1)" : "instrument");
+            if (DesignPairScopeEnabled &&
+                (IsDesignFieldUnresolved(DesignSecondInstrumentText) ||
+                 string.Equals(
+                     DesignInstrumentText?.Trim(),
+                     DesignSecondInstrumentText?.Trim(),
+                     StringComparison.OrdinalIgnoreCase)))
+                missing.Add("instrument (Leg 2)");
             if (IsDesignFieldUnresolved(DesignTimeframeText))
                 missing.Add("timeframe / data");
             if (IsDesignFieldUnresolved(DesignEvaluationTimingText))
@@ -379,6 +398,9 @@ public sealed partial class StrategyAuthoringViewModel
                 "Working strategy draft (shared by Design, Hyperion Accept, and Build):",
                 Line("INSTRUMENT", DesignInstrumentText) +
                     ProvenanceSuffix(DesignInstrumentProvenance),
+                DesignPairScopeEnabled
+                    ? Line("INSTRUMENT2", DesignSecondInstrumentText) + " · pair Leg 2"
+                    : "",
                 Line("TIMEFRAME", DesignTimeframeText) +
                     ProvenanceSuffix(DesignTimeframeProvenance),
                 Line("EVALUATION", DesignEvaluationTimingText),
@@ -392,7 +414,7 @@ public sealed partial class StrategyAuthoringViewModel
                 "",
                 DesignUnresolvedChecklistText,
                 "Changing EMA 20 → EMA 30 here must be what Build uses for the next revision.",
-            });
+            }.Where(static s => !string.IsNullOrEmpty(s)));
         }
     }
 
@@ -698,6 +720,127 @@ public sealed partial class StrategyAuthoringViewModel
 
         ApplyDesignInstrumentFilter();
         NotifyDesignDraftChanged();
+        TrySyncPendingDraftScopeFromDesignInstruments();
+    }
+
+    partial void OnDesignPairScopeEnabledChanged(bool value)
+    {
+        if (!value)
+        {
+            DesignSecondInstrumentText = "";
+            DesignSecondInstrumentSearchText = "";
+            SelectedDesignSecondInstrument = null;
+        }
+
+        ApplyDesignInstrumentFilter();
+        OnPropertyChanged(nameof(DesignUnresolvedChecklistText));
+        NotifyDesignDraftChanged();
+        TrySyncPendingDraftScopeFromDesignInstruments();
+    }
+
+    public string DesignSecondInstrumentPickerStatusText
+    {
+        get
+        {
+            if (!DesignPairScopeEnabled)
+                return "";
+            if (_designInstrumentCatalogueLoading)
+                return "Loading instruments…";
+            if (_designInstrumentUniverse.Count == 0)
+                return "No instruments available yet.";
+            var term = DesignSecondInstrumentSearchText?.Trim() ?? "";
+            var browsing = term.Length == 0 ||
+                (SelectedDesignSecondInstrument is not null &&
+                 string.Equals(term, SelectedDesignSecondInstrument.DisplayName, StringComparison.OrdinalIgnoreCase));
+            if (!browsing && DesignSecondInstrumentOptions.Count == 0)
+                return $"No matches for “{term}” — try symbol or venue.";
+            if (browsing)
+                return $"{DesignSecondInstrumentOptions.Count} available · Leg 2 · click to browse, type to filter";
+            return $"{DesignSecondInstrumentOptions.Count} match(es) · Leg 2";
+        }
+    }
+
+    public bool HasDesignSecondInstrumentPickerStatus =>
+        DesignPairScopeEnabled && !string.IsNullOrWhiteSpace(DesignSecondInstrumentPickerStatusText);
+
+    partial void OnDesignSecondInstrumentTextChanged(string value)
+    {
+        if (!_syncingDesignSecondInstrumentSelection)
+            SyncSelectedDesignSecondInstrumentFromText();
+        NotifyDesignDraftChanged();
+        TrySyncPendingDraftScopeFromDesignInstruments();
+    }
+
+    partial void OnDesignSecondInstrumentSearchTextChanged(string value)
+    {
+        ApplyDesignInstrumentFilter();
+        OnPropertyChanged(nameof(DesignSecondInstrumentPickerStatusText));
+        if (_syncingDesignSecondInstrumentSelection)
+            return;
+        if (SelectedDesignSecondInstrument is not null &&
+            string.Equals(
+                value.Trim(),
+                SelectedDesignSecondInstrument.DisplayName,
+                StringComparison.OrdinalIgnoreCase))
+            return;
+        if (SelectedDesignSecondInstrument is not null &&
+            string.Equals(
+                value.Trim(),
+                SelectedDesignSecondInstrument.Contract.Symbol,
+                StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var trimmed = value.Trim();
+        if (trimmed.Length == 0)
+            return;
+
+        var match = FindDesignInstrumentMatch(trimmed);
+        if (match is not null &&
+            (SelectedDesignInstrument is null ||
+             match.Contract.Symbol != SelectedDesignInstrument.Contract.Symbol))
+        {
+            _syncingDesignSecondInstrumentSelection = true;
+            try
+            {
+                SelectedDesignSecondInstrument = match;
+                DesignSecondInstrumentText = match.Contract.Symbol;
+            }
+            finally
+            {
+                _syncingDesignSecondInstrumentSelection = false;
+            }
+        }
+        else if (!trimmed.Contains('·', StringComparison.Ordinal))
+        {
+            DesignSecondInstrumentText = trimmed;
+        }
+    }
+
+    partial void OnSelectedDesignSecondInstrumentChanged(SignalInstrument? value)
+    {
+        OnPropertyChanged(nameof(DesignSecondInstrumentPickerStatusText));
+        if (_syncingDesignSecondInstrumentSelection)
+            return;
+        if (value is null)
+            return;
+
+        _syncingDesignSecondInstrumentSelection = true;
+        try
+        {
+            DesignSecondInstrumentText = value.Contract.Symbol;
+            if (string.IsNullOrWhiteSpace(DesignSecondInstrumentSearchText) ||
+                string.Equals(DesignSecondInstrumentSearchText.Trim(), value.DisplayName, StringComparison.OrdinalIgnoreCase))
+                DesignSecondInstrumentSearchText = "";
+            LastInstrumentStore.Save(DesignSecondInstrumentPersistKey, value.Contract.Symbol);
+        }
+        finally
+        {
+            _syncingDesignSecondInstrumentSelection = false;
+        }
+
+        ApplyDesignInstrumentFilter();
+        NotifyDesignDraftChanged();
+        TrySyncPendingDraftScopeFromDesignInstruments();
     }
 
     /// <summary>Load broker-tagged catalogue when available; otherwise registry / curated fallback.</summary>
@@ -766,6 +909,88 @@ public sealed partial class StrategyAuthoringViewModel
             recentSymbol: recent);
         InstrumentPickerFilter.Apply(DesignInstrumentOptions, visible);
         OnPropertyChanged(nameof(DesignInstrumentPickerStatusText));
+
+        var recent2 = LastInstrumentStore.Load(DesignSecondInstrumentPersistKey);
+        var universe2 = SelectedDesignInstrument is null
+            ? _designInstrumentUniverse
+            : _designInstrumentUniverse
+                .Where(i => i.Contract.Symbol != SelectedDesignInstrument.Contract.Symbol)
+                .ToArray();
+        var visible2 = InstrumentPickerFilter.VisibleSearchingSymbolAndVenue(
+            universe2,
+            DesignSecondInstrumentSearchText,
+            SelectedDesignSecondInstrument,
+            cap: 80,
+            recentSymbol: recent2);
+        InstrumentPickerFilter.Apply(DesignSecondInstrumentOptions, visible2);
+        OnPropertyChanged(nameof(DesignSecondInstrumentPickerStatusText));
+    }
+
+    private void SyncSelectedDesignSecondInstrumentFromText()
+    {
+        var match = FindDesignInstrumentMatch(DesignSecondInstrumentText);
+        if (ReferenceEquals(SelectedDesignSecondInstrument, match))
+            return;
+
+        _syncingDesignSecondInstrumentSelection = true;
+        try
+        {
+            SelectedDesignSecondInstrument = match;
+        }
+        finally
+        {
+            _syncingDesignSecondInstrumentSelection = false;
+        }
+    }
+
+    /// <summary>
+    /// When a Charts/Research draft exists, keep Scope Leg 1/2 aligned with Design pickers
+    /// once symbols resolve in the instrument registry.
+    /// </summary>
+    private void TrySyncPendingDraftScopeFromDesignInstruments()
+    {
+        if (PendingStrategyDraft is null || _restoring || _applyingDesignProposal)
+            return;
+        if (_instrumentRegistry is null)
+            return;
+        if (string.IsNullOrWhiteSpace(DesignInstrumentText))
+            return;
+
+        var primary = ResolveRegistryInstrument(DesignInstrumentText);
+        if (primary is null)
+            return;
+
+        Instrument? second = null;
+        if (DesignPairScopeEnabled && !string.IsNullOrWhiteSpace(DesignSecondInstrumentText))
+        {
+            second = ResolveRegistryInstrument(DesignSecondInstrumentText);
+            if (second is null)
+                return; // wait until Leg 2 resolves; don't write incomplete pair
+            if (second.Id == primary.Id)
+                return;
+        }
+
+        var scope = PendingStrategyDraft.Scope;
+        var next = scope with
+        {
+            InstrumentId = primary.Id,
+            CanonicalSymbol = primary.CanonicalSymbol,
+            SecondInstrumentId = second?.Id ?? InstrumentId.None,
+            SecondCanonicalSymbol = second?.CanonicalSymbol,
+        };
+        if (next == scope)
+            return;
+
+        PendingStrategyDraft = PendingStrategyDraft with { Scope = next };
+    }
+
+    private Instrument? ResolveRegistryInstrument(string? text)
+    {
+        if (_instrumentRegistry is null || string.IsNullOrWhiteSpace(text))
+            return null;
+        var term = text.Trim();
+        return _instrumentRegistry.All().FirstOrDefault(i =>
+            string.Equals(i.CanonicalSymbol, term, StringComparison.OrdinalIgnoreCase));
     }
 
     private void SyncSelectedDesignInstrumentFromText()
@@ -916,6 +1141,7 @@ public sealed partial class StrategyAuthoringViewModel
         return string.Join('\n', new[]
         {
             Line("INSTRUMENT", DesignInstrumentText),
+            DesignPairScopeEnabled ? Line("INSTRUMENT2", DesignSecondInstrumentText) : "",
             Line("TIMEFRAME", DesignTimeframeText),
             Line("EVALUATION", DesignEvaluationTimingText),
             indicatorLine,
@@ -1962,8 +2188,24 @@ public sealed partial class StrategyAuthoringViewModel
     {
         StrategyDraftValidatorV1.RequireStructurallyValid(draft);
         PendingStrategyDraft = draft;
+        // Hydrate Design instrument pickers from chart/research scope (Leg 1 + optional Leg 2).
+        if (!string.IsNullOrWhiteSpace(draft.Scope.CanonicalSymbol) &&
+            string.IsNullOrWhiteSpace(DesignInstrumentText))
+        {
+            DesignInstrumentText = draft.Scope.CanonicalSymbol;
+            DesignInstrumentProvenance = DesignValueProvenance.ResearchAvailable;
+        }
+
+        if (draft.Scope.HasSecondLeg)
+        {
+            DesignPairScopeEnabled = true;
+            DesignSecondInstrumentText = draft.Scope.SecondCanonicalSymbol ?? "";
+        }
+
         EnterResearchWorkspace();
-        Status = "Chart strategy draft received (stop/target). Refine in Brief when ready — this does not place orders.";
+        Status = draft.Scope.HasSecondLeg
+            ? "Chart strategy draft received (pair scope). Refine in Design — this does not place orders."
+            : "Chart strategy draft received (stop/target). Refine in Brief when ready — this does not place orders.";
         Save();
     }
 

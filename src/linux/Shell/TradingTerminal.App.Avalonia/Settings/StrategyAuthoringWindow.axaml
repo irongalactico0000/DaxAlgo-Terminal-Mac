@@ -2245,6 +2245,11 @@
                         </StackPanel>
                       </Border>
                       <TextBlock Text="INSTRUMENT" Classes="eyebrow" />
+                      <CheckBox Content="Pair scope (Leg 1 + Leg 2)"
+                                IsChecked="{Binding DesignPairScopeEnabled, Mode=TwoWay}"
+                                AutomationProperties.Name="Design pair scope enabled" />
+                      <TextBlock Text="LEG 1 (PRIMARY / CHART)" Classes="caption"
+                                 IsVisible="{Binding DesignPairScopeEnabled}" />
                       <AutoCompleteBox MinWidth="220" HorizontalAlignment="Stretch"
                                        Watermark="Search or pick instrument…"
                                        MinimumPrefixLength="0"
@@ -2280,6 +2285,38 @@
                       <!-- Draft serialization still uses DesignInstrumentText (symbol). -->
                       <TextBlock IsVisible="False" Text="{Binding DesignInstrumentText}"
                                  AutomationProperties.Name="Design instrument" />
+                      <StackPanel Spacing="4" IsVisible="{Binding DesignPairScopeEnabled}"
+                                  AutomationProperties.Name="Design leg 2 instrument editor">
+                        <TextBlock Text="LEG 2" Classes="caption" />
+                        <AutoCompleteBox MinWidth="220" HorizontalAlignment="Stretch"
+                                         Watermark="Search or pick Leg 2…"
+                                         MinimumPrefixLength="0"
+                                         MinimumPopulateDelay="0:0:0.100"
+                                         MaxDropDownHeight="320"
+                                         FilterMode="None"
+                                         IsTextCompletionEnabled="False"
+                                         ValueMemberBinding="{Binding DisplayName}"
+                                         Text="{Binding DesignSecondInstrumentSearchText, Mode=TwoWay}"
+                                         ItemsSource="{Binding DesignSecondInstrumentOptions}"
+                                         SelectedItem="{Binding SelectedDesignSecondInstrument, Mode=TwoWay}"
+                                         AutomationProperties.Name="Design second instrument picker">
+                          <AutoCompleteBox.ItemTemplate>
+                            <DataTemplate>
+                              <StackPanel Spacing="1" MinWidth="280">
+                                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Classes="caption" Opacity="0.85"
+                                           Text="{Binding Contract.Symbol}" />
+                              </StackPanel>
+                            </DataTemplate>
+                          </AutoCompleteBox.ItemTemplate>
+                        </AutoCompleteBox>
+                        <TextBlock Text="{Binding DesignSecondInstrumentPickerStatusText}" Classes="caption"
+                                   IsVisible="{Binding HasDesignSecondInstrumentPickerStatus}"
+                                   TextWrapping="Wrap"
+                                   AutomationProperties.Name="Design second instrument picker status" />
+                        <TextBlock IsVisible="False" Text="{Binding DesignSecondInstrumentText}"
+                                   AutomationProperties.Name="Design second instrument" />
+                      </StackPanel>
                       <TextBlock Text="TIMEFRAME / DATA" Classes="eyebrow" />
                       <ComboBox ItemsSource="{Binding DesignTimeframeOptions}"
                                 SelectedItem="{Binding DesignTimeframeText, Mode=TwoWay}"

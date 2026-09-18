@@ -38,13 +38,24 @@ public sealed record StrategyDraftObjectV1(
     decimal? Threshold = null,
     string? Note = null);
 
-/// <summary>Market context required before draft gestures are accepted.</summary>
+/// <summary>
+/// Market context required before draft gestures are accepted.
+/// Leg 1 (<see cref="InstrumentId"/>) is primary / chart. Optional Leg 2 enables pair scope
+/// without a second Design draft.
+/// </summary>
 public sealed record StrategyDraftScopeV1(
     InstrumentId InstrumentId,
     string CanonicalSymbol,
     BarSize Timeframe,
     DateTimeOffset? HistoryFromUtc = null,
-    DateTimeOffset? HistoryToUtc = null);
+    DateTimeOffset? HistoryToUtc = null,
+    InstrumentId SecondInstrumentId = default,
+    string? SecondCanonicalSymbol = null)
+{
+    /// <summary>True when Leg 2 is present (pair scope).</summary>
+    public bool HasSecondLeg =>
+        !SecondInstrumentId.IsNone && !string.IsNullOrWhiteSpace(SecondCanonicalSymbol);
+}
 
 /// <summary>
 /// Editable strategy draft authored from Charts (and optionally linked to research samples).
@@ -202,6 +213,36 @@ public static class StrategyDraftValidatorV1
             issues.Add(new("STRATEGY_DRAFT_SYMBOL_REQUIRED", $"{path}.canonicalSymbol", "A canonical symbol is required for display."));
         if (scope.HistoryFromUtc is { } from && scope.HistoryToUtc is { } to && from >= to)
             issues.Add(new("STRATEGY_DRAFT_HISTORY_RANGE_INVALID", $"{path}.history", "History from must be earlier than history to."));
+
+        var hasSecondId = !scope.SecondInstrumentId.IsNone;
+        var hasSecondSymbol = !string.IsNullOrWhiteSpace(scope.SecondCanonicalSymbol);
+        if (hasSecondId != hasSecondSymbol)
+        {
+            issues.Add(new(
+                "STRATEGY_DRAFT_SECOND_LEG_INCOMPLETE",
+                $"{path}.secondInstrument",
+                "Pair scope requires both a second instrument id and canonical symbol."));
+        }
+        else if (hasSecondId)
+        {
+            if (scope.SecondInstrumentId == scope.InstrumentId)
+            {
+                issues.Add(new(
+                    "STRATEGY_DRAFT_SECOND_LEG_DUPLICATE",
+                    $"{path}.secondInstrumentId",
+                    "Leg 2 must be a different instrument than Leg 1."));
+            }
+            else if (string.Equals(
+                         scope.CanonicalSymbol.Trim(),
+                         scope.SecondCanonicalSymbol!.Trim(),
+                         StringComparison.OrdinalIgnoreCase))
+            {
+                issues.Add(new(
+                    "STRATEGY_DRAFT_SECOND_LEG_DUPLICATE",
+                    $"{path}.secondCanonicalSymbol",
+                    "Leg 2 symbol must differ from Leg 1."));
+            }
+        }
     }
 
     private static void ValidateObject(

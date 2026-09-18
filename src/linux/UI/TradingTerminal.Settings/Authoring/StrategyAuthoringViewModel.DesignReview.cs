@@ -139,7 +139,9 @@ public sealed partial class StrategyAuthoringViewModel
             LinkedFindingId: linked,
             EntryNotes: NullIfBlank(DesignEntryNotesText),
             ExitNotes: NullIfBlank(DesignExitNotesText),
-            RiskNotes: NullIfBlank(DesignRiskRuleText));
+            RiskNotes: NullIfBlank(DesignRiskRuleText),
+            SecondInstrument: NullIfBlank(DesignSecondInstrumentText),
+            PairScopeEnabled: DesignPairScopeEnabled);
     }
 
     public DesignReviewResultV1 EvaluateDesignDraftReview()

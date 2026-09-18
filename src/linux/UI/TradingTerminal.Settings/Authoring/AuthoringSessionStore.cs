@@ -100,7 +100,9 @@ public sealed record AuthoringSessionSnapshot(
     string? HistoricalValidationEvidenceJson = null,
     string? BoundNativeRunId = null,
     string? BoundNativeSessionId = null,
-    string? StrategyVersionResultsJson = null)
+    string? StrategyVersionResultsJson = null,
+    bool DesignPairScopeEnabled = false,
+    string? DesignSecondInstrumentText = null)
 {
     public const int CurrentAuthoringUxVersion = 3;
 
