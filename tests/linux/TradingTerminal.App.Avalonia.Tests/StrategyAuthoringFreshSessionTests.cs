@@ -1103,7 +1103,6 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.HandoffRoleText.Should().Be("Entry");
         viewModel.HasResearchDesignHandoff.Should().BeFalse();
         viewModel.Composer.Should().NotContain("Add this saved Research finding");
-        var entryBeforeConfirm = viewModel.DesignEntryRuleText;
 
         viewModel.ConfirmAddFindingToStrategyCommand.Execute(null);
 
@@ -1128,20 +1127,17 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.Composer.Should().Contain("MSFT");
         viewModel.Composer.Should().Contain("ema");
         viewModel.Composer.Should().Contain("Saved finding");
-        viewModel.DesignEntryRuleText.Should().Be(entryBeforeConfirm,
-            "Confirm links evidence — it must not invent or overwrite Design entry rules");
-        viewModel.HasPendingFindingDesignProposal.Should().BeTrue(
-            "Confirm stages finding → Design rules for review before Apply");
-        viewModel.PendingFindingDesignProposalText.Should().Contain("ENTRY:");
-        viewModel.PendingFindingDesignProposalText.Should().Contain("INSTRUMENT:");
-
-        viewModel.AcceptFindingDesignProposalCommand.Execute(null);
-        viewModel.HasPendingFindingDesignProposal.Should().BeFalse();
+        // Confirm auto-applies Research → Design so the draft is not empty.
+        viewModel.HasPendingFindingDesignProposal.Should().BeFalse(
+            "Confirm applies the finding proposal immediately (no empty re-entry)");
         viewModel.DesignInstrumentText.Should().Be("MSFT");
         viewModel.DesignTimeframeText.Should().Be("1h");
         viewModel.DesignEvaluationTimingText.Should().Be("Completed bar");
-        viewModel.DesignEntryRuleText.Should().Contain("volume");
-        viewModel.DesignEntryRuleText.Should().Contain(viewModel.PendingResearchCondition!.ConditionId);
+        viewModel.DesignEntryCondition.UsesSavedConditionAlone.Should().BeTrue();
+        viewModel.DesignEntryCondition.IsComplete.Should().BeTrue();
+        viewModel.DesignEntrySavedConditionId.Should().Contain("volx");
+        viewModel.DesignIndicators.Should().NotBeEmpty("Research indicators import on Confirm");
+        viewModel.CanImportResearchIndicatorsToDesign.Should().BeTrue();
         StrategyAuthoringViewModel.IsDesignFieldUnresolved(viewModel.DesignExitRuleText).Should().BeTrue(
             "Apply must not treat Unresolved placeholders as real EXIT rules");
         viewModel.DesignUnresolvedChecklistText.Should().Contain("exit");
@@ -1153,6 +1149,8 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.BuildStageState.Should().Be("PENDING");
         viewModel.Status.Should().Match(s =>
             s.Contains("Applied finding", StringComparison.Ordinal) ||
+            s.Contains("prefilled", StringComparison.OrdinalIgnoreCase) ||
+            s.Contains("Design", StringComparison.Ordinal) ||
             s.Contains("condition", StringComparison.Ordinal) ||
             s.Contains("No compile or register", StringComparison.Ordinal) ||
             s.Contains("opening Design", StringComparison.Ordinal) ||
@@ -1186,8 +1184,9 @@ public sealed class StrategyAuthoringFreshSessionTests
         viewModel.PendingConditionLookbackText = "20";
         viewModel.ApplyPendingResearchConditionCommand.Execute(null);
         viewModel.SaveResearchFinding1Command.Execute(null);
-        viewModel.UseObservationInDesignCommand.Execute(null);
-        viewModel.ConfirmAddFindingToStrategyCommand.Execute(null);
+        // Stage-only path (Confirm auto-applies). Handoff flag enables CanStage; role defaults to Entry.
+        viewModel.HasResearchDesignHandoff = true;
+        viewModel.StageFindingAsDesignProposalCommand.Execute(null);
         viewModel.HasPendingFindingDesignProposal.Should().BeTrue();
 
         viewModel.DiscardFindingDesignProposalCommand.Execute(null);

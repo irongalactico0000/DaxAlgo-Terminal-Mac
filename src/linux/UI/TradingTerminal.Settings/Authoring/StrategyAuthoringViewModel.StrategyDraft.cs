@@ -71,7 +71,7 @@ public sealed partial class StrategyAuthoringViewModel
             if (!browsing && DesignInstrumentOptions.Count == 0)
                 return $"No matches for “{term}” — try symbol or venue.";
             if (browsing)
-                return $"{_designInstrumentUniverse.Count} available · type to search symbol + venue";
+                return $"{_designInstrumentUniverse.Count} available · click to browse, type to filter";
             return $"{DesignInstrumentOptions.Count} match(es) · symbol + venue";
         }
     }
@@ -255,7 +255,49 @@ public sealed partial class StrategyAuthoringViewModel
     public bool CanAddDesignIndicator => !IsGenerating;
 
     public bool CanImportResearchIndicatorsToDesign =>
-        !IsGenerating && PendingResearchIndicatorBindings.Count > 0;
+        !IsGenerating && ResearchIndicatorBindingsForDesignImport().Count > 0;
+
+    [ObservableProperty] private bool _showDesignEntryConditionBuilder;
+
+    public string DesignEntryBuilderToggleLabel =>
+        ShowDesignEntryConditionBuilder
+            ? "Hide condition builder"
+            : "Create a condition instead…";
+
+    /// <summary>Primary ENTRY picker — only mirrors LeftSignalId while using a saved Research condition.</summary>
+    public string DesignEntrySavedConditionId
+    {
+        get => DesignEntryCondition.UsesSavedConditionAlone
+            ? DesignEntryCondition.LeftSignalId
+            : "";
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                if (!string.IsNullOrWhiteSpace(DesignEntryCondition.LeftSignalId) &&
+                    DesignEntryCondition.UsesSavedConditionAlone)
+                {
+                    DesignEntryCondition.LeftSignalId = "";
+                    OnPropertyChanged();
+                    SyncEntryRuleTextFromCondition();
+                    NotifyDesignDraftChanged();
+                }
+
+                return;
+            }
+
+            if (string.Equals(DesignEntryCondition.LeftSignalId, value, StringComparison.Ordinal) &&
+                DesignEntryCondition.UsesSavedConditionAlone)
+                return;
+            DesignEntryCondition.LeftKind = DesignConditionRow.KindSavedCondition;
+            DesignEntryCondition.LeftSignalId = value.Trim();
+            DesignEntryCondition.Provenance = DesignValueProvenance.Operator;
+            ShowDesignEntryConditionBuilder = false;
+            OnPropertyChanged();
+            SyncEntryRuleTextFromCondition();
+            NotifyDesignDraftChanged();
+        }
+    }
 
     public string DesignUnresolvedChecklistText
     {
@@ -685,26 +727,11 @@ public sealed partial class StrategyAuthoringViewModel
             }
 
             _designInstrumentUniverse = universe;
-            if (SelectedDesignInstrument is null &&
-                string.IsNullOrWhiteSpace(DesignInstrumentText) &&
-                InstrumentPickerFilter.Remembered(DesignInstrumentPersistKey, _designInstrumentUniverse) is { } remembered)
-            {
-                _syncingDesignInstrumentSelection = true;
-                try
-                {
-                    SelectedDesignInstrument = remembered;
-                    DesignInstrumentText = remembered.Contract.Symbol;
-                    DesignInstrumentSearchText = "";
-                }
-                finally
-                {
-                    _syncingDesignInstrumentSelection = false;
-                }
-            }
-            else
-            {
+            // Do not auto-write remembered instruments into an empty draft — that fights
+            // Research→Design Confirm prefill and leaves stale symbols on fresh sessions.
+            // Remembered symbols still surface first via ApplyDesignInstrumentFilter.
+            if (!string.IsNullOrWhiteSpace(DesignInstrumentText) || SelectedDesignInstrument is not null)
                 SyncSelectedDesignInstrumentFromText();
-            }
 
             ApplyDesignInstrumentFilter();
         }
@@ -1022,6 +1049,15 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(PendingHyperionDesignChangeSummaryText));
     }
 
+    [RelayCommand]
+    private void ToggleDesignEntryConditionBuilder()
+    {
+        ShowDesignEntryConditionBuilder = !ShowDesignEntryConditionBuilder;
+    }
+
+    partial void OnShowDesignEntryConditionBuilderChanged(bool value) =>
+        OnPropertyChanged(nameof(DesignEntryBuilderToggleLabel));
+
     [RelayCommand(CanExecute = nameof(CanAddDesignIndicator))]
     private void AddDesignIndicator()
     {
@@ -1083,7 +1119,7 @@ public sealed partial class StrategyAuthoringViewModel
     internal int ImportResearchIndicatorsAsAvailable()
     {
         var added = 0;
-        foreach (var binding in PendingResearchIndicatorBindings)
+        foreach (var binding in ResearchIndicatorBindingsForDesignImport())
         {
             if (DesignIndicators.Any(i =>
                     string.Equals(i.BindingId, binding.BindingId, StringComparison.OrdinalIgnoreCase) ||
@@ -1099,6 +1135,18 @@ public sealed partial class StrategyAuthoringViewModel
         }
 
         return added;
+    }
+
+    private IReadOnlyList<ResearchIndicatorBindingV1> ResearchIndicatorBindingsForDesignImport()
+    {
+        if (PendingResearchIndicatorBindings.Count > 0)
+            return PendingResearchIndicatorBindings;
+
+        return _researchAnalysisReferences.Values
+            .SelectMany(static r => r.IndicatorBindings)
+            .GroupBy(static b => $"{b.Kind}:{b.Period}", StringComparer.OrdinalIgnoreCase)
+            .Select(static g => g.First())
+            .ToArray();
     }
 
     /// <summary>Wire once from ctor so structured form edits refresh summary strings.</summary>
@@ -1178,6 +1226,13 @@ public sealed partial class StrategyAuthoringViewModel
             SyncEntryRuleTextFromCondition();
             if (LastValidationDesignEntryResult is not null)
                 LastValidationDesignEntryResult = null;
+        }
+
+        if (e.PropertyName is nameof(DesignConditionRow.LeftKind) or
+            nameof(DesignConditionRow.LeftSignalId) or
+            nameof(DesignConditionRow.UsesSavedConditionAlone))
+        {
+            OnPropertyChanged(nameof(DesignEntrySavedConditionId));
         }
 
         NotifyDesignDraftChanged();
@@ -1357,16 +1412,64 @@ public sealed partial class StrategyAuthoringViewModel
     private void AcceptFindingDesignProposal()
     {
         if (!HasPendingFindingDesignProposal) return;
+        ApplyPendingFindingDesignProposal();
+        Status =
+            "Applied finding into Design fields (instrument, timeframe, evaluation, saved condition, indicators). " +
+            "Unresolved sizing/exit/risk stay editable.";
+        Save();
+    }
+
+    /// <summary>Writes staged finding proposal into Design — also used when Confirm auto-applies.</summary>
+    internal void ApplyPendingFindingDesignProposal()
+    {
+        if (!HasPendingFindingDesignProposal) return;
         ApplyHyperionProposalToDesignFields(
             PendingFindingDesignProposalText,
             DesignValueProvenance.HyperionAccepted);
+        _applyingDesignProposal = true;
+        try
+        {
+            ApplyLinkedFindingAsSavedEntryCondition(DesignValueProvenance.HyperionAccepted);
+        }
+        finally
+        {
+            _applyingDesignProposal = false;
+        }
+
         ImportResearchIndicatorsAsAvailable();
         PendingFindingDesignProposalText = "";
-        Status =
-            "Applied finding into Design fields. Research indicators are available (not auto-entry). " +
-            "Unresolved sizing/exit/risk stay editable.";
+        OnPropertyChanged(nameof(DesignEntrySavedConditionId));
+        OnPropertyChanged(nameof(DesignSignalOptions));
+        OnPropertyChanged(nameof(HasDesignSignalOptions));
         NotifyDesignDraftChanged();
-        Save();
+    }
+
+    /// <summary>Prefer Saved condition ENTRY over freeform operand rebuild.</summary>
+    internal void ApplyLinkedFindingAsSavedEntryCondition(DesignValueProvenance provenance)
+    {
+        if (LastConfirmedHandoffRole is DesignHandoffConditionRole.Exit or DesignHandoffConditionRole.Filter)
+            return;
+
+        ResearchAnalysisReferenceV1? reference = null;
+        if (_researchAnalysisReferences.TryGetValue("A", out var a))
+            reference = a;
+        else if (_researchAnalysisReferences.TryGetValue("B", out var b))
+            reference = b;
+        else
+            reference = _researchAnalysisReferences.Values.FirstOrDefault();
+
+        if (reference is null)
+            return;
+
+        var option = FormatDesignSavedConditionOption(reference);
+        DesignEntryCondition.LeftKind = DesignConditionRow.KindSavedCondition;
+        DesignEntryCondition.LeftSignalId = option;
+        DesignEntryCondition.Provenance = provenance;
+        DesignEntryRuleText = DesignEntryCondition.SummaryText;
+        ShowDesignEntryConditionBuilder = false;
+        OnPropertyChanged(nameof(DesignEntrySavedConditionId));
+        OnPropertyChanged(nameof(DesignSignalOptions));
+        OnPropertyChanged(nameof(HasDesignSignalOptions));
     }
 
     [RelayCommand(CanExecute = nameof(CanAcceptFindingDesignProposal))]

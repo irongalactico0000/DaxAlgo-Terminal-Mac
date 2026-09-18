@@ -705,16 +705,21 @@ public sealed partial class StrategyAuthoringViewModel
             createDraftFromSelectionIfMissing: true,
             role: DesignHandoffConditionRoleLabels.ToDraftRole(handoffRole));
         var staged = TryStageFindingAsDesignProposal();
-        AiStatus = $"Finding attached to {StrategyReturnDisplayName}. Confirm which conditions become strategy rules.";
+        if (staged)
+        {
+            // Product path: Confirm writes Research context into Design (no empty re-entry).
+            ApplyPendingFindingDesignProposal();
+        }
+        AiStatus = $"Finding attached to {StrategyReturnDisplayName}. Design fields prefilled from Research — review sizing/exit/risk.";
         Status = IsResearchStudioShell
             ? bound
                 ? staged
-                    ? $"Used in Strategy · {StrategyReturnDisplayName} — condition bound as {DesignHandoffConditionRoleLabels.Label(handoffRole)} · Design proposal ready."
+                    ? $"Used in Strategy · {StrategyReturnDisplayName} — Design prefilled from finding ({DesignHandoffConditionRoleLabels.Label(handoffRole)})."
                     : $"Used in Strategy · {StrategyReturnDisplayName} — condition bound · opening Design."
                 : $"Used in Strategy · {StrategyReturnDisplayName} — opening Design."
             : bound
                 ? staged
-                    ? $"Finding attached · role {DesignHandoffConditionRoleLabels.Label(handoffRole)} · review Design proposal before Apply."
+                    ? $"Finding applied to Design · role {DesignHandoffConditionRoleLabels.Label(handoffRole)} · review unresolved sizing/exit/risk."
                     : $"Finding attached to {StrategyReturnDisplayName} Design · condition id/hash bound. No compile or register yet."
                 : $"Finding attached to {StrategyReturnDisplayName} Design. No compile or register yet.";
         Append(AuthoringMessage.Tool(
@@ -1008,11 +1013,13 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(AddFindingTransferPreviewText));
         OnPropertyChanged(nameof(DesignSignalOptions));
         OnPropertyChanged(nameof(HasDesignSignalOptions));
+        OnPropertyChanged(nameof(CanImportResearchIndicatorsToDesign));
         RestoreResearchFinding1Command.NotifyCanExecuteChanged();
         RestoreResearchFinding2Command.NotifyCanExecuteChanged();
         SaveResearchFinding1Command.NotifyCanExecuteChanged();
         SaveResearchFinding2Command.NotifyCanExecuteChanged();
         UseObservationInDesignCommand.NotifyCanExecuteChanged();
+        ImportResearchIndicatorsToDesignCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanLabelResearchSelection))]
@@ -1732,7 +1739,9 @@ public sealed partial class StrategyAuthoringViewModel
         OnPropertyChanged(nameof(ResearchIndicatorCompareText));
         OnPropertyChanged(nameof(ActiveResearchContextText));
         OnPropertyChanged(nameof(CanUseObservationInDesign));
+        OnPropertyChanged(nameof(CanImportResearchIndicatorsToDesign));
         UseObservationInDesignCommand.NotifyCanExecuteChanged();
+        ImportResearchIndicatorsToDesignCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnPendingResearchConditionChanged(ResearchConditionDefinitionV1? value)

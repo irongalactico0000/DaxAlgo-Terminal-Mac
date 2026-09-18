@@ -201,9 +201,9 @@ public sealed partial class DesignConditionRow : ObservableObject
 
     public static IReadOnlyList<string> OperandKindOptions { get; } =
     [
-        KindPrice,
-        KindIndicator,
         KindSavedCondition,
+        KindIndicator,
+        KindPrice,
         KindConstant,
         KindExpression,
     ];
@@ -214,7 +214,7 @@ public sealed partial class DesignConditionRow : ObservableObject
         ConstantParameterNumber,
     ];
 
-    [ObservableProperty] private string _leftKind = KindIndicator;
+    [ObservableProperty] private string _leftKind = KindSavedCondition;
     [ObservableProperty] private string _rightKind = KindIndicator;
     [ObservableProperty] private string _leftIndicatorLabel = "";
     [ObservableProperty] private string _rightIndicatorLabel = "";
@@ -234,14 +234,22 @@ public sealed partial class DesignConditionRow : ObservableObject
     private bool _rebuildingOperands;
 
     public bool IsComplete =>
-        IsOperandReady(LeftKind, LeftOperand, LeftConstantText) &&
-        !string.IsNullOrWhiteSpace(OperatorKey) &&
-        IsOperandReady(RightKind, RightOperand, RightConstantText);
+        UsesSavedConditionAlone
+            ? !string.IsNullOrWhiteSpace(LeftOperand)
+            : IsOperandReady(LeftKind, LeftOperand, LeftConstantText) &&
+              !string.IsNullOrWhiteSpace(OperatorKey) &&
+              IsOperandReady(RightKind, RightOperand, RightConstantText);
+
+    /// <summary>Primary Design path: one Research composite — no right operand required.</summary>
+    public bool UsesSavedConditionAlone =>
+        string.Equals(LeftKind, KindSavedCondition, StringComparison.Ordinal);
 
     public string SummaryText =>
-        IsComplete
-            ? $"{LeftOperand.Trim()} {OperatorKey.Trim()} {RightOperand.Trim()}"
-            : "";
+        !IsComplete
+            ? ""
+            : UsesSavedConditionAlone
+                ? LeftOperand.Trim()
+                : $"{LeftOperand.Trim()} {OperatorKey.Trim()} {RightOperand.Trim()}";
 
     public string ProvenanceLabel => DesignValueProvenanceLabels.Label(Provenance);
 
@@ -255,6 +263,7 @@ public sealed partial class DesignConditionRow : ObservableObject
         string.Equals(LeftKind, KindSignal, StringComparison.Ordinal);
     public bool ShowLeftPriceHint =>
         string.Equals(LeftKind, KindPrice, StringComparison.Ordinal);
+    public bool ShowRightOperandEditors => !UsesSavedConditionAlone;
 
     public bool ShowRightIndicatorPicker =>
         string.Equals(RightKind, KindIndicator, StringComparison.Ordinal);
@@ -501,8 +510,11 @@ public sealed partial class DesignConditionRow : ObservableObject
         OnPropertyChanged(nameof(ShowRightExpression));
         OnPropertyChanged(nameof(ShowRightSignalPicker));
         OnPropertyChanged(nameof(ShowRightPriceHint));
+        OnPropertyChanged(nameof(ShowRightOperandEditors));
+        OnPropertyChanged(nameof(UsesSavedConditionAlone));
         OnPropertyChanged(nameof(RightConstantHint));
         OnPropertyChanged(nameof(RightConstantWatermark));
+        NotifyShape();
     }
 
     private void NotifyShape()

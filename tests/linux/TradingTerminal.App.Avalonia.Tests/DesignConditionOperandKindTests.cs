@@ -84,9 +84,25 @@ public sealed class DesignConditionOperandKindTests
     }
 
     [Fact]
+    public void Saved_condition_alone_is_complete_without_right_operand()
+    {
+        var row = new DesignConditionRow
+        {
+            LeftKind = DesignConditionRow.KindSavedCondition,
+            LeftSignalId = "Finding A · vol×2 · volx20",
+        };
+
+        Assert.True(row.UsesSavedConditionAlone);
+        Assert.True(row.IsComplete);
+        Assert.False(row.ShowRightOperandEditors);
+        Assert.Equal("Finding A · vol×2 · volx20", row.SummaryText);
+    }
+
+    [Fact]
     public void Saved_condition_kind_alias_matches_signal_legacy()
     {
         Assert.Equal(DesignConditionRow.KindSavedCondition, DesignConditionRow.KindSignal);
+        Assert.Equal(DesignConditionRow.KindSavedCondition, DesignConditionRow.OperandKindOptions[0]);
         Assert.Contains(DesignConditionRow.KindSavedCondition, DesignConditionRow.OperandKindOptions);
         Assert.DoesNotContain("Saved signal", DesignConditionRow.OperandKindOptions);
     }

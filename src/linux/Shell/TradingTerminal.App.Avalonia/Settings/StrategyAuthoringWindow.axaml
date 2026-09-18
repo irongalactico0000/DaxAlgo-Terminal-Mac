@@ -2235,17 +2235,19 @@
                         </StackPanel>
                       </Border>
                       <TextBlock Text="INSTRUMENT" Classes="eyebrow" />
-                      <TextBox Text="{Binding DesignInstrumentSearchText, Mode=TwoWay}"
-                               Watermark="Type to filter symbol + venue…"
-                               MinWidth="220" HorizontalAlignment="Stretch"
-                               AutomationProperties.Name="Design instrument search" />
-                      <ComboBox ItemsSource="{Binding DesignInstrumentOptions}"
-                                SelectedItem="{Binding SelectedDesignInstrument, Mode=TwoWay}"
-                                MinWidth="220" HorizontalAlignment="Stretch"
-                                MaxDropDownHeight="320"
-                                PlaceholderText="Click to choose instrument…"
-                                AutomationProperties.Name="Design instrument picker">
-                        <ComboBox.ItemTemplate>
+                      <AutoCompleteBox MinWidth="220" HorizontalAlignment="Stretch"
+                                       Watermark="Search or pick instrument…"
+                                       MinimumPrefixLength="0"
+                                       MinimumPopulateDelay="0:0:0.100"
+                                       MaxDropDownHeight="320"
+                                       FilterMode="None"
+                                       IsTextCompletionEnabled="False"
+                                       ValueMemberBinding="{Binding DisplayName}"
+                                       Text="{Binding DesignInstrumentSearchText, Mode=TwoWay}"
+                                       ItemsSource="{Binding DesignInstrumentOptions}"
+                                       SelectedItem="{Binding SelectedDesignInstrument, Mode=TwoWay}"
+                                       AutomationProperties.Name="Design instrument picker">
+                        <AutoCompleteBox.ItemTemplate>
                           <DataTemplate>
                             <StackPanel Spacing="1" MinWidth="280">
                               <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
@@ -2253,8 +2255,8 @@
                                          Text="{Binding Contract.Symbol}" />
                             </StackPanel>
                           </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                      </ComboBox>
+                        </AutoCompleteBox.ItemTemplate>
+                      </AutoCompleteBox>
                       <TextBlock Text="{Binding DesignInstrumentPickerStatusText}" Classes="caption"
                                  IsVisible="{Binding HasDesignInstrumentPickerStatus}"
                                  TextWrapping="Wrap"
@@ -2367,103 +2369,125 @@
                               AutomationProperties.Name="Design entry condition editor">
                         <StackPanel Spacing="6">
                           <TextBlock Text="ENTRY CONDITION" Classes="eyebrow" />
-                          <TextBlock Text="Choose operand kinds. Crosses above detects a transition; is above can stay true across bars."
+                          <TextBlock Text="Primary path: pick a Research saved condition. Build operand-by-operand only when you need a new rule."
                                      Classes="caption" TextWrapping="Wrap" />
-                          <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="Auto,Auto">
-                            <ComboBox Grid.Row="0" Grid.Column="0"
-                                      ItemsSource="{Binding DesignOperandKindOptions}"
-                                      SelectedItem="{Binding DesignEntryCondition.LeftKind, Mode=TwoWay}"
-                                      MinWidth="130" Margin="0,0,8,0"
-                                      AutomationProperties.Name="Design entry left operand kind" />
-                            <ComboBox Grid.Row="0" Grid.Column="1"
-                                      ItemsSource="{Binding DesignConditionOperatorOptions}"
-                                      SelectedItem="{Binding DesignEntryCondition.OperatorKey, Mode=TwoWay}"
-                                      MinWidth="130" Margin="0,0,8,0"
-                                      AutomationProperties.Name="Design entry operator" />
-                            <ComboBox Grid.Row="0" Grid.Column="2"
-                                      ItemsSource="{Binding DesignOperandKindOptions}"
-                                      SelectedItem="{Binding DesignEntryCondition.RightKind, Mode=TwoWay}"
-                                      MinWidth="130"
-                                      AutomationProperties.Name="Design entry right operand kind" />
-                            <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4" Margin="0,6,8,0">
-                              <ComboBox ItemsSource="{Binding DesignIndicatorLabelOptions}"
-                                        SelectedItem="{Binding DesignEntryCondition.LeftIndicatorLabel, Mode=TwoWay}"
-                                        IsVisible="{Binding DesignEntryCondition.ShowLeftIndicatorPicker}"
-                                        PlaceholderText="Pick saved indicator…"
-                                        MinWidth="120"
-                                        AutomationProperties.Name="Design entry left indicator" />
-                              <StackPanel IsVisible="{Binding DesignEntryCondition.ShowLeftConstant}" Spacing="2">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                  <ComboBox ItemsSource="{Binding DesignConstantParameterOptions}"
-                                            SelectedItem="{Binding DesignEntryCondition.LeftConstantParameter, Mode=TwoWay}"
-                                            MinWidth="88" HorizontalAlignment="Left"
-                                            AutomationProperties.Name="Design entry left constant parameter" />
-                                  <TextBox Text="{Binding DesignEntryCondition.LeftConstantText, Mode=TwoWay}"
-                                           Watermark="{Binding DesignEntryCondition.LeftConstantWatermark}"
-                                           Width="110"
-                                           AutomationProperties.Name="Design entry left constant value" />
+                          <TextBlock Text="USE SAVED CONDITION" Classes="caption" FontWeight="SemiBold" />
+                          <ComboBox ItemsSource="{Binding DesignSignalOptions}"
+                                    SelectedItem="{Binding DesignEntrySavedConditionId, Mode=TwoWay}"
+                                    IsEnabled="{Binding HasDesignSignalOptions}"
+                                    PlaceholderText="Pick saved condition from Research…"
+                                    MinWidth="220" HorizontalAlignment="Stretch"
+                                    AutomationProperties.Name="Design entry saved condition primary" />
+                          <TextBlock Text="{Binding DesignEntryCondition.LeftSignalEmptyHint}" Classes="caption"
+                                     TextWrapping="Wrap"
+                                     IsVisible="{Binding !HasDesignSignalOptions}" />
+                          <Button Classes="ghost" Content="{Binding DesignEntryBuilderToggleLabel}"
+                                  Command="{Binding ToggleDesignEntryConditionBuilderCommand}"
+                                  HorizontalAlignment="Left"
+                                  AutomationProperties.Name="Toggle design entry condition builder" />
+                          <StackPanel Spacing="6" IsVisible="{Binding ShowDesignEntryConditionBuilder}">
+                            <TextBlock Text="CREATE A CONDITION" Classes="caption" FontWeight="SemiBold" />
+                            <TextBlock Text="Crosses above detects a transition; is above can stay true across bars."
+                                       Classes="caption" TextWrapping="Wrap" />
+                            <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="Auto,Auto">
+                              <ComboBox Grid.Row="0" Grid.Column="0"
+                                        ItemsSource="{Binding DesignOperandKindOptions}"
+                                        SelectedItem="{Binding DesignEntryCondition.LeftKind, Mode=TwoWay}"
+                                        MinWidth="130" Margin="0,0,8,0"
+                                        AutomationProperties.Name="Design entry left operand kind" />
+                              <ComboBox Grid.Row="0" Grid.Column="1"
+                                        ItemsSource="{Binding DesignConditionOperatorOptions}"
+                                        SelectedItem="{Binding DesignEntryCondition.OperatorKey, Mode=TwoWay}"
+                                        MinWidth="130" Margin="0,0,8,0"
+                                        IsVisible="{Binding DesignEntryCondition.ShowRightOperandEditors}"
+                                        AutomationProperties.Name="Design entry operator" />
+                              <ComboBox Grid.Row="0" Grid.Column="2"
+                                        ItemsSource="{Binding DesignOperandKindOptions}"
+                                        SelectedItem="{Binding DesignEntryCondition.RightKind, Mode=TwoWay}"
+                                        MinWidth="130"
+                                        IsVisible="{Binding DesignEntryCondition.ShowRightOperandEditors}"
+                                        AutomationProperties.Name="Design entry right operand kind" />
+                              <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4" Margin="0,6,8,0">
+                                <ComboBox ItemsSource="{Binding DesignIndicatorLabelOptions}"
+                                          SelectedItem="{Binding DesignEntryCondition.LeftIndicatorLabel, Mode=TwoWay}"
+                                          IsVisible="{Binding DesignEntryCondition.ShowLeftIndicatorPicker}"
+                                          PlaceholderText="Pick saved indicator…"
+                                          MinWidth="120"
+                                          AutomationProperties.Name="Design entry left indicator" />
+                                <StackPanel IsVisible="{Binding DesignEntryCondition.ShowLeftConstant}" Spacing="2">
+                                  <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ComboBox ItemsSource="{Binding DesignConstantParameterOptions}"
+                                              SelectedItem="{Binding DesignEntryCondition.LeftConstantParameter, Mode=TwoWay}"
+                                              MinWidth="88" HorizontalAlignment="Left"
+                                              AutomationProperties.Name="Design entry left constant parameter" />
+                                    <TextBox Text="{Binding DesignEntryCondition.LeftConstantText, Mode=TwoWay}"
+                                             Watermark="{Binding DesignEntryCondition.LeftConstantWatermark}"
+                                             Width="110"
+                                             AutomationProperties.Name="Design entry left constant value" />
+                                  </StackPanel>
+                                  <TextBlock Text="{Binding DesignEntryCondition.LeftConstantHint}" Classes="caption"
+                                             TextWrapping="Wrap"
+                                             AutomationProperties.Name="Design entry left constant hint" />
                                 </StackPanel>
-                                <TextBlock Text="{Binding DesignEntryCondition.LeftConstantHint}" Classes="caption"
-                                           TextWrapping="Wrap"
-                                           AutomationProperties.Name="Design entry left constant hint" />
-                              </StackPanel>
-                              <TextBox Text="{Binding DesignEntryCondition.LeftExpressionText, Mode=TwoWay}"
-                                       Watermark="advanced expression"
-                                       IsVisible="{Binding DesignEntryCondition.ShowLeftExpression}"
-                                       AutomationProperties.Name="Design entry left expression" />
-                              <TextBlock Text="Price (close)" Classes="caption"
-                                         IsVisible="{Binding DesignEntryCondition.ShowLeftPriceHint}" />
-                              <StackPanel IsVisible="{Binding DesignEntryCondition.ShowLeftSignalPicker}" Spacing="2">
-                                <ComboBox ItemsSource="{Binding DesignSignalOptions}"
-                                          SelectedItem="{Binding DesignEntryCondition.LeftSignalId, Mode=TwoWay}"
-                                          IsEnabled="{Binding HasDesignSignalOptions}"
-                                          PlaceholderText="Saved condition…"
-                                          AutomationProperties.Name="Design entry left saved condition" />
-                                <TextBlock Text="{Binding DesignEntryCondition.LeftSignalEmptyHint}" Classes="caption"
-                                           TextWrapping="Wrap"
-                                           IsVisible="{Binding !HasDesignSignalOptions}" />
-                              </StackPanel>
-                            </StackPanel>
-                            <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4" Margin="0,6,0,0">
-                              <ComboBox ItemsSource="{Binding DesignIndicatorLabelOptions}"
-                                        SelectedItem="{Binding DesignEntryCondition.RightIndicatorLabel, Mode=TwoWay}"
-                                        IsVisible="{Binding DesignEntryCondition.ShowRightIndicatorPicker}"
-                                        PlaceholderText="Pick saved indicator…"
-                                        MinWidth="120"
-                                        AutomationProperties.Name="Design entry right indicator" />
-                              <StackPanel IsVisible="{Binding DesignEntryCondition.ShowRightConstant}" Spacing="2">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                  <ComboBox ItemsSource="{Binding DesignConstantParameterOptions}"
-                                            SelectedItem="{Binding DesignEntryCondition.RightConstantParameter, Mode=TwoWay}"
-                                            MinWidth="88" HorizontalAlignment="Left"
-                                            AutomationProperties.Name="Design entry right constant parameter" />
-                                  <TextBox Text="{Binding DesignEntryCondition.RightConstantText, Mode=TwoWay}"
-                                           Watermark="{Binding DesignEntryCondition.RightConstantWatermark}"
-                                           Width="110"
-                                           AutomationProperties.Name="Design entry right constant value" />
+                                <TextBox Text="{Binding DesignEntryCondition.LeftExpressionText, Mode=TwoWay}"
+                                         Watermark="advanced expression"
+                                         IsVisible="{Binding DesignEntryCondition.ShowLeftExpression}"
+                                         AutomationProperties.Name="Design entry left expression" />
+                                <TextBlock Text="Price (close)" Classes="caption"
+                                           IsVisible="{Binding DesignEntryCondition.ShowLeftPriceHint}" />
+                                <StackPanel IsVisible="{Binding DesignEntryCondition.ShowLeftSignalPicker}" Spacing="2">
+                                  <ComboBox ItemsSource="{Binding DesignSignalOptions}"
+                                            SelectedItem="{Binding DesignEntryCondition.LeftSignalId, Mode=TwoWay}"
+                                            IsEnabled="{Binding HasDesignSignalOptions}"
+                                            PlaceholderText="Saved condition…"
+                                            AutomationProperties.Name="Design entry left saved condition" />
+                                  <TextBlock Text="{Binding DesignEntryCondition.LeftSignalEmptyHint}" Classes="caption"
+                                             TextWrapping="Wrap"
+                                             IsVisible="{Binding !HasDesignSignalOptions}" />
                                 </StackPanel>
-                                <TextBlock Text="{Binding DesignEntryCondition.RightConstantHint}" Classes="caption"
-                                           TextWrapping="Wrap"
-                                           AutomationProperties.Name="Design entry right constant hint" />
                               </StackPanel>
-                              <TextBox Text="{Binding DesignEntryCondition.RightExpressionText, Mode=TwoWay}"
-                                       Watermark="advanced expression"
-                                       IsVisible="{Binding DesignEntryCondition.ShowRightExpression}"
-                                       AutomationProperties.Name="Design entry right expression" />
-                              <TextBlock Text="Price (close)" Classes="caption"
-                                         IsVisible="{Binding DesignEntryCondition.ShowRightPriceHint}" />
-                              <StackPanel IsVisible="{Binding DesignEntryCondition.ShowRightSignalPicker}" Spacing="2">
-                                <ComboBox ItemsSource="{Binding DesignSignalOptions}"
-                                          SelectedItem="{Binding DesignEntryCondition.RightSignalId, Mode=TwoWay}"
-                                          IsEnabled="{Binding HasDesignSignalOptions}"
-                                          PlaceholderText="Saved condition…"
-                                          AutomationProperties.Name="Design entry right saved condition" />
-                                <TextBlock Text="{Binding DesignEntryCondition.RightSignalEmptyHint}" Classes="caption"
-                                           TextWrapping="Wrap"
-                                           IsVisible="{Binding !HasDesignSignalOptions}" />
+                              <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4" Margin="0,6,0,0"
+                                          IsVisible="{Binding DesignEntryCondition.ShowRightOperandEditors}">
+                                <ComboBox ItemsSource="{Binding DesignIndicatorLabelOptions}"
+                                          SelectedItem="{Binding DesignEntryCondition.RightIndicatorLabel, Mode=TwoWay}"
+                                          IsVisible="{Binding DesignEntryCondition.ShowRightIndicatorPicker}"
+                                          PlaceholderText="Pick saved indicator…"
+                                          MinWidth="120"
+                                          AutomationProperties.Name="Design entry right indicator" />
+                                <StackPanel IsVisible="{Binding DesignEntryCondition.ShowRightConstant}" Spacing="2">
+                                  <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ComboBox ItemsSource="{Binding DesignConstantParameterOptions}"
+                                              SelectedItem="{Binding DesignEntryCondition.RightConstantParameter, Mode=TwoWay}"
+                                              MinWidth="88" HorizontalAlignment="Left"
+                                              AutomationProperties.Name="Design entry right constant parameter" />
+                                    <TextBox Text="{Binding DesignEntryCondition.RightConstantText, Mode=TwoWay}"
+                                             Watermark="{Binding DesignEntryCondition.RightConstantWatermark}"
+                                             Width="110"
+                                             AutomationProperties.Name="Design entry right constant value" />
+                                  </StackPanel>
+                                  <TextBlock Text="{Binding DesignEntryCondition.RightConstantHint}" Classes="caption"
+                                             TextWrapping="Wrap"
+                                             AutomationProperties.Name="Design entry right constant hint" />
+                                </StackPanel>
+                                <TextBox Text="{Binding DesignEntryCondition.RightExpressionText, Mode=TwoWay}"
+                                         Watermark="advanced expression"
+                                         IsVisible="{Binding DesignEntryCondition.ShowRightExpression}"
+                                         AutomationProperties.Name="Design entry right expression" />
+                                <TextBlock Text="Price (close)" Classes="caption"
+                                           IsVisible="{Binding DesignEntryCondition.ShowRightPriceHint}" />
+                                <StackPanel IsVisible="{Binding DesignEntryCondition.ShowRightSignalPicker}" Spacing="2">
+                                  <ComboBox ItemsSource="{Binding DesignSignalOptions}"
+                                            SelectedItem="{Binding DesignEntryCondition.RightSignalId, Mode=TwoWay}"
+                                            IsEnabled="{Binding HasDesignSignalOptions}"
+                                            PlaceholderText="Saved condition…"
+                                            AutomationProperties.Name="Design entry right saved condition" />
+                                  <TextBlock Text="{Binding DesignEntryCondition.RightSignalEmptyHint}" Classes="caption"
+                                             TextWrapping="Wrap"
+                                             IsVisible="{Binding !HasDesignSignalOptions}" />
+                                </StackPanel>
                               </StackPanel>
-                            </StackPanel>
-                          </Grid>
+                            </Grid>
+                          </StackPanel>
                           <TextBlock Text="{Binding DesignEntryCondition.SummaryText}" Classes="caption"
                                      FontFamily="{StaticResource Font.Data}"
                                      IsVisible="{Binding DesignEntryCondition.IsComplete}"
