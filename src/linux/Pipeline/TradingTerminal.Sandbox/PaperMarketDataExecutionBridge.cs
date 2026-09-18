@@ -229,13 +229,24 @@ public sealed class PaperMarketDataExecutionBridge : IDisposable
 
         try
         {
+            DepthSnapshot? depth = null;
+            if (_venue.FillFidelity.EnableL2BookWalk)
+            {
+                // L1 quotes alone: reconstruct a finite ladder so book-walk has levels.
+                // Explicit L2 remains preferred when a real DepthSnapshot is available upstream.
+                depth = TradingTerminal.Core.Backtesting.L2BookReconstructionV1.FromL1(
+                    quote.EventTimeUtc,
+                    new Tick(quote.EventTimeUtc, quote.Bid, quote.Ask, quote.BidSize, quote.AskSize));
+            }
+
             snapshot = new PaperMarketSnapshot(
                 quote.InstrumentId,
                 ExecutionNumericBoundary.PriceFromDouble(quote.Bid, _priceScale),
                 ExecutionNumericBoundary.PriceFromDouble(quote.Ask, _priceScale),
                 ScaledQuantity.FromWhole(quote.BidSize),
                 ScaledQuantity.FromWhole(quote.AskSize),
-                new DateTimeOffset(quote.EventTimeUtc));
+                new DateTimeOffset(quote.EventTimeUtc),
+                depth);
             return true;
         }
         catch (ArgumentOutOfRangeException exception)

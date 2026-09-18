@@ -48,7 +48,8 @@ public sealed class PaperExecutionServiceRuntime : IDisposable
         IClock clock,
         ExecutionLeaseId leaseId,
         RuntimeInstanceId ownerId,
-        TimeSpan? leaseDuration = null)
+        TimeSpan? leaseDuration = null,
+        PaperFillFidelityOptions? fillFidelity = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
         if (!resource.IsValid) throw new ArgumentException("The execution resource is invalid.", nameof(resource));
@@ -69,7 +70,7 @@ public sealed class PaperExecutionServiceRuntime : IDisposable
                 throw new InvalidOperationException($"Paper execution lease acquisition failed: {acquired.Fault}: {acquired.Reason}");
             acquiredGrant = acquired.Grant.Value;
 
-            var venue = new DeterministicPaperVenue();
+            var venue = new DeterministicPaperVenue(fillFidelity);
             // Terminal fills still carry broker identities, positions, and cash. Restore the
             // Paper venue whenever the ledger has any execution history, not only when the
             // startup classifier finds a nonterminal order requiring command recovery.

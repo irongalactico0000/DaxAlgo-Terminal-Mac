@@ -11,14 +11,16 @@ public sealed record PaperMarketSnapshot
         ScaledPrice bid,
         ScaledPrice ask,
         ScaledQuantity availableQuantity,
-        DateTimeOffset observedAtUtc)
+        DateTimeOffset observedAtUtc,
+        DepthSnapshot? depth = null)
         : this(
             instrumentId,
             bid,
             ask,
             availableQuantity,
             availableQuantity,
-            observedAtUtc)
+            observedAtUtc,
+            depth)
     {
     }
 
@@ -28,7 +30,8 @@ public sealed record PaperMarketSnapshot
         ScaledPrice ask,
         ScaledQuantity bidAvailableQuantity,
         ScaledQuantity askAvailableQuantity,
-        DateTimeOffset observedAtUtc)
+        DateTimeOffset observedAtUtc,
+        DepthSnapshot? depth = null)
     {
         if (instrumentId.Value <= 0) throw new ArgumentOutOfRangeException(nameof(instrumentId));
         if (!bid.IsValid || bid.Coefficient <= 0) throw new ArgumentOutOfRangeException(nameof(bid));
@@ -46,6 +49,7 @@ public sealed record PaperMarketSnapshot
         BidAvailableQuantity = bidAvailableQuantity;
         AskAvailableQuantity = askAvailableQuantity;
         ObservedAtUtc = ExecutionValidation.RequireUtc(observedAtUtc, nameof(observedAtUtc));
+        Depth = depth;
     }
 
     public InstrumentId InstrumentId { get; }
@@ -54,6 +58,8 @@ public sealed record PaperMarketSnapshot
     public ScaledQuantity BidAvailableQuantity { get; }
     public ScaledQuantity AskAvailableQuantity { get; }
     public DateTimeOffset ObservedAtUtc { get; }
+    /// <summary>Optional explicit book for book-walk fills (Validate parity).</summary>
+    public DepthSnapshot? Depth { get; }
 }
 
 public enum PaperVenueRecoveryFault : byte
@@ -86,10 +92,12 @@ public sealed record PaperVenueRecoveryResult(
 /// <summary>
 /// Deterministic Paper order venue. It supports Market, Limit, Stop, StopLimit, Day/GTC/IOC/FOK,
 /// partial fills, cancel, replace, expiry, idempotent command replay, and callback queuing.
+/// Optional <see cref="PaperFillFidelityOptions"/> reuses Validate FIFO-ahead / book-walk helpers.
 /// </summary>
 public sealed class DeterministicPaperVenue : IPaperExecutionDispatcher, IExecutionReconciliationSnapshotProvider
 {
     private readonly object _gate = new();
+    private readonly PaperFillFidelityOptions _fidelity;
     private readonly Dictionary<ClientOrderId, PaperOrder> _orders = [];
     private readonly Dictionary<ClientOrderId, PaperOrder> _completedOrders = [];
     private readonly Dictionary<InstrumentId, PaperMarketSnapshot> _markets = [];
@@ -103,6 +111,13 @@ public sealed class DeterministicPaperVenue : IPaperExecutionDispatcher, IExecut
     private long _nextEventSequence;
     private long _nextTradeSequence;
     private string? _recoveryIdentityEpoch;
+
+    public DeterministicPaperVenue(PaperFillFidelityOptions? fidelity = null)
+    {
+        _fidelity = fidelity ?? PaperFillFidelityOptions.Default;
+    }
+
+    public PaperFillFidelityOptions FillFidelity => _fidelity;
 
     public ExecutionDispatchResult Submit(
         SubmitOrderCommand command,
@@ -223,28 +238,37 @@ public sealed class DeterministicPaperVenue : IPaperExecutionDispatcher, IExecut
                          .OrderBy(order => order.SubmissionSequence)
                          .ToArray())
             {
+                // Refresh from store so book-walk depletion is visible to later orders this tick.
+                var currentMarket = _markets.TryGetValue(market.InstrumentId, out var stored)
+                    ? stored
+                    : market;
                 if (order.Terms.Side == OrderSide.Buy)
                 {
                     if (remainingAskLiquidity.Coefficient <= 0) continue;
                     remainingAskLiquidity = SubtractQuantity(
                         remainingAskLiquidity,
-                        Evaluate(order, market, remainingAskLiquidity));
+                        Evaluate(order, currentMarket, remainingAskLiquidity));
                 }
                 else
                 {
                     if (remainingBidLiquidity.Coefficient <= 0) continue;
                     remainingBidLiquidity = SubtractQuantity(
                         remainingBidLiquidity,
-                        Evaluate(order, market, remainingBidLiquidity));
+                        Evaluate(order, currentMarket, remainingBidLiquidity));
                 }
             }
+
+            var depletedDepth = _markets.TryGetValue(market.InstrumentId, out var afterWalk)
+                ? afterWalk.Depth ?? market.Depth
+                : market.Depth;
             _markets[market.InstrumentId] = new PaperMarketSnapshot(
                 market.InstrumentId,
                 market.Bid,
                 market.Ask,
                 remainingBidLiquidity,
                 remainingAskLiquidity,
-                market.ObservedAtUtc);
+                market.ObservedAtUtc,
+                depletedDepth);
         }
     }
 
@@ -593,6 +617,11 @@ public sealed class DeterministicPaperVenue : IPaperExecutionDispatcher, IExecut
         var consumed = Evaluate(order, market, available);
         if (consumed.Coefficient <= 0) return;
 
+        // Prefer depth depleted by book-walk inside Evaluate.
+        var depth = _markets.TryGetValue(market.InstrumentId, out var stored)
+            ? stored.Depth ?? market.Depth
+            : market.Depth;
+
         var bidAvailable = market.BidAvailableQuantity;
         var askAvailable = market.AskAvailableQuantity;
         if (order.Terms.Side == OrderSide.Buy)
@@ -606,7 +635,8 @@ public sealed class DeterministicPaperVenue : IPaperExecutionDispatcher, IExecut
             market.Ask,
             bidAvailable,
             askAvailable,
-            market.ObservedAtUtc);
+            market.ObservedAtUtc,
+            depth);
     }
 
     private ScaledQuantity Evaluate(
@@ -618,10 +648,61 @@ public sealed class DeterministicPaperVenue : IPaperExecutionDispatcher, IExecut
 
         var remaining = SubtractQuantity(order.Terms.Quantity, order.FilledQuantity);
         if (remaining.Coefficient <= 0) return ScaledQuantity.Zero;
+
+        UpdateFifoQueue(order, market);
+        if (_fidelity.EnableFifoQueueAhead &&
+            order.Terms.Type == OrderType.Limit &&
+            !TradingTerminal.Core.Backtesting.FifoQueueAheadEstimatorV1.IsCleared(order.QueueAhead))
+        {
+            var limit = order.Terms.LimitPrice!.Value;
+            var crossing = order.Terms.Side == OrderSide.Buy
+                ? ComparePrice(market.Ask, limit) < 0
+                : ComparePrice(market.Bid, limit) > 0;
+            if (!crossing)
+                return ScaledQuantity.Zero;
+        }
+
         var available = MinQuantity(
             remaining,
             availableQuantity ?? AvailableForSide(order.Terms.Side, market));
-        var executable = ResolveExecutionPrice(order, market, out var price);
+
+        ScaledPrice price;
+        var executable = ResolveExecutionPrice(order, market, out price);
+        if (_fidelity.EnableL2BookWalk &&
+            market.Depth is { } depth &&
+            TryBookWalkFill(order, market, depth, remaining, available, out var walkQty, out var walkPrice))
+        {
+            available = walkQty;
+            price = walkPrice;
+            executable = walkQty.Coefficient > 0;
+            // Deplete walked levels on the stored book for subsequent orders.
+            var isBuy = order.Terms.Side == OrderSide.Buy;
+            double? limitPx = order.Terms.Type is OrderType.Limit or OrderType.StopLimit
+                ? (double)ExecutionNumericBoundary.ToDecimal(order.Terms.LimitPrice!.Value)
+                : null;
+            var filledLong = (long)ExecutionNumericBoundary.ToDecimal(walkQty);
+            var updatedDepth = isBuy
+                ? depth with
+                {
+                    Asks = TradingTerminal.Core.Backtesting.L2BookWalkFillV1.Consume(
+                        filledLong, depth.Asks, limitPx, isBuy: true),
+                }
+                : depth with
+                {
+                    Bids = TradingTerminal.Core.Backtesting.L2BookWalkFillV1.Consume(
+                        filledLong, depth.Bids, limitPx, isBuy: false),
+                };
+            _markets[market.InstrumentId] = new PaperMarketSnapshot(
+                market.InstrumentId,
+                market.Bid,
+                market.Ask,
+                market.BidAvailableQuantity,
+                market.AskAvailableQuantity,
+                market.ObservedAtUtc,
+                updatedDepth);
+            market = _markets[market.InstrumentId];
+        }
+
         if (!executable)
         {
             if (order.Terms.TimeInForce is TimeInForce.Ioc or TimeInForce.Fok)
@@ -636,6 +717,12 @@ public sealed class DeterministicPaperVenue : IPaperExecutionDispatcher, IExecut
                     Reason: $"{order.Terms.TimeInForce} order was not immediately executable.");
             }
             return ScaledQuantity.Zero;
+        }
+
+        if (_fidelity.MaxFillQuantityPerTouch > 0)
+        {
+            var maxTouch = ScaledQuantity.FromWhole(_fidelity.MaxFillQuantityPerTouch);
+            available = MinQuantity(available, maxTouch);
         }
 
         if (order.Terms.TimeInForce == TimeInForce.Fok && CompareQuantity(available, remaining) < 0)
@@ -707,6 +794,65 @@ public sealed class DeterministicPaperVenue : IPaperExecutionDispatcher, IExecut
         }
 
         return available;
+    }
+
+    private void UpdateFifoQueue(PaperOrder order, PaperMarketSnapshot market)
+    {
+        if (!_fidelity.EnableFifoQueueAhead || order.Terms.Type != OrderType.Limit)
+            return;
+
+        var opposite = order.Terms.Side == OrderSide.Buy
+            ? (long)ExecutionNumericBoundary.ToDecimal(market.AskAvailableQuantity)
+            : (long)ExecutionNumericBoundary.ToDecimal(market.BidAvailableQuantity);
+        if (!order.QueueJoined)
+        {
+            order.QueueAhead = TradingTerminal.Core.Backtesting.FifoQueueAheadEstimatorV1.Join(opposite);
+            order.LastOppositeSize = opposite;
+            order.QueueJoined = true;
+            return;
+        }
+
+        order.QueueAhead = TradingTerminal.Core.Backtesting.FifoQueueAheadEstimatorV1.Consume(
+            order.QueueAhead,
+            order.LastOppositeSize,
+            opposite);
+        order.LastOppositeSize = opposite;
+    }
+
+    private bool TryBookWalkFill(
+        PaperOrder order,
+        PaperMarketSnapshot market,
+        DepthSnapshot depth,
+        ScaledQuantity remaining,
+        ScaledQuantity availableCap,
+        out ScaledQuantity fillQty,
+        out ScaledPrice fillPrice)
+    {
+        fillQty = ScaledQuantity.Zero;
+        fillPrice = market.Ask;
+        var isBuy = order.Terms.Side == OrderSide.Buy;
+        var levels = isBuy ? depth.Asks : depth.Bids;
+        if (levels.Count == 0)
+            return false;
+
+        double? limitPx = null;
+        if (order.Terms.Type is OrderType.Limit or OrderType.StopLimit)
+            limitPx = (double)ExecutionNumericBoundary.ToDecimal(order.Terms.LimitPrice!.Value);
+
+        var want = (long)ExecutionNumericBoundary.ToDecimal(remaining);
+        var cap = (long)ExecutionNumericBoundary.ToDecimal(availableCap);
+        if (want <= 0 || cap <= 0)
+            return false;
+        want = Math.Min(want, cap);
+
+        var walk = TradingTerminal.Core.Backtesting.L2BookWalkFillV1.Walk(isBuy, want, levels, limitPx);
+        if (walk.FilledQuantity <= 0)
+            return false;
+
+        fillQty = ScaledQuantity.FromWhole(walk.FilledQuantity);
+        // Average can need more fractional digits than the L1 quote scale (e.g. 100.00625).
+        fillPrice = ExecutionNumericBoundary.PriceFromDecimal((decimal)walk.AverageFillPrice);
+        return true;
     }
 
     private bool ResolveExecutionPrice(
@@ -876,6 +1022,11 @@ public sealed class DeterministicPaperVenue : IPaperExecutionDispatcher, IExecut
         public OrderLifecycleState State { get; set; } = OrderLifecycleState.Working;
         public PaperRecoveryAction RecoveryAction { get; set; }
         public bool RecoveryDispatchWasRecorded { get; set; }
+
+        /// <summary>FIFO-ahead estimate remaining (Validate parity). 0 = cleared / unused.</summary>
+        public long QueueAhead { get; set; }
+        public bool QueueJoined { get; set; }
+        public long LastOppositeSize { get; set; }
     }
 
     private enum PaperRecoveryAction : byte
